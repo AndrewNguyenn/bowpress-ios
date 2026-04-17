@@ -1,0 +1,23 @@
+# Environment
+.env
+
+# Xcode
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+Pods/
+.swiftpm/xcode/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Generated Xcode project (regenerate with: xcodegen generate)
+BowPress.xcodeproj/
+
+# macOS
+.DS_Store

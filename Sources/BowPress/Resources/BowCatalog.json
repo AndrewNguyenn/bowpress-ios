@@ -1,0 +1,407 @@
+{
+  "manufacturers": [
+    {
+      "id": "mathews",
+      "name": "Mathews",
+      "models": [
+        {
+          "id": "mathews-title-34",
+          "name": "TITLE 34",
+          "ata": 34,
+          "braceHeight": 6.5,
+          "weight": 4.38,
+          "iboSpeed": 332,
+          "drawLengthMin": 24.5,
+          "drawLengthMax": 30.0,
+          "letOffOptions": [70, 75, 80],
+          "drawWeightOptions": [50, 55, 60, 65, 70],
+          "colors": [
+            { "id": "mathews-title-34-black",          "name": "Black",          "hex": "#1A1A1A" },
+            { "id": "mathews-title-34-white",          "name": "White",          "hex": "#F5F5F5" },
+            { "id": "mathews-title-34-mint",           "name": "Mint",           "hex": "#A8D8C8" },
+            { "id": "mathews-title-34-optic-yellow",   "name": "Optic Yellow",   "hex": "#E8E84A" },
+            { "id": "mathews-title-34-metallic-red",   "name": "Metallic Red",   "hex": "#B22222" },
+            { "id": "mathews-title-34-electric-green", "name": "Electric Green", "hex": "#39FF14" },
+            { "id": "mathews-title-34-deep-teal",      "name": "Deep Teal",      "hex": "#00695C" }
+          ]
+        },
+        {
+          "id": "mathews-title-36",
+          "name": "TITLE 36",
+          "ata": 36,
+          "braceHeight": 6.5,
+          "weight": 4.49,
+          "iboSpeed": 333,
+          "drawLengthMin": 25.0,
+          "drawLengthMax": 30.5,
+          "letOffOptions": [70, 75, 80],
+          "drawWeightOptions": [50, 55, 60, 65, 70],
+          "colors": [
+            { "id": "mathews-title-36-black",          "name": "Black",          "hex": "#1A1A1A" },
+            { "id": "mathews-title-36-white",          "name": "White",          "hex": "#F5F5F5" },
+            { "id": "mathews-title-36-mint",           "name": "Mint",           "hex": "#A8D8C8" },
+            { "id": "mathews-title-36-optic-yellow",   "name": "Optic Yellow",   "hex": "#E8E84A" },
+            { "id": "mathews-title-36-metallic-red",   "name": "Metallic Red",   "hex": "#B22222" },
+            { "id": "mathews-title-36-electric-green", "name": "Electric Green", "hex": "#39FF14" },
+            { "id": "mathews-title-36-deep-teal",      "name": "Deep Teal",      "hex": "#00695C" }
+          ]
+        },
+        {
+          "id": "mathews-title-38",
+          "name": "TITLE 38",
+          "ata": 38,
+          "braceHeight": 7.0,
+          "weight": 4.56,
+          "iboSpeed": 330,
+          "drawLengthMin": 26.0,
+          "drawLengthMax": 31.5,
+          "letOffOptions": [70, 75, 80],
+          "drawWeightOptions": [50, 55, 60, 65, 70],
+          "colors": [
+            { "id": "mathews-title-38-black",          "name": "Black",          "hex": "#1A1A1A" },
+            { "id": "mathews-title-38-white",          "name": "White",          "hex": "#F5F5F5" },
+            { "id": "mathews-title-38-mint",           "name": "Mint",           "hex": "#A8D8C8" },
+            { "id": "mathews-title-38-optic-yellow",   "name": "Optic Yellow",   "hex": "#E8E84A" },
+            { "id": "mathews-title-38-metallic-red",   "name": "Metallic Red",   "hex": "#B22222" },
+            { "id": "mathews-title-38-electric-green", "name": "Electric Green", "hex": "#39FF14" },
+            { "id": "mathews-title-38-deep-teal",      "name": "Deep Teal",      "hex": "#00695C" }
+          ]
+        },
+        {
+          "id": "mathews-title-40",
+          "name": "TITLE 40",
+          "ata": 40,
+          "braceHeight": 7.5,
+          "weight": 4.69,
+          "iboSpeed": 322,
+          "drawLengthMin": 27.0,
+          "drawLengthMax": 32.5,
+          "letOffOptions": [70, 75, 80],
+          "drawWeightOptions": [50, 55, 60, 65, 70],
+          "colors": [
+            { "id": "mathews-title-40-black",          "name": "Black",          "hex": "#1A1A1A" },
+            { "id": "mathews-title-40-white",          "name": "White",          "hex": "#F5F5F5" },
+            { "id": "mathews-title-40-mint",           "name": "Mint",           "hex": "#A8D8C8" },
+            { "id": "mathews-title-40-optic-yellow",   "name": "Optic Yellow",   "hex": "#E8E84A" },
+            { "id": "mathews-title-40-metallic-red",   "name": "Metallic Red",   "hex": "#B22222" },
+            { "id": "mathews-title-40-electric-green", "name": "Electric Green", "hex": "#39FF14" },
+            { "id": "mathews-title-40-deep-teal",      "name": "Deep Teal",      "hex": "#00695C" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hoyt",
+      "name": "Hoyt",
+      "models": [
+        {
+          "id": "hoyt-concept-x-37",
+          "name": "Concept X 37",
+          "ata": 37,
+          "braceHeight": 7.0,
+          "weight": 4.75,
+          "iboSpeed": 330,
+          "drawLengthMin": 25.0,
+          "drawLengthMax": 31.0,
+          "letOffOptions": [80],
+          "drawWeightOptions": [40, 50, 60, 70],
+          "colors": [
+            { "id": "hoyt-concept-x-37-red-flare",        "name": "Red Flare",        "hex": "#D32F2F" },
+            { "id": "hoyt-concept-x-37-orange",           "name": "Mr. Perfect Orange","hex": "#F57C00" },
+            { "id": "hoyt-concept-x-37-twisted-green",    "name": "Twisted Green",    "hex": "#558B2F" },
+            { "id": "hoyt-concept-x-37-impact-blue",      "name": "Impact Blue",      "hex": "#1565C0" },
+            { "id": "hoyt-concept-x-37-blue-on-black",    "name": "Blue on Black",    "hex": "#0D47A1" },
+            { "id": "hoyt-concept-x-37-sassy-pink",       "name": "Sassy Pink",       "hex": "#E91E8C" },
+            { "id": "hoyt-concept-x-37-polar-white",      "name": "Polar White",      "hex": "#FAFAFA" },
+            { "id": "hoyt-concept-x-37-ti-silver",        "name": "Ti Silver",        "hex": "#9E9E9E" },
+            { "id": "hoyt-concept-x-37-skeeter",          "name": "Skeeter",          "hex": "#4E342E" },
+            { "id": "hoyt-concept-x-37-liquid-black",     "name": "Liquid Black",     "hex": "#212121" }
+          ]
+        },
+        {
+          "id": "hoyt-concept-x-40",
+          "name": "Concept X 40",
+          "ata": 40,
+          "braceHeight": 7.25,
+          "weight": 4.9,
+          "iboSpeed": 327,
+          "drawLengthMin": 26.0,
+          "drawLengthMax": 32.0,
+          "letOffOptions": [80],
+          "drawWeightOptions": [40, 50, 60, 70],
+          "colors": [
+            { "id": "hoyt-concept-x-40-red-flare",        "name": "Red Flare",        "hex": "#D32F2F" },
+            { "id": "hoyt-concept-x-40-orange",           "name": "Mr. Perfect Orange","hex": "#F57C00" },
+            { "id": "hoyt-concept-x-40-twisted-green",    "name": "Twisted Green",    "hex": "#558B2F" },
+            { "id": "hoyt-concept-x-40-impact-blue",      "name": "Impact Blue",      "hex": "#1565C0" },
+            { "id": "hoyt-concept-x-40-blue-on-black",    "name": "Blue on Black",    "hex": "#0D47A1" },
+            { "id": "hoyt-concept-x-40-sassy-pink",       "name": "Sassy Pink",       "hex": "#E91E8C" },
+            { "id": "hoyt-concept-x-40-polar-white",      "name": "Polar White",      "hex": "#FAFAFA" },
+            { "id": "hoyt-concept-x-40-ti-silver",        "name": "Ti Silver",        "hex": "#9E9E9E" },
+            { "id": "hoyt-concept-x-40-skeeter",          "name": "Skeeter",          "hex": "#4E342E" },
+            { "id": "hoyt-concept-x-40-liquid-black",     "name": "Liquid Black",     "hex": "#212121" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pse",
+      "name": "PSE",
+      "models": [
+        {
+          "id": "pse-supra-x-37",
+          "name": "Supra X 37",
+          "ata": 37,
+          "braceHeight": 7.0,
+          "weight": 4.6,
+          "iboSpeed": 334,
+          "drawLengthMin": 24.0,
+          "drawLengthMax": 31.0,
+          "letOffOptions": [80],
+          "drawWeightOptions": [40, 50, 60],
+          "colors": [
+            { "id": "pse-supra-x-37-black",        "name": "Black",        "hex": "#1A1A1A" },
+            { "id": "pse-supra-x-37-black-cherry", "name": "Black Cherry", "hex": "#4A0010" },
+            { "id": "pse-supra-x-37-charcoal",     "name": "Charcoal",     "hex": "#455A64" },
+            { "id": "pse-supra-x-37-white",        "name": "White",        "hex": "#F5F5F5" },
+            { "id": "pse-supra-x-37-navy",         "name": "Navy Blue",    "hex": "#1A237E" },
+            { "id": "pse-supra-x-37-purple",       "name": "Purple",       "hex": "#6A1B9A" },
+            { "id": "pse-supra-x-37-green",        "name": "Green",        "hex": "#2E7D32" },
+            { "id": "pse-supra-x-37-orange",       "name": "Orange",       "hex": "#E65100" }
+          ]
+        },
+        {
+          "id": "pse-supra-x-40",
+          "name": "Supra X 40",
+          "ata": 40,
+          "braceHeight": 7.0,
+          "weight": 4.9,
+          "iboSpeed": 325,
+          "drawLengthMin": 24.0,
+          "drawLengthMax": 31.0,
+          "letOffOptions": [80],
+          "drawWeightOptions": [40, 50, 60],
+          "colors": [
+            { "id": "pse-supra-x-40-black",        "name": "Black",        "hex": "#1A1A1A" },
+            { "id": "pse-supra-x-40-black-cherry", "name": "Black Cherry", "hex": "#4A0010" },
+            { "id": "pse-supra-x-40-charcoal",     "name": "Charcoal",     "hex": "#455A64" },
+            { "id": "pse-supra-x-40-white",        "name": "White",        "hex": "#F5F5F5" },
+            { "id": "pse-supra-x-40-navy",         "name": "Navy Blue",    "hex": "#1A237E" },
+            { "id": "pse-supra-x-40-purple",       "name": "Purple",       "hex": "#6A1B9A" },
+            { "id": "pse-supra-x-40-green",        "name": "Green",        "hex": "#2E7D32" },
+            { "id": "pse-supra-x-40-orange",       "name": "Orange",       "hex": "#E65100" }
+          ]
+        },
+        {
+          "id": "pse-dominator-duo-x-35",
+          "name": "Dominator Duo X 35",
+          "ata": 35,
+          "braceHeight": 6.75,
+          "weight": 4.6,
+          "iboSpeed": 336,
+          "drawLengthMin": 24.0,
+          "drawLengthMax": 31.0,
+          "letOffOptions": [80],
+          "drawWeightOptions": [40, 50, 60],
+          "colors": [
+            { "id": "pse-dominator-duo-x-35-black",        "name": "Black",        "hex": "#1A1A1A" },
+            { "id": "pse-dominator-duo-x-35-charcoal",     "name": "Charcoal",     "hex": "#455A64" },
+            { "id": "pse-dominator-duo-x-35-black-cherry", "name": "Black Cherry", "hex": "#4A0010" },
+            { "id": "pse-dominator-duo-x-35-navy",         "name": "Navy Blue",    "hex": "#1A237E" },
+            { "id": "pse-dominator-duo-x-35-white",        "name": "White",        "hex": "#F5F5F5" },
+            { "id": "pse-dominator-duo-x-35-purple",       "name": "Purple",       "hex": "#6A1B9A" },
+            { "id": "pse-dominator-duo-x-35-green",        "name": "Green",        "hex": "#2E7D32" },
+            { "id": "pse-dominator-duo-x-35-orange",       "name": "Orange",       "hex": "#E65100" }
+          ]
+        },
+        {
+          "id": "pse-dominator-duo-x-38",
+          "name": "Dominator Duo X 38",
+          "ata": 38,
+          "braceHeight": 7.0,
+          "weight": 4.9,
+          "iboSpeed": 336,
+          "drawLengthMin": 24.0,
+          "drawLengthMax": 31.0,
+          "letOffOptions": [80],
+          "drawWeightOptions": [50, 60],
+          "colors": [
+            { "id": "pse-dominator-duo-x-38-black",        "name": "Black",        "hex": "#1A1A1A" },
+            { "id": "pse-dominator-duo-x-38-charcoal",     "name": "Charcoal",     "hex": "#455A64" },
+            { "id": "pse-dominator-duo-x-38-black-cherry", "name": "Black Cherry", "hex": "#4A0010" },
+            { "id": "pse-dominator-duo-x-38-navy",         "name": "Navy Blue",    "hex": "#1A237E" },
+            { "id": "pse-dominator-duo-x-38-white",        "name": "White",        "hex": "#F5F5F5" },
+            { "id": "pse-dominator-duo-x-38-purple",       "name": "Purple",       "hex": "#6A1B9A" },
+            { "id": "pse-dominator-duo-x-38-green",        "name": "Green",        "hex": "#2E7D32" },
+            { "id": "pse-dominator-duo-x-38-orange",       "name": "Orange",       "hex": "#E65100" },
+            { "id": "pse-dominator-duo-x-38-new-blue",     "name": "New Blue",     "hex": "#1976D2" }
+          ]
+        },
+        {
+          "id": "pse-dominator-duo-x-40",
+          "name": "Dominator Duo X 40",
+          "ata": 40,
+          "braceHeight": 7.0,
+          "weight": 5.0,
+          "iboSpeed": 336,
+          "drawLengthMin": 24.0,
+          "drawLengthMax": 31.0,
+          "letOffOptions": [80],
+          "drawWeightOptions": [50, 60],
+          "colors": [
+            { "id": "pse-dominator-duo-x-40-black",        "name": "Black",        "hex": "#1A1A1A" },
+            { "id": "pse-dominator-duo-x-40-charcoal",     "name": "Charcoal",     "hex": "#455A64" },
+            { "id": "pse-dominator-duo-x-40-black-cherry", "name": "Black Cherry", "hex": "#4A0010" },
+            { "id": "pse-dominator-duo-x-40-navy",         "name": "Navy Blue",    "hex": "#1A237E" },
+            { "id": "pse-dominator-duo-x-40-white",        "name": "White",        "hex": "#F5F5F5" },
+            { "id": "pse-dominator-duo-x-40-purple",       "name": "Purple",       "hex": "#6A1B9A" },
+            { "id": "pse-dominator-duo-x-40-green",        "name": "Green",        "hex": "#2E7D32" },
+            { "id": "pse-dominator-duo-x-40-orange",       "name": "Orange",       "hex": "#E65100" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bowtech",
+      "name": "Bowtech",
+      "models": [
+        {
+          "id": "bowtech-reckoning-gen2-36",
+          "name": "Reckoning Gen2 36",
+          "ata": 36,
+          "braceHeight": 7.0,
+          "weight": 4.65,
+          "iboSpeed": 330,
+          "drawLengthMin": 25.5,
+          "drawLengthMax": 32.5,
+          "letOffOptions": [80],
+          "drawWeightOptions": [50, 60, 70],
+          "colors": [
+            { "id": "bowtech-reckoning-gen2-36-shadowshift",     "name": "Shadowshift",     "hex": "#37474F" },
+            { "id": "bowtech-reckoning-gen2-36-area51",          "name": "Area 51",         "hex": "#546E7A" },
+            { "id": "bowtech-reckoning-gen2-36-forest",          "name": "Forest Green",    "hex": "#33691E" },
+            { "id": "bowtech-reckoning-gen2-36-illusion-violet", "name": "Illusion Violet", "hex": "#7B1FA2" },
+            { "id": "bowtech-reckoning-gen2-36-illusion-white",  "name": "Illusion White",  "hex": "#EEEEEE" },
+            { "id": "bowtech-reckoning-gen2-36-illusion-red",    "name": "Illusion Red",    "hex": "#C62828" },
+            { "id": "bowtech-reckoning-gen2-36-illusion-blue",   "name": "Illusion Blue",   "hex": "#1565C0" },
+            { "id": "bowtech-reckoning-gen2-36-speedway-grey",   "name": "Speedway Grey",   "hex": "#757575" },
+            { "id": "bowtech-reckoning-gen2-36-illusion-green",  "name": "Illusion Green",  "hex": "#2E7D32" },
+            { "id": "bowtech-reckoning-gen2-36-illusion-orange", "name": "Illusion Orange", "hex": "#E65100" }
+          ]
+        },
+        {
+          "id": "bowtech-reckoning-gen2-39",
+          "name": "Reckoning Gen2 39",
+          "ata": 39,
+          "braceHeight": 7.0,
+          "weight": 4.65,
+          "iboSpeed": 323,
+          "drawLengthMin": 26.5,
+          "drawLengthMax": 33.5,
+          "letOffOptions": [80],
+          "drawWeightOptions": [50, 60, 70],
+          "colors": [
+            { "id": "bowtech-reckoning-gen2-39-shadowshift",     "name": "Shadowshift",     "hex": "#37474F" },
+            { "id": "bowtech-reckoning-gen2-39-area51",          "name": "Area 51",         "hex": "#546E7A" },
+            { "id": "bowtech-reckoning-gen2-39-forest",          "name": "Forest Green",    "hex": "#33691E" },
+            { "id": "bowtech-reckoning-gen2-39-illusion-violet", "name": "Illusion Violet", "hex": "#7B1FA2" },
+            { "id": "bowtech-reckoning-gen2-39-illusion-white",  "name": "Illusion White",  "hex": "#EEEEEE" },
+            { "id": "bowtech-reckoning-gen2-39-illusion-red",    "name": "Illusion Red",    "hex": "#C62828" },
+            { "id": "bowtech-reckoning-gen2-39-illusion-blue",   "name": "Illusion Blue",   "hex": "#1565C0" },
+            { "id": "bowtech-reckoning-gen2-39-speedway-grey",   "name": "Speedway Grey",   "hex": "#757575" },
+            { "id": "bowtech-reckoning-gen2-39-illusion-green",  "name": "Illusion Green",  "hex": "#2E7D32" },
+            { "id": "bowtech-reckoning-gen2-39-illusion-orange", "name": "Illusion Orange", "hex": "#E65100" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "elite",
+      "name": "Elite",
+      "models": [
+        {
+          "id": "elite-exalt-35",
+          "name": "Exalt 35",
+          "ata": 35,
+          "braceHeight": 6.8,
+          "weight": 4.8,
+          "iboSpeed": 344,
+          "drawLengthMin": 24.5,
+          "drawLengthMax": 30.0,
+          "letOffOptions": [85, 90],
+          "drawWeightOptions": [40, 50, 60, 65, 70, 75],
+          "colors": [
+            { "id": "elite-exalt-35-ninja-black",    "name": "Ninja Black",    "hex": "#1A1A1A" },
+            { "id": "elite-exalt-35-cobalt-blue",    "name": "Cobalt Blue",    "hex": "#1565C0" },
+            { "id": "elite-exalt-35-orange",         "name": "Orange Ignition","hex": "#E65100" },
+            { "id": "elite-exalt-35-black-cherry",   "name": "Black Cherry",   "hex": "#4A0010" },
+            { "id": "elite-exalt-35-silver-alloy",   "name": "Silver Alloy",   "hex": "#9E9E9E" },
+            { "id": "elite-exalt-35-sour-apple",     "name": "Sour Apple",     "hex": "#8BC34A" },
+            { "id": "elite-exalt-35-liquid-bronze",  "name": "Liquid Bronze",  "hex": "#8D6E63" },
+            { "id": "elite-exalt-35-midnight-copper","name": "Midnight Copper", "hex": "#6D4C41" },
+            { "id": "elite-exalt-35-od-green",       "name": "OD Green",       "hex": "#558B2F" },
+            { "id": "elite-exalt-35-mountain-tan",   "name": "Mountain Tan",   "hex": "#A1887F" },
+            { "id": "elite-exalt-35-slate-grey",     "name": "Slate Grey",     "hex": "#607D8B" },
+            { "id": "elite-exalt-35-raspberry",      "name": "Raspberry",      "hex": "#C2185B" },
+            { "id": "elite-exalt-35-laguna-teal",    "name": "Laguna Teal",    "hex": "#00897B" },
+            { "id": "elite-exalt-35-purple-rain",    "name": "Purple Rain",    "hex": "#7B1FA2" }
+          ]
+        },
+        {
+          "id": "elite-exalt-ld",
+          "name": "Exalt LD",
+          "ata": 35,
+          "braceHeight": 7.125,
+          "weight": 4.8,
+          "iboSpeed": 335,
+          "drawLengthMin": 26.5,
+          "drawLengthMax": 32.0,
+          "letOffOptions": [85, 90],
+          "drawWeightOptions": [50, 60, 65, 70, 75],
+          "colors": [
+            { "id": "elite-exalt-ld-ninja-black",    "name": "Ninja Black",    "hex": "#1A1A1A" },
+            { "id": "elite-exalt-ld-cobalt-blue",    "name": "Cobalt Blue",    "hex": "#1565C0" },
+            { "id": "elite-exalt-ld-orange",         "name": "Orange Ignition","hex": "#E65100" },
+            { "id": "elite-exalt-ld-black-cherry",   "name": "Black Cherry",   "hex": "#4A0010" },
+            { "id": "elite-exalt-ld-silver-alloy",   "name": "Silver Alloy",   "hex": "#9E9E9E" },
+            { "id": "elite-exalt-ld-sour-apple",     "name": "Sour Apple",     "hex": "#8BC34A" },
+            { "id": "elite-exalt-ld-liquid-bronze",  "name": "Liquid Bronze",  "hex": "#8D6E63" },
+            { "id": "elite-exalt-ld-midnight-copper","name": "Midnight Copper", "hex": "#6D4C41" },
+            { "id": "elite-exalt-ld-od-green",       "name": "OD Green",       "hex": "#558B2F" },
+            { "id": "elite-exalt-ld-slate-grey",     "name": "Slate Grey",     "hex": "#607D8B" },
+            { "id": "elite-exalt-ld-raspberry",      "name": "Raspberry",      "hex": "#C2185B" },
+            { "id": "elite-exalt-ld-laguna-teal",    "name": "Laguna Teal",    "hex": "#00897B" },
+            { "id": "elite-exalt-ld-purple-rain",    "name": "Purple Rain",    "hex": "#7B1FA2" }
+          ]
+        },
+        {
+          "id": "elite-victra",
+          "name": "Victra",
+          "ata": 37.5,
+          "braceHeight": 7.0,
+          "weight": 4.7,
+          "iboSpeed": 328,
+          "drawLengthMin": 25.5,
+          "drawLengthMax": 31.0,
+          "letOffOptions": [85, 90],
+          "drawWeightOptions": [40, 50, 60, 65, 70],
+          "colors": [
+            { "id": "elite-victra-ninja-black",    "name": "Ninja Black",    "hex": "#1A1A1A" },
+            { "id": "elite-victra-cobalt-blue",    "name": "Cobalt Blue",    "hex": "#1565C0" },
+            { "id": "elite-victra-orange",         "name": "Orange Ignition","hex": "#E65100" },
+            { "id": "elite-victra-black-cherry",   "name": "Black Cherry",   "hex": "#4A0010" },
+            { "id": "elite-victra-silver-alloy",   "name": "Silver Alloy",   "hex": "#9E9E9E" },
+            { "id": "elite-victra-sour-apple",     "name": "Sour Apple",     "hex": "#8BC34A" },
+            { "id": "elite-victra-liquid-bronze",  "name": "Liquid Bronze",  "hex": "#8D6E63" },
+            { "id": "elite-victra-midnight-copper","name": "Midnight Copper", "hex": "#6D4C41" },
+            { "id": "elite-victra-od-green",       "name": "OD Green",       "hex": "#558B2F" },
+            { "id": "elite-victra-mountain-tan",   "name": "Mountain Tan",   "hex": "#A1887F" },
+            { "id": "elite-victra-slate-grey",     "name": "Slate Grey",     "hex": "#607D8B" },
+            { "id": "elite-victra-raspberry",      "name": "Raspberry",      "hex": "#C2185B" },
+            { "id": "elite-victra-laguna-teal",    "name": "Laguna Teal",    "hex": "#00897B" }
+          ]
+        }
+      ]
+    }
+  ]
+}
