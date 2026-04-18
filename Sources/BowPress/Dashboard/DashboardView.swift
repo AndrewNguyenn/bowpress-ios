@@ -22,14 +22,14 @@ struct DashboardView: View {
             .navigationTitle("BowPress")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {
-                await viewModel.load(bows: appState.bows)
+                await viewModel.load()
             }
             .sheet(item: $selectedSuggestion) { suggestion in
                 SuggestionDetailView(suggestion: suggestion, viewModel: viewModel)
             }
         }
         .task {
-            await viewModel.load(bows: appState.bows)
+            await viewModel.load()
         }
     }
 

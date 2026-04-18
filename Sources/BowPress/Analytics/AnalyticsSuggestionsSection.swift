@@ -6,26 +6,21 @@ struct AnalyticsSuggestionsSection: View {
     let suggestions: [AnalyticsSuggestion]
     var onMarkRead: ((AnalyticsSuggestion) async -> Void)? = nil
 
-    private let initialLimit = 5
+    private let limit = 8
 
     @State private var showAll: Bool = false
-    @State private var expandedIds: Set<String> = []
 
     private var visibleSuggestions: [AnalyticsSuggestion] {
-        let sorted = suggestions.sorted {
-            if $0.wasRead != $1.wasRead { return !$0.wasRead }
-            return $0.confidence > $1.confidence
-        }
+        let sorted = suggestions.sorted { $0.confidence > $1.confidence }
         if showAll { return sorted }
-        return Array(sorted.prefix(initialLimit))
+        return Array(sorted.prefix(limit))
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
 
-            // Section header
             HStack {
-                Text("Insights & Suggestions")
+                Text("Tuning Suggestions")
                     .font(.headline)
                 if !suggestions.isEmpty {
                     Text("\(suggestions.count)")
@@ -43,25 +38,23 @@ struct AnalyticsSuggestionsSection: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(visibleSuggestions) { suggestion in
-                        SuggestionRow(
-                            suggestion: suggestion,
-                            isExpanded: expandedIds.contains(suggestion.id),
-                            onTap: { toggleExpanded(suggestion) },
-                            onMarkRead: onMarkRead
-                        )
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        SuggestionRow(suggestion: suggestion, onMarkRead: onMarkRead)
+                            .onAppear {
+                                if !suggestion.wasRead {
+                                    Task { await onMarkRead?(suggestion) }
+                                }
+                            }
                     }
                 }
-                .animation(.easeInOut(duration: 0.25), value: visibleSuggestions.map(\.id))
 
-                if suggestions.count > initialLimit {
+                if suggestions.count > limit {
                     Button {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             showAll.toggle()
                         }
                     } label: {
                         HStack(spacing: 4) {
-                            Text(showAll ? "Show less" : "Show all \(suggestions.count)")
+                            Text(showAll ? "Show less" : "Show more suggestions")
                                 .font(.subheadline.weight(.semibold))
                             Image(systemName: showAll ? "chevron.up" : "chevron.down")
                                 .font(.caption.weight(.semibold))
@@ -84,7 +77,7 @@ struct AnalyticsSuggestionsSection: View {
                 Image(systemName: "sparkle.magnifyingglass")
                     .font(.system(size: 32))
                     .foregroundStyle(.quaternary)
-                Text("No suggestions for this period.")
+                Text("No tuning suggestions yet.")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Text("Keep logging sessions.")
@@ -95,109 +88,74 @@ struct AnalyticsSuggestionsSection: View {
             Spacer()
         }
     }
-
-    private func toggleExpanded(_ suggestion: AnalyticsSuggestion) {
-        withAnimation(.easeInOut(duration: 0.25)) {
-            if expandedIds.contains(suggestion.id) {
-                expandedIds.remove(suggestion.id)
-            } else {
-                expandedIds.insert(suggestion.id)
-                // Mark as read when expanded
-                if !suggestion.wasRead {
-                    Task { await onMarkRead?(suggestion) }
-                }
-            }
-        }
-    }
 }
 
 // MARK: - SuggestionRow
 
 private struct SuggestionRow: View {
     let suggestion: AnalyticsSuggestion
-    let isExpanded: Bool
-    let onTap: () -> Void
     var onMarkRead: ((AnalyticsSuggestion) async -> Void)?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Compact header (always visible)
-            Button(action: onTap) {
-                HStack(alignment: .top, spacing: 10) {
-                    // Unread dot
-                    Circle()
-                        .fill(suggestion.wasRead ? Color.clear : Color.appAccent)
-                        .frame(width: 8, height: 8)
-                        .padding(.top, 6)
+        VStack(alignment: .leading, spacing: 12) {
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        // Parameter name + confidence badge
-                        HStack(alignment: .firstTextBaseline) {
-                            Text(suggestion.parameter.bowParameterDisplayName)
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            ConfidenceBadge(confidence: suggestion.confidence)
-                        }
+            HStack(alignment: .top, spacing: 10) {
+                // Unread dot
+                Circle()
+                    .fill(suggestion.wasRead ? Color.clear : Color.appAccent)
+                    .frame(width: 8, height: 8)
+                    .padding(.top, 5)
 
-                        // Suggested change summary
-                        HStack(spacing: 4) {
-                            Text(suggestion.currentValue)
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.secondary)
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(.secondary)
-                            Text(suggestion.suggestedValue)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color.appAccent)
-                        }
-
-                        // Confidence bar
-                        CompactConfidenceBar(confidence: suggestion.confidence)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(suggestion.parameter.bowParameterDisplayName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        ConfidenceBadge(confidence: suggestion.confidence)
                     }
 
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .padding(.top, 4)
-                }
-                .padding(14)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            // Expanded content
-            if isExpanded {
-                VStack(alignment: .leading, spacing: 10) {
-                    Divider()
-                        .padding(.horizontal, 14)
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(suggestion.reasoning)
-                            .font(.footnote)
+                    HStack(spacing: 4) {
+                        Text(suggestion.currentValue)
+                            .font(.caption.weight(.medium))
                             .foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        if let qualifier = suggestion.qualifier {
-                            HStack(alignment: .top, spacing: 6) {
-                                Image(systemName: "info.circle")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
-                                Text(qualifier)
-                                    .font(.caption)
-                                    .italic()
-                                    .foregroundStyle(.tertiary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Text(suggestion.suggestedValue)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.appAccent)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 14)
+
+                    CompactConfidenceBar(confidence: suggestion.confidence)
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
             }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(suggestion.reasoning)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let qualifier = suggestion.qualifier {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "info.circle")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                        Text(qualifier)
+                            .font(.caption)
+                            .italic()
+                            .foregroundStyle(.tertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .padding(.leading, 18)
         }
+        .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color.appSurface)
@@ -281,17 +239,6 @@ private struct CompactConfidenceBar: View {
 #Preview("Empty") {
     ScrollView {
         AnalyticsSuggestionsSection(suggestions: [])
-            .padding()
-    }
-    .background(Color.appBackground)
-}
-
-#Preview("Many suggestions (show-all button)") {
-    let extra1 = AnalyticsSuggestion(id: "s14", bowId: "b1", createdAt: Date().addingTimeInterval(-14400), parameter: "peepHeight", suggestedValue: "9.25\"", currentValue: "9.0\"", reasoning: "Peep height analysis.", confidence: 0.4, qualifier: nil, wasRead: false, deliveryType: .inApp)
-    let extra2 = AnalyticsSuggestion(id: "s15", bowId: "b1", createdAt: Date().addingTimeInterval(-18000), parameter: "dLoopLength", suggestedValue: "2.125\"", currentValue: "2.0\"", reasoning: "D-loop data shows pattern.", confidence: 0.55, qualifier: "Check with press.", wasRead: true, deliveryType: .push)
-    let extra3 = AnalyticsSuggestion(id: "s16", bowId: "b1", createdAt: Date().addingTimeInterval(-21600), parameter: "sightPosition", suggestedValue: "+1", currentValue: "0", reasoning: "Sight distance correlation found.", confidence: 0.35, qualifier: nil, wasRead: false, deliveryType: .reinforcement)
-    ScrollView {
-        AnalyticsSuggestionsSection(suggestions: AnalyticsSuggestion.mockAllSuggestions + [extra1, extra2, extra3])
             .padding()
     }
     .background(Color.appBackground)

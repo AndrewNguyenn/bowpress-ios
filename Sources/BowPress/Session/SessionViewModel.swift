@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-@Observable final class SessionViewModel {
+@Observable @MainActor final class SessionViewModel {
 
     // MARK: - Active Session State
 
@@ -254,8 +254,10 @@ import Observation
     }
 
     /// Undo — removes the last plotted arrow from local state only.
+    /// Cannot undo past a completed end.
     func removeLastArrow() {
-        guard !allArrows.isEmpty else { return }
+        let completedCount = endArrowCounts.reduce(0, +)
+        guard allArrows.count > completedCount else { return }
         let removed = allArrows.removeLast()
         currentArrows.removeAll { $0.id == removed.id }
     }

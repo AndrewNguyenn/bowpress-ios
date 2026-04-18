@@ -82,7 +82,8 @@ struct ConfigurationView: View {
                 .frame(height: geo.size.height / 2)
             }
         }
-        .navigationTitle("Configure")
+        .navigationTitle("Equipment")
+        .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showAddBow) {
             AddBowView(appState: appState)
         }

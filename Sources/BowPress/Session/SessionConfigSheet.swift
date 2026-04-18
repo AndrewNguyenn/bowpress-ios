@@ -5,195 +5,257 @@ struct SessionConfigSheet: View {
     @Bindable var viewModel: SessionViewModel
     @Environment(\.dismiss) private var dismiss
 
-    // Local edit state
-    @State private var editingBowConfig: Bool = false
-    @State private var draftBowConfig: BowConfiguration?
-    @State private var selectedArrowConfig: ArrowConfiguration?
+    // Individual state fields — mirrors BowConfigEditView
+    @State private var drawLength: Double = 28.0
+    @State private var letOffPct: Double = 80
+    @State private var peepHeight: Double = 9.0
+    @State private var dLoopLength: Double = 2.0
+    @State private var dLoopText: String = "2.0"
+    @State private var topCableTwists: Int = 0
+    @State private var bottomCableTwists: Int = 0
+    @State private var mainStringTopTwists: Int = 0
+    @State private var mainStringBottomTwists: Int = 0
+    @State private var topLimbTurns: Double = 0
+    @State private var bottomLimbTurns: Double = 0
+    @State private var restVertical: Int = 0
+    @State private var restHorizontal: Int = 0
+    @State private var restDepth: Double = 0
+    @State private var sightPosition: Int = 0
+    @State private var gripAngle: Double = 0
+    @State private var nockingHeight: Int = 0
+    @State private var frontStabWeight: Double = 0
+    @State private var frontStabAngle: Double = 0
+    @State private var rearStabSide: RearStabSide = .none
+    @State private var rearStabWeight: Double = 0
+    @State private var rearStabVertAngle: Double = 0
+    @State private var rearStabHorizAngle: Double = 0
 
-    private var activeBowConfig: BowConfiguration? { viewModel.pendingBowConfig ?? viewModel.activeBowConfig }
-    private var activeArrowConfig: ArrowConfiguration? { viewModel.pendingArrowConfig ?? viewModel.activeArrowConfig }
+    @State private var selectedArrowConfig: ArrowConfiguration? = nil
+    @State private var baselineConfig: BowConfiguration = .makeDefault(for: "")
+    @State private var baselineArrowId: String? = nil
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-
-                    // MARK: Config-change notice
-                    changeNotice
-
-                    // MARK: Current bow config
-                    if editingBowConfig {
-                        BowConfigEditForm(
-                            config: draftBowConfig ?? activeBowConfig ?? .makeDefault(for: viewModel.selectedBow?.id ?? ""),
-                            onChange: { draftBowConfig = $0 }
-                        )
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                    } else {
-                        bowConfigSummarySection
+            Form {
+                if viewModel.hasPendingConfigChange {
+                    Section {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "clock.badge.exclamationmark")
+                                .foregroundStyle(.orange)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Change pending — waiting for next shot")
+                                    .font(.subheadline).fontWeight(.semibold)
+                                Text("Takes effect when you fire your next arrow.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
                     }
-
-                    // MARK: Arrow config picker
-                    arrowConfigSection
-
-                    Spacer(minLength: 12)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 4)
-                .animation(.easeInOut(duration: 0.22), value: editingBowConfig)
+
+                if appState.arrowConfigs.count > 1 {
+                    Section("Arrow") {
+                        ForEach(appState.arrowConfigs) { arrow in
+                            ArrowPickerRow(
+                                arrow: arrow,
+                                detail: arrowDetail(arrow),
+                                isSelected: selectedArrowConfig?.id == arrow.id,
+                                onTap: { selectedArrowConfig = arrow }
+                            )
+                        }
+                    }
+                }
+
+                Section("Draw & Setup") {
+                    drawLengthRow
+                    Stepper(value: $letOffPct, in: 40...99, step: 1) {
+                        LabeledContent("Let-off", value: "\(Int(letOffPct))%")
+                    }
+                    peepHeightRow
+                    LabeledContent("D-Loop Length") {
+                        HStack(spacing: 8) {
+                            Button {
+                                dLoopLength = max(0.1, (dLoopLength * 16 - 1) / 16)
+                                dLoopText = String(format: "%g", dLoopLength)
+                            } label: { Image(systemName: "minus.circle") }
+                            .buttonStyle(.plain).foregroundStyle(Color.appAccent)
+                            HStack(spacing: 2) {
+                                TextField("in", text: $dLoopText)
+                                    .keyboardType(.decimalPad)
+                                    .multilineTextAlignment(.center)
+                                    .frame(width: 60)
+                                    .onChange(of: dLoopText) { _, val in
+                                        if let v = Double(val) { dLoopLength = v }
+                                    }
+                                Text("\"").foregroundStyle(.secondary)
+                            }
+                            Button {
+                                dLoopLength = min(5.0, (dLoopLength * 16 + 1) / 16)
+                                dLoopText = String(format: "%g", dLoopLength)
+                            } label: { Image(systemName: "plus.circle") }
+                            .buttonStyle(.plain).foregroundStyle(Color.appAccent)
+                        }
+                    }
+                }
+
+                Section("String & Cable") {
+                    Stepper(value: $topCableTwists, in: -10...10) {
+                        LabeledContent("Top Cable", value: halfTwistLabel(topCableTwists))
+                    }
+                    Stepper(value: $bottomCableTwists, in: -10...10) {
+                        LabeledContent("Bottom Cable", value: halfTwistLabel(bottomCableTwists))
+                    }
+                    Stepper(value: $mainStringTopTwists, in: -10...10) {
+                        LabeledContent("Main String Top", value: halfTwistLabel(mainStringTopTwists))
+                    }
+                    Stepper(value: $mainStringBottomTwists, in: -10...10) {
+                        LabeledContent("Main String Bottom", value: halfTwistLabel(mainStringBottomTwists))
+                    }
+                }
+
+                Section("Limbs") {
+                    Stepper(value: $topLimbTurns, in: -10.0...10.0, step: 0.5) {
+                        LabeledContent("Top Limb", value: limbTurnsLabel(topLimbTurns))
+                    }
+                    Stepper(value: $bottomLimbTurns, in: -10.0...10.0, step: 0.5) {
+                        LabeledContent("Bottom Limb", value: limbTurnsLabel(bottomLimbTurns))
+                    }
+                }
+
+                Section("Rest") {
+                    Stepper(value: $restVertical, in: -16...16) {
+                        LabeledContent("Vertical", value: sixteenthLabel(restVertical))
+                    }
+                    Stepper(value: $restHorizontal, in: -16...16) {
+                        LabeledContent("Horizontal", value: sixteenthLabel(restHorizontal))
+                    }
+                    Stepper(value: $restDepth, in: -5.0...5.0, step: 0.25) {
+                        LabeledContent("Depth", value: "\(String(format: "%.2f", restDepth))\"")
+                    }
+                }
+
+                Section("Sight, Grip & Nock") {
+                    Stepper(value: $sightPosition, in: -15...15) {
+                        LabeledContent("Sight Position", value: sightPosition == 0 ? "0 (baseline)" : "\(sightPosition > 0 ? "+" : "")\(sightPosition)")
+                    }
+                    Stepper(value: $gripAngle, in: 0.0...90.0, step: 0.5) {
+                        LabeledContent("Grip Angle", value: "\(String(format: "%.1f", gripAngle))°")
+                    }
+                    Stepper(value: $nockingHeight, in: -80...80) {
+                        LabeledContent("Nocking Height", value: sixteenthLabel(nockingHeight))
+                    }
+                }
+
+                Section("Front Stabilizer") {
+                    Stepper(value: $frontStabWeight, in: 0...60, step: 0.5) {
+                        LabeledContent("Weight", value: frontStabWeight == 0 ? "None" : "\(String(format: "%g", frontStabWeight)) oz")
+                    }
+                    Stepper(value: $frontStabAngle, in: 0...10, step: 1) {
+                        LabeledContent("Angle", value: "\(Int(frontStabAngle))°")
+                    }
+                }
+
+                Section("Rear Stabilizer") {
+                    Picker("Side", selection: $rearStabSide) {
+                        ForEach(RearStabSide.allCases, id: \.self) { Text($0.label).tag($0) }
+                    }
+                    if rearStabSide != .none {
+                        Stepper(value: $rearStabWeight, in: 0...60, step: 0.5) {
+                            LabeledContent("Weight", value: "\(String(format: "%g", rearStabWeight)) oz")
+                        }
+                        Stepper(value: $rearStabVertAngle, in: -90...90, step: 5) {
+                            LabeledContent("Vertical Angle", value: "\(Int(rearStabVertAngle))°")
+                        }
+                        Stepper(value: $rearStabHorizAngle, in: 0...90, step: 5) {
+                            LabeledContent("Horizontal Angle", value: "\(Int(rearStabHorizAngle))°")
+                        }
+                    }
+                }
             }
-            .navigationTitle("Change Config")
+            .navigationTitle("Equipment")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { seedFromActive() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { applyAndDismiss() }
+                    Button("Apply") { applyAndDismiss() }
                         .fontWeight(.semibold)
                         .disabled(!hasChanges)
                 }
             }
-            .onAppear {
-                selectedArrowConfig = activeArrowConfig
-            }
         }
     }
 
-    // MARK: - Sub-views
+    // MARK: - Seeding
 
-    private var changeNotice: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-                .font(.system(size: 16))
-                .padding(.top, 1)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Notes will clear.")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                Text("A new session segment starts with your next arrow.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-        .padding(14)
-        .background(.orange.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(.orange.opacity(0.3), lineWidth: 1)
-        )
-    }
-
-    private var bowConfigSummarySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label("Bow Configuration", systemImage: "slider.horizontal.3")
-                    .font(.headline)
-                Spacer()
-                Button {
-                    draftBowConfig = activeBowConfig
-                    withAnimation { editingBowConfig = true }
-                } label: {
-                    Text("Edit")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundStyle(Color.accentColor)
-                }
-            }
-
-            if let config = activeBowConfig {
-                BowConfigFullSummary(config: config)
-            } else {
-                Text("No configuration active.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var arrowConfigSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Arrow Configuration", systemImage: "arrow.right")
-                .font(.headline)
-
-            if appState.arrowConfigs.isEmpty {
-                Text("No arrow configs available.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(appState.arrowConfigs) { arrow in
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                selectedArrowConfig = arrow
-                            }
-                        } label: {
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(arrow.label)
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                        .foregroundStyle(.primary)
-                                    Text(arrowDetail(arrow))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                if selectedArrowConfig?.id == arrow.id {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(Color.accentColor)
-                                }
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 11)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-
-                        if arrow.id != appState.arrowConfigs.last?.id {
-                            Divider().padding(.leading, 14)
-                        }
-                    }
-                }
-                .background(.background)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(.separator, lineWidth: 0.5)
-                )
-            }
-        }
+    private func seedFromActive() {
+        let config = viewModel.pendingBowConfig ?? viewModel.activeBowConfig
+            ?? .makeDefault(for: viewModel.selectedBow?.id ?? "")
+        baselineConfig = config
+        drawLength = config.drawLength
+        letOffPct = config.letOffPct
+        peepHeight = config.peepHeight
+        dLoopLength = config.dLoopLength
+        dLoopText = String(format: "%g", config.dLoopLength)
+        topCableTwists = config.topCableTwists
+        bottomCableTwists = config.bottomCableTwists
+        mainStringTopTwists = config.mainStringTopTwists
+        mainStringBottomTwists = config.mainStringBottomTwists
+        topLimbTurns = config.topLimbTurns
+        bottomLimbTurns = config.bottomLimbTurns
+        restVertical = config.restVertical
+        restHorizontal = config.restHorizontal
+        restDepth = config.restDepth
+        sightPosition = config.sightPosition
+        gripAngle = config.gripAngle
+        nockingHeight = config.nockingHeight
+        frontStabWeight = config.frontStabWeight
+        frontStabAngle = config.frontStabAngle
+        rearStabSide = config.rearStabSide
+        rearStabWeight = config.rearStabWeight
+        rearStabVertAngle = config.rearStabVertAngle
+        rearStabHorizAngle = config.rearStabHorizAngle
+        let arrow = viewModel.pendingArrowConfig ?? viewModel.activeArrowConfig
+        selectedArrowConfig = arrow
+        baselineArrowId = arrow?.id
     }
 
     // MARK: - Logic
 
+    private var currentDraft: BowConfiguration {
+        BowConfiguration(
+            id: baselineConfig.id, bowId: baselineConfig.bowId,
+            createdAt: baselineConfig.createdAt, label: baselineConfig.label,
+            drawLength: drawLength, letOffPct: letOffPct,
+            peepHeight: peepHeight, dLoopLength: dLoopLength,
+            topCableTwists: topCableTwists, bottomCableTwists: bottomCableTwists,
+            mainStringTopTwists: mainStringTopTwists, mainStringBottomTwists: mainStringBottomTwists,
+            topLimbTurns: topLimbTurns, bottomLimbTurns: bottomLimbTurns,
+            restVertical: restVertical, restHorizontal: restHorizontal, restDepth: restDepth,
+            sightPosition: sightPosition, gripAngle: gripAngle, nockingHeight: nockingHeight,
+            frontStabWeight: frontStabWeight, frontStabAngle: frontStabAngle,
+            rearStabSide: rearStabSide, rearStabWeight: rearStabWeight,
+            rearStabVertAngle: rearStabVertAngle, rearStabHorizAngle: rearStabHorizAngle
+        )
+    }
+
     private var hasChanges: Bool {
-        let bowChanged = draftBowConfig != nil && draftBowConfig?.id != activeBowConfig?.id
-            || (draftBowConfig != nil && draftBowConfig != activeBowConfig)
-        let arrowChanged = selectedArrowConfig?.id != activeArrowConfig?.id
-        return bowChanged || arrowChanged
+        currentDraft != baselineConfig || selectedArrowConfig?.id != baselineArrowId
     }
 
     private func applyAndDismiss() {
-        let newArrow = selectedArrowConfig?.id != activeArrowConfig?.id ? selectedArrowConfig : nil
+        let draft = currentDraft
         let newBow: BowConfiguration?
-
-        if editingBowConfig, let draft = draftBowConfig {
-            // Assign a fresh ID to signal it's a new config snapshot
-            var saved = draft
-            if saved == activeBowConfig {
-                newBow = nil
-            } else {
-                saved.id = UUID().uuidString
-                saved.createdAt = Date()
-                newBow = saved
-            }
-        } else {
+        if draft == baselineConfig {
             newBow = nil
+        } else {
+            var saved = draft
+            saved.id = UUID().uuidString
+            saved.createdAt = Date()
+            newBow = saved
         }
-
+        let newArrow = selectedArrowConfig?.id != baselineArrowId ? selectedArrowConfig : nil
         if newBow != nil || newArrow != nil {
             viewModel.applyConfigChange(bowConfig: newBow, arrowConfig: newArrow)
         }
@@ -204,269 +266,104 @@ struct SessionConfigSheet: View {
         [String(format: "%.2f\"", arrow.length), "\(arrow.pointWeight)gr", arrow.fletchingType.rawValue]
             .joined(separator: " · ")
     }
-}
 
-// MARK: - Bow Config Full Summary
+    // MARK: - Input rows
 
-private struct BowConfigFullSummary: View {
-    var config: BowConfiguration
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            configGroup("Draw & Let-Off", items: [
-                ("Draw Length", String(format: "%.1f\"", config.drawLength)),
-                ("Let-Off",     String(format: "%.0f%%", config.letOffPct)),
-            ])
-            Divider().padding(.leading, 14)
-            configGroup("String & Cable", items: [
-                ("Peep Height",           String(format: "%.2f\"", config.peepHeight)),
-                ("D-Loop",                String(format: "%.2f\"", config.dLoopLength)),
-                ("Top Cable Twists",      "\(config.topCableTwists)"),
-                ("Bottom Cable Twists",   "\(config.bottomCableTwists)"),
-                ("String Top Twists",     "\(config.mainStringTopTwists)"),
-                ("String Bottom Twists",  "\(config.mainStringBottomTwists)"),
-            ])
-            Divider().padding(.leading, 14)
-            configGroup("Limbs", items: [
-                ("Top Limb Turns",    String(format: "%.1f", config.topLimbTurns)),
-                ("Bottom Limb Turns", String(format: "%.1f", config.bottomLimbTurns)),
-            ])
-            Divider().padding(.leading, 14)
-            configGroup("Rest", items: [
-                ("Vertical",   "\(config.restVertical >= 0 ? "+" : "")\(config.restVertical)/16\""),
-                ("Horizontal", "\(config.restHorizontal >= 0 ? "+" : "")\(config.restHorizontal)/16\""),
-                ("Depth",      String(format: "%.2f\"", config.restDepth)),
-            ])
-            Divider().padding(.leading, 14)
-            configGroup("Sight / Grip / Nock", items: [
-                ("Sight Position", config.sightPosition == 0 ? "0 (baseline)" : "\(config.sightPosition > 0 ? "+" : "")\(config.sightPosition)"),
-                ("Grip Angle",     String(format: "%.1f°", config.gripAngle)),
-                ("Nocking Height", "\(config.nockingHeight >= 0 ? "+" : "")\(config.nockingHeight)/16\""),
-            ])
-            Divider().padding(.leading, 14)
-            configGroup("Front Stabilizer", items: [
-                ("Weight", config.frontStabWeight == 0 ? "None" : "\(String(format: "%g", config.frontStabWeight)) oz"),
-                ("Angle",  "\(Int(config.frontStabAngle))°"),
-            ])
-            Divider().padding(.leading, 14)
-            configGroup("Rear Stabilizer", items: config.rearStabSide == .none
-                ? [("Side", "None")]
-                : [
-                    ("Side",             config.rearStabSide.label),
-                    ("Weight",           "\(String(format: "%g", config.rearStabWeight)) oz"),
-                    ("Vertical Angle",   "\(Int(config.rearStabVertAngle))°"),
-                    ("Horizontal Angle", "\(Int(config.rearStabHorizAngle))°"),
-                ]
-            )
-        }
-        .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(.separator, lineWidth: 0.5)
-        )
-    }
-
-    @ViewBuilder
-    private func configGroup(_ title: String, items: [(String, String)]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title.uppercased())
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-                .tracking(0.5)
-                .padding(.horizontal, 14)
-                .padding(.top, 10)
-                .padding(.bottom, 4)
-
-            ForEach(items, id: \.0) { label, value in
-                HStack {
-                    Text(label)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(value)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.primary)
+    private var drawLengthRow: some View {
+        LabeledContent("Draw Length") {
+            HStack(spacing: 8) {
+                Button {
+                    drawLength = max(17.0, (drawLength * 4 - 1) / 4)
+                } label: { Image(systemName: "minus.circle") }
+                .buttonStyle(.plain).foregroundStyle(Color.appAccent)
+                HStack(spacing: 2) {
+                    TextField("in", text: Binding(
+                        get: { String(format: "%g", drawLength) },
+                        set: { if let v = Double($0) { drawLength = v } }
+                    ))
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 60)
+                    Text("\"").foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
+                Button {
+                    drawLength = min(37.0, (drawLength * 4 + 1) / 4)
+                } label: { Image(systemName: "plus.circle") }
+                .buttonStyle(.plain).foregroundStyle(Color.appAccent)
             }
         }
     }
-}
 
-// MARK: - Bow Config Edit Form
-
-private struct BowConfigEditForm: View {
-    var config: BowConfiguration
-    var onChange: (BowConfiguration) -> Void
-
-    @State private var draft: BowConfiguration
-
-    init(config: BowConfiguration, onChange: @escaping (BowConfiguration) -> Void) {
-        self.config = config
-        self.onChange = onChange
-        self._draft = State(initialValue: config)
+    private var peepHeightRow: some View {
+        LabeledContent("Peep Height") {
+            HStack(spacing: 8) {
+                Button {
+                    peepHeight = max(3.0, (peepHeight * 10 - 1) / 10)
+                } label: { Image(systemName: "minus.circle") }
+                .buttonStyle(.plain).foregroundStyle(Color.appAccent)
+                HStack(spacing: 2) {
+                    TextField("in", text: Binding(
+                        get: { String(format: "%g", peepHeight) },
+                        set: { if let v = Double($0) { peepHeight = v } }
+                    ))
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 60)
+                    Text("\"").foregroundStyle(.secondary)
+                }
+                Button {
+                    peepHeight = min(17.0, (peepHeight * 10 + 1) / 10)
+                } label: { Image(systemName: "plus.circle") }
+                .buttonStyle(.plain).foregroundStyle(Color.appAccent)
+            }
+        }
     }
 
+    // MARK: - Formatters
+
+    private func halfTwistLabel(_ n: Int) -> String {
+        if n == 0 { return "0 twists" }
+        let twists = Double(n) / 2.0
+        let formatted = twists == twists.rounded() ? String(format: "%.0f", twists) : String(format: "%g", twists)
+        return "\(n > 0 ? "+" : "")\(formatted) twist\(abs(twists) == 1 ? "" : "s")"
+    }
+
+    private func limbTurnsLabel(_ turns: Double) -> String {
+        if turns == 0 { return "0 turns" }
+        let absVal = abs(turns)
+        let direction = turns < 0 ? "out" : "in"
+        let formatted = absVal == absVal.rounded() ? String(format: "%.0f", absVal) : String(format: "%.1f", absVal)
+        return "\(formatted) turn\(absVal == 1 ? "" : "s") \(direction)"
+    }
+
+    private func sixteenthLabel(_ n: Int) -> String {
+        if n == 0 { return "0/16\"" }
+        return "\(n > 0 ? "+" : "-")\(abs(n))/16\""
+    }
+}
+
+// MARK: - ArrowPickerRow
+
+private struct ArrowPickerRow: View {
+    let arrow: ArrowConfiguration
+    let detail: String
+    let isSelected: Bool
+    let onTap: () -> Void
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        Button(action: onTap) {
             HStack {
-                Label("Edit Bow Parameters", systemImage: "pencil")
-                    .font(.headline)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(arrow.label).foregroundStyle(.primary)
+                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
-            }
-
-            VStack(spacing: 0) {
-                // Draw / Let-Off
-                editSection("Draw & Let-Off") {
-                    doubleField("Draw Length (in)", value: $draft.drawLength, format: "%.1f")
-                    Divider().padding(.leading, 14)
-                    doubleField("Let-Off (%)", value: $draft.letOffPct, format: "%.0f")
-                }
-
-                Divider().padding(.leading, 14)
-
-                // String & Cable
-                editSection("String & Cable") {
-                    doubleField("Peep Height (in)", value: $draft.peepHeight, format: "%.2f")
-                    Divider().padding(.leading, 14)
-                    doubleField("D-Loop (in)", value: $draft.dLoopLength, format: "%.2f")
-                    Divider().padding(.leading, 14)
-                    intField("Top Cable Twists", value: $draft.topCableTwists)
-                    Divider().padding(.leading, 14)
-                    intField("Bottom Cable Twists", value: $draft.bottomCableTwists)
-                    Divider().padding(.leading, 14)
-                    intField("String Top Twists", value: $draft.mainStringTopTwists)
-                    Divider().padding(.leading, 14)
-                    intField("String Bottom Twists", value: $draft.mainStringBottomTwists)
-                }
-
-                Divider().padding(.leading, 14)
-
-                // Limbs
-                editSection("Limbs") {
-                    doubleField("Top Limb Turns", value: $draft.topLimbTurns, format: "%.1f")
-                    Divider().padding(.leading, 14)
-                    doubleField("Bottom Limb Turns", value: $draft.bottomLimbTurns, format: "%.1f")
-                }
-
-                Divider().padding(.leading, 14)
-
-                // Rest
-                editSection("Rest") {
-                    intField("Vertical (1/16 in)", value: $draft.restVertical)
-                    Divider().padding(.leading, 14)
-                    intField("Horizontal (1/16 in)", value: $draft.restHorizontal)
-                    Divider().padding(.leading, 14)
-                    doubleField("Depth (in)", value: $draft.restDepth, format: "%.2f")
-                }
-
-                Divider().padding(.leading, 14)
-
-                // Sight / Grip / Nock
-                editSection("Sight / Grip / Nock") {
-                    intField("Sight Position", value: $draft.sightPosition)
-                    Divider().padding(.leading, 14)
-                    doubleField("Grip Angle (°)", value: $draft.gripAngle, format: "%.1f")
-                    Divider().padding(.leading, 14)
-                    intField("Nocking Height (1/16 in)", value: $draft.nockingHeight)
-                }
-
-                Divider().padding(.leading, 14)
-
-                editSection("Front Stabilizer") {
-                    doubleField("Weight (oz)", value: $draft.frontStabWeight, format: "%.1f")
-                    Divider().padding(.leading, 14)
-                    doubleField("Angle (°)", value: $draft.frontStabAngle, format: "%.0f")
-                }
-
-                Divider().padding(.leading, 14)
-
-                editSection("Rear Stabilizer") {
-                    HStack {
-                        Text("Side")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Picker("", selection: $draft.rearStabSide) {
-                            ForEach(RearStabSide.allCases, id: \.self) { Text($0.label).tag($0) }
-                        }
-                        .pickerStyle(.menu)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    if draft.rearStabSide != .none {
-                        Divider().padding(.leading, 14)
-                        doubleField("Weight (oz)", value: $draft.rearStabWeight, format: "%.1f")
-                        Divider().padding(.leading, 14)
-                        doubleField("Vertical Angle (°)", value: $draft.rearStabVertAngle, format: "%.0f")
-                        Divider().padding(.leading, 14)
-                        doubleField("Horizontal Angle (°)", value: $draft.rearStabHorizAngle, format: "%.0f")
-                    }
+                if isSelected {
+                    Image(systemName: "checkmark").foregroundStyle(Color.appAccent)
                 }
             }
-            .background(.background)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(.separator, lineWidth: 0.5)
-            )
         }
-        .onChange(of: draft) { _, new in onChange(new) }
-    }
-
-    @ViewBuilder
-    private func editSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(title.uppercased())
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.secondary)
-                .tracking(0.5)
-                .padding(.horizontal, 14)
-                .padding(.top, 10)
-                .padding(.bottom, 4)
-            content()
-        }
-    }
-
-    @ViewBuilder
-    private func doubleField(_ label: String, value: Binding<Double>, format: String) -> some View {
-        HStack {
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            TextField("", value: value, format: .number)
-                .multilineTextAlignment(.trailing)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .frame(width: 80)
-                .keyboardType(.decimalPad)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-    }
-
-    @ViewBuilder
-    private func intField(_ label: String, value: Binding<Int>) -> some View {
-        HStack {
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            TextField("", value: value, format: .number)
-                .multilineTextAlignment(.trailing)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .frame(width: 60)
-                .keyboardType(.numberPad)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .buttonStyle(.plain)
     }
 }
 
@@ -492,6 +389,5 @@ private struct BowConfigEditForm: View {
     vm.activeBowConfig = BowConfiguration.makeDefault(for: "b1")
     vm.activeArrowConfig = appState.arrowConfigs.first
     vm.isSessionActive = true
-
     return SessionConfigSheet(appState: appState, viewModel: vm)
 }

@@ -13,25 +13,22 @@ struct ScoreTimelineView: View {
         // In a real implementation the API would return per-config scores.
         // We derive scores from overview mock data by spreading avgScore with
         // a simple sinusoidal variation so the chart is always meaningful.
-        let configs = allConfigs.filter { $0.bowId == overview.bowId }
-            .sorted { $0.createdAt < $1.createdAt }
+        let configs = allConfigs.sorted { $0.createdAt < $1.createdAt }
         guard !configs.isEmpty else { return [] }
         return configs.enumerated().map { idx, config in
-            // Use mock scores array if available; otherwise derive from avgScore.
             let score: Double
             if idx < BowConfiguration.mockScores.count {
                 score = BowConfiguration.mockScores[idx]
             } else {
-                // Gentle variation around avgScore
-                let variation = Double(idx % 3) * 5.0 - 5.0
-                score = max(0, min(100, overview.avgScore + variation))
+                let variation = (Double(idx % 3) - 1.0) * 0.4
+                score = max(6, min(11, overview.avgArrowScore + variation))
             }
             return (config: config, score: score)
         }
     }
 
     private var bestScore: Double {
-        dataPoints.map(\.score).max() ?? overview.avgScore
+        dataPoints.map(\.score).max() ?? overview.avgArrowScore
     }
 
     private var bestConfig: BowConfiguration? {
@@ -114,14 +111,14 @@ struct ScoreTimelineView: View {
                 }
             }
             .chartYAxis {
-                AxisMarks(values: .stride(by: 25)) { value in
+                AxisMarks(values: .stride(by: 1)) { value in
                     AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
                         .foregroundStyle(Color.appBorder.opacity(0.6))
                     AxisValueLabel()
                         .font(.caption2)
                 }
             }
-            .chartYScale(domain: 0...100)
+            .chartYScale(domain: 6...11)
             .chartOverlay { proxy in
                 GeometryReader { geo in
                     Rectangle()
@@ -165,9 +162,9 @@ struct ScoreTimelineView: View {
             Text(point.config.label ?? point.config.createdAt.formatted(date: .abbreviated, time: .omitted))
                 .font(.caption2.weight(.semibold))
                 .lineLimit(1)
-            Text("\(Int(point.score.rounded()))")
+            Text(String(format: "%.1f", point.score))
                 .font(.caption.weight(.bold))
-                .foregroundStyle(point.score >= bestScore * 0.9 ? Color.appAccent : Color.orange)
+                .foregroundStyle(point.score >= bestScore * 0.95 ? Color.appAccent : Color.orange)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -249,14 +246,14 @@ struct ScoreFallbackBarList: View {
                                 .fill(Color(.systemFill))
                                 .frame(height: 10)
                             Capsule()
-                                .fill(point.score >= bestScore * 0.9 ? Color.green : Color.orange)
-                                .frame(width: geo.size.width * (point.score / 100), height: 10)
+                                .fill(point.score >= bestScore * 0.95 ? Color.appAccent : Color.orange)
+                                .frame(width: geo.size.width * ((point.score - 6) / 5), height: 10)
                         }
                     }
                     .frame(height: 10)
-                    Text("\(Int(point.score.rounded()))")
+                    Text(String(format: "%.1f", point.score))
                         .font(.caption.weight(.semibold))
-                        .frame(width: 28, alignment: .trailing)
+                        .frame(width: 32, alignment: .trailing)
                 }
             }
         }

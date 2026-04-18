@@ -68,38 +68,35 @@ struct SessionSetupView: View {
                     }
                 }
 
-                // MARK: Bow Config Summary
-                if let bow = selectedBow {
-                    VStack(alignment: .leading, spacing: 10) {
-                        sectionHeader("Bow Configuration", icon: "slider.horizontal.3")
-
-                        if isLoadingConfig {
-                            loadingCard()
-                        } else if let config = selectedBowConfig {
-                            BowConfigSummaryCard(config: config, bowName: bow.name)
-                                .overlay(alignment: .topTrailing) {
-                                    Button {
-                                        showConfigPicker = true
-                                    } label: {
-                                        Text("Change")
-                                            .font(.caption)
-                                            .fontWeight(.medium)
-                                            .foregroundStyle(Color.accentColor)
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 5)
-                                            .background(Color.accentColor.opacity(0.1))
-                                            .clipShape(Capsule())
-                                    }
-                                    .padding(12)
-                                }
-                        } else if let err = configError {
-                            errorCard(err)
-                        } else {
-                            emptyStateCard(
-                                message: "No configurations found.",
-                                detail: "A default configuration will be created."
-                            )
+                // MARK: Bow Config (compact chip)
+                if selectedBow != nil {
+                    if isLoadingConfig {
+                        HStack(spacing: 6) {
+                            ProgressView().scaleEffect(0.7)
+                            Text("Loading config…")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
+                        .padding(.top, -16)
+                    } else if let config = selectedBowConfig {
+                        Button { if availableConfigs.count > 1 { showConfigPicker = true } } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "slider.horizontal.3")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                Text(config.label ?? "Default Config")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                if availableConfigs.count > 1 {
+                                    Image(systemName: "chevron.up.chevron.down")
+                                        .font(.system(size: 9)).foregroundStyle(.tertiary)
+                                }
+                                Spacer()
+                            }
+                            .padding(.horizontal, 14).padding(.vertical, 7)
+                            .background(Color(.systemGray6))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(availableConfigs.count <= 1)
+                        .padding(.top, -16)
                     }
                 }
 
@@ -367,67 +364,6 @@ private struct ArrowRow: View {
         parts.append("\(arrow.pointWeight)gr point")
         parts.append(arrow.fletchingType.rawValue)
         return parts.joined(separator: " · ")
-    }
-}
-
-// MARK: - Bow Config Summary Card
-
-private struct BowConfigSummaryCard: View {
-    var config: BowConfiguration
-    var bowName: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(config.label ?? "Configuration")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Text("Created \(config.createdAt.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-                Spacer(minLength: 60)
-            }
-
-            Divider()
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ConfigParam(label: "Draw Length", value: String(format: "%.1f\"", config.drawLength))
-                ConfigParam(label: "Let-Off", value: String(format: "%.0f%%", config.letOffPct))
-                ConfigParam(label: "Peep Height", value: String(format: "%.2f\"", config.peepHeight))
-                ConfigParam(label: "D-Loop", value: String(format: "%.2f\"", config.dLoopLength))
-                ConfigParam(label: "Rest Vert", value: "\(config.restVertical >= 0 ? "+" : "")\(config.restVertical)/16\"")
-                ConfigParam(label: "Nocking Ht", value: "\(config.nockingHeight >= 0 ? "+" : "")\(config.nockingHeight)/16\"")
-            }
-        }
-        .padding(14)
-        .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(.separator, lineWidth: 0.5)
-        )
-    }
-}
-
-private struct ConfigParam: View {
-    var label: String
-    var value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .textCase(.uppercase)
-                .tracking(0.4)
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.medium)
-                .foregroundStyle(.primary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

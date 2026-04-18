@@ -9,54 +9,59 @@ struct AddBowView: View {
     @State private var selectedManufacturer: CatalogManufacturer?
     @State private var selectedModel: CatalogModel?
     @State private var selectedColor: CatalogColor?
+    @State private var isOtherSelected = false
+    @State private var otherBrand = ""
+    @State private var otherModel = ""
     @State private var customName = ""
     @State private var isSaving = false
     @State private var errorMessage: String?
 
+    private var readyForName: Bool {
+        isOtherSelected || selectedColor != nil
+    }
+
     private var canSave: Bool {
-        selectedModel != nil && selectedColor != nil &&
-        !customName.trimmingCharacters(in: .whitespaces).isEmpty
+        guard !customName.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
+        return isOtherSelected || (selectedModel != nil && selectedColor != nil)
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                // Manufacturer picker
                 Section("Manufacturer") {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(catalog.manufacturers) { mfr in
-                                ManufacturerChip(
-                                    name: mfr.name,
-                                    isSelected: selectedManufacturer?.id == mfr.id
-                                ) {
-                                    selectedManufacturer = mfr
-                                    selectedModel = nil
-                                    selectedColor = nil
-                                }
-                            }
+                    ForEach(catalog.manufacturers) { mfr in
+                        catalogRow(mfr.name, isSelected: selectedManufacturer?.id == mfr.id) {
+                            selectedManufacturer = mfr
+                            selectedModel = nil
+                            selectedColor = nil
+                            isOtherSelected = false
                         }
-                        .padding(.vertical, 4)
                     }
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    catalogRow("Other", isSelected: isOtherSelected) {
+                        isOtherSelected = true
+                        selectedManufacturer = nil
+                        selectedModel = nil
+                        selectedColor = nil
+                    }
                 }
 
-                // Model picker
+                if isOtherSelected {
+                    Section("Details") {
+                        LabeledContent("Brand") {
+                            TextField("Optional", text: $otherBrand)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        LabeledContent("Model") {
+                            TextField("Optional", text: $otherModel)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                }
+
                 if let mfr = selectedManufacturer {
                     Section("Model") {
                         ForEach(mfr.models) { model in
-                            HStack {
-                                Text(model.name)
-                                    .font(.body.weight(selectedModel?.id == model.id ? .semibold : .regular))
-                                Spacer()
-                                if selectedModel?.id == model.id {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(Color.accentColor)
-                                        .font(.caption.weight(.semibold))
-                                }
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
+                            catalogRow(model.name, isSelected: selectedModel?.id == model.id) {
                                 selectedModel = model
                                 selectedColor = nil
                             }
@@ -64,15 +69,11 @@ struct AddBowView: View {
                     }
                 }
 
-                // Color picker
                 if let model = selectedModel {
                     Section("Color") {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5), spacing: 12) {
                             ForEach(model.colors) { color in
-                                ColorSwatch(
-                                    color: color,
-                                    isSelected: selectedColor?.id == color.id
-                                ) {
+                                ColorSwatch(color: color, isSelected: selectedColor?.id == color.id) {
                                     selectedColor = color
                                 }
                             }
@@ -90,10 +91,9 @@ struct AddBowView: View {
                     }
                 }
 
-                // Custom name
-                if selectedColor != nil {
+                if readyForName {
                     Section("Name Your Bow") {
-                        TextField("e.g. My Mathews, Competition Setup", text: $customName)
+                        TextField("e.g. My Mathews, Competition Rig", text: $customName)
                     }
                 }
             }
@@ -123,16 +123,33 @@ struct AddBowView: View {
         }
     }
 
+    @ViewBuilder
+    private func catalogRow(_ name: String, isSelected: Bool, onTap: @escaping () -> Void) -> some View {
+        HStack {
+            Text(name)
+                .font(.body.weight(isSelected ? .semibold : .regular))
+            Spacer()
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .foregroundStyle(Color.appAccent)
+                    .font(.caption.weight(.semibold))
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
+    }
+
     private func save() async {
-        guard let model = selectedModel, canSave else { return }
+        guard canSave else { return }
         isSaving = true
-        let mfrName = selectedManufacturer?.name ?? ""
+        let brand = isOtherSelected ? otherBrand.trimmingCharacters(in: .whitespaces) : (selectedManufacturer?.name ?? "")
+        let model = isOtherSelected ? otherModel.trimmingCharacters(in: .whitespaces) : (selectedModel?.name ?? "")
         let newBow = Bow(
             id: UUID().uuidString,
             userId: appState.currentUser?.id ?? "",
             name: customName.trimmingCharacters(in: .whitespaces),
-            brand: mfrName,
-            model: model.name,
+            brand: brand,
+            model: model,
             createdAt: Date()
         )
         do {
@@ -147,25 +164,6 @@ struct AddBowView: View {
 }
 
 // MARK: - Supporting views
-
-private struct ManufacturerChip: View {
-    let name: String
-    let isSelected: Bool
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            Text(name)
-                .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(isSelected ? Color.accentColor : Color(.systemGray5))
-                .foregroundStyle(isSelected ? .white : Color.primary)
-                .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-}
 
 private struct ColorSwatch: View {
     let color: CatalogColor

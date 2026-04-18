@@ -5,30 +5,29 @@ import SwiftUI
 struct AnalyticsView: View {
     @Environment(AppState.self) private var appState
     @State private var viewModel = AnalyticsViewModel()
+    @State private var selectedPeriod: AnalyticsPeriod = .threeDays
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if viewModel.isLoading && viewModel.overview == nil {
-                    loadingView
-                } else {
-                    mainContent
-                }
+        Group {
+            if viewModel.isLoading && viewModel.overview == nil {
+                loadingView
+            } else {
+                mainContent
             }
-            .navigationTitle("Analytics")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    if !appState.bows.isEmpty {
-                        NavigationLink {
-                            HistoricalSessionsView(
-                                sessions: ShootingSession.mockSessions,
-                                bowName: selectedBow?.name ?? "Bow"
-                            )
-                        } label: {
-                            Label("History", systemImage: "list.bullet.clipboard")
-                                .labelStyle(.iconOnly)
-                        }
+        }
+        .navigationTitle("Analytics")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if !appState.bows.isEmpty {
+                    NavigationLink {
+                        HistoricalSessionsView(
+                            sessions: ShootingSession.mockSessions,
+                            bowName: "All Bows"
+                        )
+                    } label: {
+                        Label("History", systemImage: "list.bullet.clipboard")
+                            .labelStyle(.iconOnly)
                     }
                 }
             }
@@ -42,13 +41,7 @@ struct AnalyticsView: View {
 
     private var mainContent: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-
-                // Bow picker (multi-bow only)
-                if appState.bows.count > 1 {
-                    bowPicker
-                        .padding(.horizontal, 16)
-                }
+            VStack(alignment: .leading, spacing: 16) {
 
                 // Period selector
                 periodSelector
@@ -87,41 +80,18 @@ struct AnalyticsView: View {
         }
     }
 
-    // MARK: - Bow picker
-
-    private var bowPicker: some View {
-        Picker("Bow", selection: Binding(
-            get: { viewModel.selectedBowId ?? appState.bows.first?.id ?? "" },
-            set: { newBowId in
-                Task { await viewModel.load(bowId: newBowId, period: viewModel.selectedPeriod) }
-            }
-        )) {
-            ForEach(appState.bows) { bow in
-                Text(bow.name).tag(bow.id)
-            }
-        }
-        .pickerStyle(.segmented)
-    }
-
     // MARK: - Period selector
 
     private var periodSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(AnalyticsPeriod.allCases, id: \.rawValue) { period in
-                    PeriodPill(
-                        label: period.label,
-                        isSelected: viewModel.selectedPeriod == period
-                    ) {
-                        guard viewModel.selectedPeriod != period else { return }
-                        Task {
-                            if let bowId = viewModel.selectedBowId {
-                                await viewModel.load(bowId: bowId, period: period)
-                            }
-                        }
-                    }
-                }
+        Picker("Period", selection: $selectedPeriod) {
+            ForEach(AnalyticsPeriod.allCases, id: \.self) { period in
+                Text(period.label).tag(period)
             }
+        }
+        .pickerStyle(.menu)
+        .tint(Color.appAccent)
+        .onChange(of: selectedPeriod) { _, period in
+            Task { await viewModel.load(period: period) }
         }
     }
 
@@ -140,13 +110,16 @@ struct AnalyticsView: View {
             .padding(.horizontal, 16)
 
         // Score timeline
-        let configs = BowConfiguration.mockConfigs.filter { $0.bowId == overview.bowId }
-        if !configs.isEmpty {
-            ScoreTimelineView(overview: overview, allConfigs: configs)
+        ScoreTimelineView(overview: overview, allConfigs: BowConfiguration.mockConfigs)
+            .padding(.horizontal, 16)
+
+        // Trend insights
+        if let comparison = viewModel.comparison {
+            AnalyticsTrendInsightsSection(comparison: comparison, overview: overview)
                 .padding(.horizontal, 16)
         }
 
-        // Suggestions section
+        // Bow tuning suggestions
         AnalyticsSuggestionsSection(
             suggestions: viewModel.suggestions,
             onMarkRead: { suggestion in
@@ -229,40 +202,9 @@ struct AnalyticsView: View {
 
     // MARK: - Helpers
 
-    private var selectedBow: Bow? {
-        appState.bows.first { $0.id == viewModel.selectedBowId }
-        ?? appState.bows.first
-    }
-
     private func initialLoad() async {
-        guard let bow = appState.bows.first, viewModel.overview == nil else { return }
-        await viewModel.load(bowId: bow.id, period: .week)
-    }
-}
-
-// MARK: - PeriodPill
-
-private struct PeriodPill: View {
-    let label: String
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Text(label)
-                .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? .white : .primary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule()
-                        .fill(isSelected ? Color.appAccent : Color.appSurface)
-                        .shadow(color: isSelected ? Color.appAccent.opacity(0.3) : .clear,
-                                radius: 4, x: 0, y: 2)
-                )
-        }
-        .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.2), value: isSelected)
+        guard viewModel.overview == nil else { return }
+        await viewModel.load(period: .threeDays)
     }
 }
 
@@ -324,29 +266,13 @@ private struct AnalyticsViewPreviewWrapper: View {
             Group {
                 if viewModel.overview != nil || overview == nil {
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 16) {
-                            if appState.bows.count > 1 {
-                                Picker("Bow", selection: .constant(appState.bows.first?.id ?? "")) {
-                                    ForEach(appState.bows) { bow in
-                                        Text(bow.name).tag(bow.id)
-                                    }
-                                }
-                                .pickerStyle(.segmented)
-                                .padding(.horizontal, 16)
+                        VStack(alignment: .leading, spacing: 16) {
+                            Picker("Period", selection: .constant(AnalyticsPeriod.threeDays)) {
+                                ForEach(AnalyticsPeriod.allCases, id: \.self) { Text($0.label).tag($0) }
                             }
-
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
-                                    ForEach(AnalyticsPeriod.allCases, id: \.rawValue) { period in
-                                        PeriodPill(
-                                            label: period.label,
-                                            isSelected: period == .week,
-                                            action: {}
-                                        )
-                                    }
-                                }
-                                .padding(.horizontal, 16)
-                            }
+                            .pickerStyle(.menu)
+                            .tint(Color.appAccent)
+                            .padding(.horizontal, 16)
 
                             if let ov = viewModel.overview ?? overview, ov.sessionCount > 0 {
                                 OverviewCard(overview: ov)
@@ -404,7 +330,6 @@ private struct AnalyticsViewPreviewWrapper: View {
         .onAppear {
             viewModel.overview = overview
             viewModel.suggestions = suggestions
-            viewModel.selectedBowId = appState.bows.first?.id
         }
     }
 }

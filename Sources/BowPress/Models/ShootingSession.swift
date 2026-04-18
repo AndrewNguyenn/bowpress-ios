@@ -11,6 +11,8 @@ struct ShootingSession: Identifiable, Codable, Equatable {
     var feelTags: [String]
     var conditions: SessionConditions?
     var arrowCount: Int
+    var ends: [SessionEnd]?
+    var arrows: [ArrowPlot]?
 }
 
 struct SessionConditions: Codable, Equatable {

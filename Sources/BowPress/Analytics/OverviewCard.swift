@@ -6,87 +6,60 @@ struct OverviewCard: View {
     let overview: AnalyticsOverview
 
     private var scoreColor: Color {
-        switch overview.avgScore {
-        case 75...:   return Color.appAccent
-        case 50..<75: return .orange
-        default:      return .red
+        switch overview.avgArrowScore {
+        case 10...: return Color.appAccent
+        case 9..<10: return .orange
+        default:    return .red
         }
-    }
-
-    private var topConfigLabel: String {
-        guard let config = overview.topConfig else { return "—" }
-        if let label = config.label, !label.isEmpty { return label }
-        return config.createdAt.formatted(date: .abbreviated, time: .omitted)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
 
-            // Period header
             Text("Last \(overview.period.label)")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Color.appText)
                 .textCase(.uppercase)
                 .kerning(0.5)
 
-            HStack(alignment: .center, spacing: 24) {
+            HStack(alignment: .top, spacing: 0) {
 
-                // Circular score gauge
-                Gauge(value: overview.avgScore, in: 0...100) {
-                    EmptyView()
-                } currentValueLabel: {
-                    Text("\(Int(overview.avgScore.rounded()))")
-                        .font(.system(.title2, design: .rounded, weight: .bold))
-                        .foregroundStyle(scoreColor)
-                } minimumValueLabel: {
-                    Text("0").font(.caption2).foregroundStyle(.tertiary)
-                } maximumValueLabel: {
-                    Text("100").font(.caption2).foregroundStyle(.tertiary)
-                }
-                .gaugeStyle(.accessoryCircular)
-                .tint(scoreColor)
-                .frame(width: 80, height: 80)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Avg Score")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("\(Int(overview.avgScore.rounded()))")
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
+                // Avg arrow score
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(format: "%.1f", overview.avgArrowScore))
+                        .font(.system(size: 52, weight: .bold, design: .rounded))
                         .foregroundStyle(scoreColor)
                         .contentTransition(.numericText())
+                    Text("avg / arrow")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
-                // Session count
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(overview.sessionCount)")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundStyle(.primary)
-                        .contentTransition(.numericText())
-                    Text("sessions")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                // X rate + session count
+                VStack(alignment: .trailing, spacing: 10) {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(String(format: "%.0f%% X", overview.xPercentage))
+                            .font(.system(size: 26, weight: .bold, design: .rounded))
+                            .foregroundStyle(overview.xPercentage >= 50 ? Color.appAccent : .primary)
+                            .contentTransition(.numericText())
+                        Text("X rate")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(overview.sessionCount)")
+                            .font(.system(size: 20, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.primary)
+                            .contentTransition(.numericText())
+                        Text("sessions")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
-            Divider()
-
-            // Top config row
-            HStack(spacing: 6) {
-                Image(systemName: "star.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(.yellow)
-                Text("Best config:")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Text(topConfigLabel)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Spacer()
-            }
         }
         .padding(20)
         .background(
@@ -97,11 +70,11 @@ struct OverviewCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .strokeBorder(
-                    overview.avgScore >= 75 ? Color.appAccent.opacity(0.4) : Color.appBorder,
+                    overview.avgArrowScore >= 10 ? Color.appAccent.opacity(0.4) : Color.appBorder,
                     lineWidth: 1.5
                 )
         )
-        .animation(.easeInOut(duration: 0.3), value: overview.avgScore)
+        .animation(.easeInOut(duration: 0.3), value: overview.avgArrowScore)
     }
 }
 
@@ -129,29 +102,26 @@ struct OverviewCard: View {
 
 extension AnalyticsOverview {
     static let mockHighScore = AnalyticsOverview(
-        bowId: "b1",
         period: .week,
         sessionCount: 5,
-        avgScore: 85,
-        topConfig: BowConfiguration.mockConfigs[4],
+        avgArrowScore: 10.7,
+        xPercentage: 72,
         suggestions: AnalyticsSuggestion.mockAllSuggestions
     )
 
     static let mockMidScore = AnalyticsOverview(
-        bowId: "b1",
         period: .twoWeeks,
         sessionCount: 3,
-        avgScore: 62,
-        topConfig: BowConfiguration.mockConfigs[2],
+        avgArrowScore: 9.3,
+        xPercentage: 28,
         suggestions: []
     )
 
     static let mockLowScore = AnalyticsOverview(
-        bowId: "b1",
         period: .month,
         sessionCount: 1,
-        avgScore: 45,
-        topConfig: nil,
+        avgArrowScore: 7.8,
+        xPercentage: 5,
         suggestions: []
     )
 }
@@ -231,6 +201,6 @@ extension BowConfiguration {
         ),
     ]
 
-    /// Parallel scores for the five mock configs.
-    static let mockScores: [Double] = [45, 62, 78, 71, 85]
+    /// Parallel avg-arrow-score values for the five mock configs (6–11 scale).
+    static let mockScores: [Double] = [7.8, 8.5, 9.6, 9.2, 10.5]
 }

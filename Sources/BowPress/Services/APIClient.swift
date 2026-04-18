@@ -3,14 +3,15 @@ import Foundation
 // MARK: - Period Comparison Models
 
 struct PeriodSlice: Codable {
-    let label: String        // e.g. "This Week"
+    let label: String
     let plots: [ArrowPlot]
-    let avgScore: Double
+    let avgArrowScore: Double
+    let xPercentage: Double
     let sessionCount: Int
+    let config: BowConfiguration?   // dominant config active during this period
 }
 
 struct PeriodComparison: Codable {
-    let bowId: String
     let period: AnalyticsPeriod
     let current: PeriodSlice
     let previous: PeriodSlice
@@ -70,25 +71,25 @@ final class APIClient {
     func completeEnd(_ end: SessionEnd) async throws -> SessionEnd { end }
 
     // MARK: - Analytics
-    func fetchSuggestions(bowId: String) async throws -> [AnalyticsSuggestion] {
+    func fetchSuggestions() async throws -> [AnalyticsSuggestion] {
         #if DEBUG
-        return DevMockData.suggestions(for: bowId)
+        return DevMockData.suggestions()
         #else
         return []
         #endif
     }
     func markSuggestionRead(id: String) async throws {}
-    func fetchAnalyticsOverview(bowId: String, period: AnalyticsPeriod) async throws -> AnalyticsOverview {
+    func fetchAnalyticsOverview(period: AnalyticsPeriod) async throws -> AnalyticsOverview {
         #if DEBUG
-        return DevMockData.overview(bowId: bowId, period: period)
+        return DevMockData.overview(period: period)
         #else
-        return AnalyticsOverview(bowId: bowId, period: period, sessionCount: 0, avgScore: 0, topConfig: nil, suggestions: [])
+        return AnalyticsOverview(period: period, sessionCount: 0, avgArrowScore: 0, xPercentage: 0, suggestions: [])
         #endif
     }
 
-    func fetchComparison(bowId: String, period: AnalyticsPeriod) async throws -> PeriodComparison {
+    func fetchComparison(period: AnalyticsPeriod) async throws -> PeriodComparison {
         #if DEBUG
-        return DevMockData.comparison(bowId: bowId, period: period)
+        return DevMockData.comparison(period: period)
         #else
         // TODO: real API call
         throw URLError(.unsupportedURL)
@@ -97,26 +98,31 @@ final class APIClient {
 }
 
 enum AnalyticsPeriod: String, Codable, CaseIterable {
-    case threeDays = "3d"
-    case week = "7d"
-    case twoWeeks = "14d"
-    case month = "30d"
+    case threeDays   = "3d"
+    case week        = "7d"
+    case twoWeeks    = "14d"
+    case month       = "30d"
+    case threeMonths = "90d"
+    case sixMonths   = "180d"
+    case year        = "365d"
 
     var label: String {
         switch self {
-        case .threeDays: "3 Days"
-        case .week: "1 Week"
-        case .twoWeeks: "2 Weeks"
-        case .month: "1 Month"
+        case .threeDays:   "3 Days"
+        case .week:        "1 Week"
+        case .twoWeeks:    "2 Weeks"
+        case .month:       "1 Month"
+        case .threeMonths: "3 Months"
+        case .sixMonths:   "6 Months"
+        case .year:        "1 Year"
         }
     }
 }
 
 struct AnalyticsOverview: Codable {
-    var bowId: String
     var period: AnalyticsPeriod
     var sessionCount: Int
-    var avgScore: Double
-    var topConfig: BowConfiguration?
+    var avgArrowScore: Double   // 6–11 scale; X = 11
+    var xPercentage: Double     // 0–100, % of arrows hitting X (ring 11)
     var suggestions: [AnalyticsSuggestion]
 }

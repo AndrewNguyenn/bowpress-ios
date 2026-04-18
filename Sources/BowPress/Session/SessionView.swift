@@ -6,16 +6,17 @@ struct SessionView: View {
 
     @State private var showConfigSheet = false
     @State private var showEndConfirmation = false
-    @State private var showCompleteEndSheet = false
-    @State private var pendingEndNotes = ""
     @State private var isEnding = false
+    @State private var isStarting = false
+    @State private var selectedBow: Bow? = nil
+    @State private var selectedArrow: ArrowConfiguration? = nil
 
     var body: some View {
         Group {
             if viewModel.isSessionActive {
                 activeSessionContent
             } else {
-                SessionSetupView(appState: appState, viewModel: viewModel)
+                sessionStartView
             }
         }
         .navigationTitle("Session")
@@ -27,7 +28,7 @@ struct SessionView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Your session notes will be saved. This cannot be undone.")
+            Text("This will end your session. This cannot be undone.")
         }
         .alert("Error", isPresented: Binding(
             get: { viewModel.error != nil },
@@ -37,6 +38,99 @@ struct SessionView: View {
         } message: {
             Text(viewModel.error ?? "")
         }
+    }
+
+    // MARK: - Session Start
+
+    @ViewBuilder
+    private var sessionStartView: some View {
+        List {
+            Section("Bow") {
+                if appState.bows.isEmpty {
+                    Text("No bows configured. Add one in the Configure tab.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                } else {
+                    ForEach(appState.bows) { bow in
+                        StartPickerRow(
+                            title: bow.name,
+                            subtitle: "\(bow.brand) \(bow.model)",
+                            isSelected: selectedBow?.id == bow.id
+                        ) { selectedBow = bow }
+                        .listRowBackground(selectedBow?.id == bow.id ? Color.appAccent : nil)
+                    }
+                    .onMove { from, to in
+                        appState.bows.move(fromOffsets: from, toOffset: to)
+                    }
+                }
+            }
+
+            Section("Arrows") {
+                if appState.arrowConfigs.isEmpty {
+                    Text("No arrow configs. Add one in the Configure tab.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                } else {
+                    ForEach(appState.arrowConfigs) { arrow in
+                        StartPickerRow(
+                            title: arrow.label,
+                            subtitle: arrowSubtitle(arrow),
+                            isSelected: selectedArrow?.id == arrow.id
+                        ) { selectedArrow = arrow }
+                        .listRowBackground(selectedArrow?.id == arrow.id ? Color.appAccent : nil)
+                    }
+                    .onMove { from, to in
+                        appState.arrowConfigs.move(fromOffsets: from, toOffset: to)
+                    }
+                }
+            }
+
+            Section {
+                Button {
+                    Task { await startNewSession() }
+                } label: {
+                    HStack {
+                        Spacer()
+                        if isStarting {
+                            HStack(spacing: 8) {
+                                ProgressView().progressViewStyle(.circular).tint(.white).scaleEffect(0.85)
+                                Text("Starting…").fontWeight(.semibold)
+                            }
+                        } else {
+                            Text("Start Session").fontWeight(.semibold)
+                        }
+                        Spacer()
+                    }
+                    .frame(height: 44)
+                }
+                .listRowBackground(
+                    (selectedBow != nil && selectedArrow != nil)
+                        ? Color.appAccent : Color.appAccent.opacity(0.3)
+                )
+                .foregroundStyle(.white)
+                .disabled(selectedBow == nil || selectedArrow == nil || isStarting)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .environment(\.editMode, .constant(.active))
+        .onAppear {
+            if selectedBow == nil { selectedBow = appState.bows.first }
+            if selectedArrow == nil { selectedArrow = appState.arrowConfigs.first }
+        }
+    }
+
+    private func arrowSubtitle(_ arrow: ArrowConfiguration) -> String {
+        [String(format: "%.2f\"", arrow.length),
+         "\(arrow.pointWeight)gr",
+         arrow.fletchingType.rawValue].joined(separator: " · ")
+    }
+
+    private func startNewSession() async {
+        guard let bow = selectedBow, let arrow = selectedArrow else { return }
+        isStarting = true
+        let configs = (try? await APIClient.shared.fetchConfigurations(bowId: bow.id)) ?? []
+        let latestConfig = configs.sorted { $0.createdAt > $1.createdAt }.first
+            ?? BowConfiguration.makeDefault(for: bow.id)
+        await viewModel.startSession(bow: bow, bowConfig: latestConfig, arrowConfig: arrow)
+        isStarting = false
     }
 
     // MARK: - Active Session Layout
@@ -52,9 +146,9 @@ struct SessionView: View {
                     .padding(.top, 12)
                     .padding(.bottom, 8)
 
-                // MARK: Target
+                // MARK: Target (current end only — clears when end is completed)
                 TargetPlotView(
-                    arrows: viewModel.allArrows,
+                    arrows: viewModel.currentEndArrows,
                     onArrowPlotted: { ring, zone, plotX, plotY in
                         Task { await viewModel.plotArrow(ring: ring, zone: zone, plotX: plotX, plotY: plotY) }
                     },
@@ -70,9 +164,22 @@ struct SessionView: View {
                         .padding(.bottom, 4)
                 }
 
+                // MARK: Undo
+                if !viewModel.currentEndArrows.isEmpty {
+                    Button {
+                        viewModel.removeLastArrow()
+                    } label: {
+                        Label("Undo Last Arrow", systemImage: "arrow.uturn.backward")
+                            .font(.subheadline)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.secondary)
+                    .padding(.bottom, 8)
+                }
+
                 // MARK: Complete End button
                 Button {
-                    showCompleteEndSheet = true
+                    Task { await viewModel.completeEnd(notes: nil) }
                 } label: {
                     Label("Complete End \(viewModel.currentEndNumber)", systemImage: "checkmark.circle")
                         .fontWeight(.semibold)
@@ -84,13 +191,6 @@ struct SessionView: View {
                 .disabled(viewModel.currentEndArrows.isEmpty || viewModel.isLoading)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 10)
-
-                // MARK: Ends history
-                endsHistory
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 12)
-
-                Divider().padding(.horizontal, 20)
 
                 // MARK: Session Notes
                 VStack(alignment: .leading, spacing: 6) {
@@ -123,18 +223,12 @@ struct SessionView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 10)
 
-                // MARK: Undo
-                if !viewModel.allArrows.isEmpty {
-                    Button {
-                        viewModel.removeLastArrow()
-                    } label: {
-                        Label("Undo Last Arrow", systemImage: "arrow.uturn.backward")
-                            .font(.subheadline)
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(.secondary)
-                    .padding(.bottom, 10)
-                }
+                Divider().padding(.horizontal, 20)
+
+                // MARK: Ends history
+                endsHistory
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 12)
 
                 Divider().padding(.horizontal, 20)
 
@@ -168,20 +262,6 @@ struct SessionView: View {
         .sheet(isPresented: $showConfigSheet) {
             SessionConfigSheet(appState: appState, viewModel: viewModel)
         }
-        .sheet(isPresented: $showCompleteEndSheet) {
-            CompleteEndSheet(
-                endNumber: viewModel.currentEndNumber,
-                arrows: viewModel.currentEndArrows,
-                notes: $pendingEndNotes
-            ) {
-                Task {
-                    await viewModel.completeEnd(notes: pendingEndNotes)
-                    pendingEndNotes = ""
-                    showCompleteEndSheet = false
-                }
-            }
-            .presentationDetents([.medium])
-        }
     }
 
     // MARK: - Config Banner
@@ -209,12 +289,13 @@ struct SessionView: View {
 
             HStack(spacing: 10) {
                 // Bow info
+                let displayBowConfig = viewModel.pendingBowConfig ?? viewModel.activeBowConfig
                 VStack(alignment: .leading, spacing: 2) {
                     Text(viewModel.selectedBow?.name ?? "—")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .lineLimit(1)
-                    if let config = viewModel.activeBowConfig {
+                    if let config = displayBowConfig {
                         Text(config.label ?? "Config · \(String(format: "%.1f\"", config.drawLength))")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -226,12 +307,13 @@ struct SessionView: View {
                     .foregroundStyle(.tertiary)
 
                 // Arrow info
+                let displayArrow = viewModel.pendingArrowConfig ?? viewModel.activeArrowConfig
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(viewModel.activeArrowConfig?.label ?? "—")
+                    Text(displayArrow?.label ?? "—")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .lineLimit(1)
-                    if let arrow = viewModel.activeArrowConfig {
+                    if let arrow = displayArrow {
                         Text(String(format: "%.2f\" · %dgr", arrow.length, arrow.pointWeight))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
@@ -280,10 +362,13 @@ struct SessionView: View {
 
             // Completed ends
             ForEach(Array(viewModel.completedEnds.enumerated()), id: \.element.id) { idx, end in
-                let startIdx = viewModel.endArrowCounts.prefix(idx).reduce(0, +)
-                let count = viewModel.endArrowCounts[idx]
-                let arrows = Array(viewModel.allArrows[startIdx..<(startIdx + count)])
-                EndRow(end: end, arrows: arrows, isCurrent: false)
+                if idx < viewModel.endArrowCounts.count {
+                    let startIdx = viewModel.endArrowCounts.prefix(idx).reduce(0, +)
+                    let count = viewModel.endArrowCounts[idx]
+                    let safeEnd = min(startIdx + count, viewModel.allArrows.count)
+                    let arrows = Array(viewModel.allArrows[startIdx..<safeEnd])
+                    EndRow(end: end, arrows: arrows, isCurrent: false)
+                }
             }
 
             // Current in-progress end
@@ -305,14 +390,18 @@ struct SessionView: View {
 
 // MARK: - End Row
 
-private struct EndRow: View {
+struct EndRow: View {
     var end: SessionEnd?
     var endNumber: Int = 0
     var arrows: [ArrowPlot]
     var isCurrent: Bool
 
     private var displayNumber: Int { end?.endNumber ?? endNumber }
-    private var score: Int { arrows.reduce(0) { $0 + min($1.ring, 10) } }
+    private var total: Int { arrows.reduce(0) { $0 + min($1.ring, 10) } }
+    private var average: Double {
+        guard !arrows.isEmpty else { return 0 }
+        return Double(total) / Double(arrows.count)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -329,7 +418,7 @@ private struct EndRow: View {
                         .clipShape(Capsule())
                 }
                 Spacer()
-                Text("Σ \(score)")
+                Text(String(format: "Total %d  ·  Avg %.1f", total, average))
                     .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
             }
             ScrollView(.horizontal, showsIndicators: false) {
@@ -350,82 +439,32 @@ private struct EndRow: View {
     }
 }
 
-// MARK: - Complete End Sheet
+// MARK: - Start Picker Row
 
-private struct CompleteEndSheet: View {
-    var endNumber: Int
-    var arrows: [ArrowPlot]
-    @Binding var notes: String
-    var onComplete: () -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    private var score: Int { arrows.reduce(0) { $0 + min($1.ring, 10) } }
+private struct StartPickerRow: View {
+    var title: String
+    var subtitle: String
+    var isSelected: Bool
+    var onTap: () -> Void
 
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-                // Score summary
-                HStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(arrows.count) arrows").font(.headline)
-                        Text("Score: \(score)").font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 4) {
-                            ForEach(arrows) { a in RingBadge(ring: a.ring) }
-                        }
-                    }
-                    .frame(maxWidth: 180)
-                }
-                .padding(14)
-                .background(Color.appSurface)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                // Notes
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("End Notes (optional)", systemImage: "note.text")
-                        .font(.caption).fontWeight(.semibold)
-                        .foregroundStyle(.secondary).textCase(.uppercase).tracking(0.4)
-                    ZStack(alignment: .topLeading) {
-                        if notes.isEmpty {
-                            Text("Form, feel, conditions…")
-                                .font(.body).foregroundStyle(.tertiary)
-                                .padding(.horizontal, 14).padding(.vertical, 11)
-                                .allowsHitTesting(false)
-                        }
-                        TextEditor(text: $notes)
-                            .font(.body).frame(minHeight: 80)
-                            .scrollContentBackground(.hidden)
-                            .padding(.horizontal, 8).padding(.vertical, 4)
-                    }
-                    .background(Color.appSurface)
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-
-                Spacer()
-
-                Button(action: onComplete) {
-                    Text("Complete End \(endNumber)")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity).frame(height: 50)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color.appAccent)
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.body).fontWeight(.semibold)
+                    .foregroundStyle(isSelected ? .white : .primary)
+                Text(subtitle).font(.caption)
+                    .foregroundStyle(isSelected ? .white.opacity(0.75) : .secondary)
             }
-            .padding(20)
-            .navigationTitle("End \(endNumber)")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
     }
 }
 
-private struct RingBadge: View {
+// MARK: - Ring Badge
+
+struct RingBadge: View {
     var ring: Int
 
     var body: some View {
@@ -439,10 +478,12 @@ private struct RingBadge: View {
 
     private var bgColor: Color {
         switch ring {
-        case 11: return Color(red: 1.0, green: 0.72, blue: 0.0)
-        case 10: return Color(red: 0.98, green: 0.85, blue: 0.12)
-        case 9:  return Color(red: 0.88, green: 0.28, blue: 0.22)
-        case 8:  return Color(red: 0.42, green: 0.55, blue: 0.72)
+        case 11: return Color(red: 1.0,  green: 0.85, blue: 0.0)   // gold   (X)
+        case 10: return Color(red: 1.0,  green: 0.95, blue: 0.2)   // yellow
+        case 9:  return Color(red: 1.0,  green: 0.95, blue: 0.2)   // yellow (still yellow zone)
+        case 8:  return Color(red: 0.88, green: 0.28, blue: 0.22)  // red
+        case 7:  return Color(red: 0.88, green: 0.28, blue: 0.22)  // red
+        case 6:  return Color(red: 0.0,  green: 0.73, blue: 0.89)  // blue
         default: return .gray
         }
     }
@@ -478,11 +519,11 @@ private struct RingBadge: View {
     )
     vm.allArrows = [
         ArrowPlot(id: "1", sessionId: "s1", bowConfigId: "bc1", arrowConfigId: "a1",
-                  ring: 11, zone: .center, shotAt: Date(), excluded: false, notes: nil),
+                  ring: 10, zone: .center, shotAt: Date(), excluded: false, notes: nil),
         ArrowPlot(id: "2", sessionId: "s1", bowConfigId: "bc1", arrowConfigId: "a1",
-                  ring: 10, zone: .ne, shotAt: Date(), excluded: false, notes: nil),
+                  ring: 9, zone: .ne, shotAt: Date(), excluded: false, notes: nil),
         ArrowPlot(id: "3", sessionId: "s1", bowConfigId: "bc1", arrowConfigId: "a1",
-                  ring: 9, zone: .w, shotAt: Date(), excluded: false, notes: nil),
+                  ring: 8, zone: .w, shotAt: Date(), excluded: false, notes: nil),
     ]
 
     return NavigationStack {
@@ -521,14 +562,7 @@ private struct RingBadge: View {
     }
 }
 
-#Preview("Setup — Empty State") {
-    let vm = SessionViewModel()
-    return NavigationStack {
-        SessionView(appState: AppState(), viewModel: vm)
-    }
-}
-
-#Preview("Setup — With Bows") {
+#Preview("Start — Ready") {
     let appState = AppState()
     appState.bows = [
         Bow(id: "b1", userId: "u1", name: "My Hoyt", brand: "Hoyt", model: "Carbon RX-8", createdAt: Date())
@@ -543,5 +577,11 @@ private struct RingBadge: View {
     ]
     return NavigationStack {
         SessionView(appState: appState, viewModel: SessionViewModel())
+    }
+}
+
+#Preview("Start — No Equipment") {
+    return NavigationStack {
+        SessionView(appState: AppState(), viewModel: SessionViewModel())
     }
 }

@@ -659,267 +659,204 @@ enum DevMockData {
         ),
     ]
 
-    static func suggestions(for bowId: String) -> [AnalyticsSuggestion] {
-        switch bowId {
-        case "dev_bow1": return bow1Suggestions
-        case "dev_bow2": return bow2Suggestions
-        default: return []
-        }
+    static func suggestions() -> [AnalyticsSuggestion] {
+        return bow1Suggestions + bow2Suggestions
     }
 
     // MARK: - Period Comparisons
 
-    static func comparison(bowId: String, period: AnalyticsPeriod) -> PeriodComparison {
-        switch (bowId, period) {
+    static func comparison(period: AnalyticsPeriod) -> PeriodComparison {
+        switch period {
 
-        // ── bow1 / week ────────────────────────────────────────────────────────
-        case ("dev_bow1", .week):
-            let cur = PeriodSlice(
-                label: "This Week",
-                plots: makePlots(
-                    sessionId: "cmp_b1w_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
-                    startedAt: daysAgo(5), count: 18,
-                    rings: [10, 11, 11, 10, 11, 11, 10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11],
-                    zones:  [.center, .center, .n, .center, .n, .center, .ne, .center, .center,
-                             .n, .center, .center, .n, .center, .center, .center, .n, .center]
-                ),
-                avgScore: 84.2,
-                sessionCount: 3
-            )
-            let prev = PeriodSlice(
-                label: "Last Week",
-                plots: makePlots(
-                    sessionId: "cmp_b1w_prv", bowConfigId: "dev_bc1b", arrowConfigId: "dev_arrow1",
-                    startedAt: daysAgo(12), count: 18,
-                    rings: [9, 10, 9, 10, 9, 9, 10, 9, 10, 9, 9, 10, 9, 9, 10, 9, 10, 9],
-                    zones:  [.n, .ne, .nw, .n, .ne, .nw, .n, .ne, .nw, .n, .ne, .n,
-                             .nw, .n, .ne, .nw, .n, .nw]
-                ),
-                avgScore: 71.1,
-                sessionCount: 3
-            )
-            return PeriodComparison(bowId: bowId, period: period, current: cur, previous: prev)
-
-        // ── bow1 / threeDays ───────────────────────────────────────────────────
-        case ("dev_bow1", .threeDays):
+        case .threeDays:
             let cur = PeriodSlice(
                 label: "Last 3 Days",
                 plots: makePlots(
-                    sessionId: "cmp_b1_3d_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
+                    sessionId: "cmp_3d_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
                     startedAt: daysAgo(2), count: 18,
                     rings: [11, 11, 10, 11, 11, 10, 11, 11, 11, 10, 11, 11, 10, 11, 11, 11, 10, 11],
                     zones:  [.center, .center, .n, .center, .center, .center, .n, .center, .center,
                              .center, .center, .n, .center, .center, .center, .center, .n, .center]
                 ),
-                avgScore: 86.0,
-                sessionCount: 2
+                avgArrowScore: 10.7, xPercentage: 72, sessionCount: 3, config: bc1c
             )
             let prev = PeriodSlice(
                 label: "Previous 3 Days",
                 plots: makePlots(
-                    sessionId: "cmp_b1_3d_prv", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
+                    sessionId: "cmp_3d_prv", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
                     startedAt: daysAgo(6), count: 18,
                     rings: [10, 11, 10, 10, 11, 10, 10, 11, 10, 9, 11, 10, 10, 11, 10, 10, 9, 10],
                     zones:  [.center, .center, .n, .ne, .center, .n, .center, .n, .ne,
                              .n, .center, .n, .center, .center, .ne, .n, .ne, .center]
                 ),
-                avgScore: 78.5,
-                sessionCount: 2
+                avgArrowScore: 10.2, xPercentage: 44, sessionCount: 3, config: bc1c
             )
-            return PeriodComparison(bowId: bowId, period: period, current: cur, previous: prev)
+            return PeriodComparison(period: period, current: cur, previous: prev)
 
-        // ── bow1 / twoWeeks ────────────────────────────────────────────────────
-        case ("dev_bow1", .twoWeeks):
+        case .twoWeeks:
             let cur = PeriodSlice(
                 label: "This 2 Weeks",
                 plots: makePlots(
-                    sessionId: "cmp_b1_2w_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
+                    sessionId: "cmp_2w_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
                     startedAt: daysAgo(7), count: 18,
                     rings: [10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11, 11],
                     zones:  [.center, .center, .n, .center, .center, .n, .center, .center, .n,
                              .center, .center, .n, .center, .center, .center, .n, .center, .center]
                 ),
-                avgScore: 82.8,
-                sessionCount: 4
+                avgArrowScore: 10.6, xPercentage: 61, sessionCount: 7, config: bc1c
             )
             let prev = PeriodSlice(
                 label: "Previous 2 Weeks",
                 plots: makePlots(
-                    sessionId: "cmp_b1_2w_prv", bowConfigId: "dev_bc1a", arrowConfigId: "dev_arrow1",
+                    sessionId: "cmp_2w_prv", bowConfigId: "dev_bc1a", arrowConfigId: "dev_arrow1",
                     startedAt: daysAgo(21), count: 18,
                     rings: [8, 9, 8, 9, 8, 9, 8, 9, 9, 8, 9, 8, 9, 8, 9, 8, 9, 8],
                     zones:  [.nw, .n, .ne, .w, .nw, .n, .ne, .nw, .n, .w, .ne, .nw,
                              .n, .w, .nw, .ne, .n, .nw]
                 ),
-                avgScore: 62.4,
-                sessionCount: 3
+                avgArrowScore: 8.5, xPercentage: 0, sessionCount: 5, config: bc1a
             )
-            return PeriodComparison(bowId: bowId, period: period, current: cur, previous: prev)
+            return PeriodComparison(period: period, current: cur, previous: prev)
 
-        // ── bow1 / month ───────────────────────────────────────────────────────
-        case ("dev_bow1", .month):
+        case .month:
             let cur = PeriodSlice(
                 label: "This Month",
                 plots: makePlots(
-                    sessionId: "cmp_b1_1m_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
+                    sessionId: "cmp_1m_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
                     startedAt: daysAgo(5), count: 18,
                     rings: [10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11],
                     zones:  [.center, .center, .n, .center, .n, .center, .ne, .center, .center,
                              .n, .center, .center, .n, .center, .center, .center, .n, .center]
                 ),
-                avgScore: 80.1,
-                sessionCount: 5
+                avgArrowScore: 10.5, xPercentage: 50, sessionCount: 9, config: bc1c
             )
             let prev = PeriodSlice(
                 label: "Last Month",
                 plots: makePlots(
-                    sessionId: "cmp_b1_1m_prv", bowConfigId: "dev_bc1a", arrowConfigId: "dev_arrow1",
+                    sessionId: "cmp_1m_prv", bowConfigId: "dev_bc1a", arrowConfigId: "dev_arrow1",
                     startedAt: daysAgo(35), count: 18,
                     rings: [8, 8, 9, 8, 8, 9, 8, 8, 9, 8, 9, 8, 8, 9, 8, 9, 8, 8],
                     zones:  [.nw, .w, .n, .ne, .nw, .w, .nw, .n, .ne, .w, .n, .nw,
                              .ne, .w, .nw, .n, .w, .nw]
                 ),
-                avgScore: 55.7,
-                sessionCount: 4
+                avgArrowScore: 8.3, xPercentage: 0, sessionCount: 7, config: bc1a
             )
-            return PeriodComparison(bowId: bowId, period: period, current: cur, previous: prev)
+            return PeriodComparison(period: period, current: cur, previous: prev)
 
-        // ── bow2 / week ────────────────────────────────────────────────────────
-        case ("dev_bow2", .week):
+        case .threeMonths:
+            let cur = PeriodSlice(
+                label: "This 3 Months",
+                plots: makePlots(
+                    sessionId: "cmp_3mo_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
+                    startedAt: daysAgo(14), count: 18,
+                    rings: [10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 11, 10, 11, 11, 10, 11, 10, 11],
+                    zones:  [.center, .center, .n, .center, .center, .ne, .center, .center, .n,
+                             .center, .center, .n, .center, .center, .center, .n, .center, .center]
+                ),
+                avgArrowScore: 10.6, xPercentage: 56, sessionCount: 18, config: bc1c
+            )
+            let prev = PeriodSlice(
+                label: "Previous 3 Months",
+                plots: makePlots(
+                    sessionId: "cmp_3mo_prv", bowConfigId: "dev_bc1a", arrowConfigId: "dev_arrow1",
+                    startedAt: daysAgo(75), count: 18,
+                    rings: [8, 9, 8, 8, 9, 8, 9, 8, 9, 8, 8, 9, 8, 9, 8, 8, 9, 8],
+                    zones:  [.nw, .n, .w, .nw, .n, .ne, .nw, .w, .n, .ne, .nw, .n,
+                             .w, .nw, .ne, .n, .nw, .w]
+                ),
+                avgArrowScore: 8.4, xPercentage: 0, sessionCount: 12, config: bc1a
+            )
+            return PeriodComparison(period: period, current: cur, previous: prev)
+
+        case .sixMonths:
+            let cur = PeriodSlice(
+                label: "This 6 Months",
+                plots: makePlots(
+                    sessionId: "cmp_6mo_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
+                    startedAt: daysAgo(30), count: 18,
+                    rings: [10, 11, 10, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10],
+                    zones:  [.center, .center, .n, .center, .ne, .center, .center, .n,
+                             .center, .center, .n, .center, .center, .ne, .center, .n, .center, .center]
+                ),
+                avgArrowScore: 10.5, xPercentage: 50, sessionCount: 34, config: bc1c
+            )
+            let prev = PeriodSlice(
+                label: "Previous 6 Months",
+                plots: makePlots(
+                    sessionId: "cmp_6mo_prv", bowConfigId: "dev_bc1a", arrowConfigId: "dev_arrow1",
+                    startedAt: daysAgo(150), count: 18,
+                    rings: [8, 7, 9, 8, 7, 9, 8, 8, 9, 7, 8, 9, 8, 7, 9, 8, 7, 8],
+                    zones:  [.nw, .w, .sw, .n, .nw, .w, .ne, .nw, .n, .w, .sw,
+                             .nw, .n, .w, .nw, .sw, .n, .w]
+                ),
+                avgArrowScore: 8.0, xPercentage: 0, sessionCount: 20, config: bc1a
+            )
+            return PeriodComparison(period: period, current: cur, previous: prev)
+
+        case .year:
+            let cur = PeriodSlice(
+                label: "This Year",
+                plots: makePlots(
+                    sessionId: "cmp_1y_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
+                    startedAt: daysAgo(60), count: 18,
+                    rings: [10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 11, 10],
+                    zones:  [.center, .center, .n, .center, .center, .n, .center, .center,
+                             .ne, .center, .center, .n, .center, .center, .n, .center, .center, .ne]
+                ),
+                avgArrowScore: 10.5, xPercentage: 50, sessionCount: 58, config: bc1c
+            )
+            let prev = PeriodSlice(
+                label: "Last Year",
+                plots: makePlots(
+                    sessionId: "cmp_1y_prv", bowConfigId: "dev_bc1a", arrowConfigId: "dev_arrow1",
+                    startedAt: daysAgo(300), count: 18,
+                    rings: [7, 8, 7, 8, 7, 8, 7, 8, 7, 8, 7, 8, 7, 8, 7, 8, 7, 8],
+                    zones:  [.sw, .w, .nw, .s, .sw, .w, .nw, .n, .ne, .w,
+                             .sw, .s, .nw, .w, .sw, .s, .w, .nw]
+                ),
+                avgArrowScore: 7.5, xPercentage: 0, sessionCount: 31, config: bc1a
+            )
+            return PeriodComparison(period: period, current: cur, previous: prev)
+
+        default: // .week
             let cur = PeriodSlice(
                 label: "This Week",
                 plots: makePlots(
-                    sessionId: "cmp_b2w_cur", bowConfigId: "dev_bc2b", arrowConfigId: "dev_arrow2",
-                    startedAt: daysAgo(5), count: 14,
-                    rings: [10, 11, 10, 11, 10, 10, 11, 10, 11, 10, 11, 10, 10, 11],
-                    zones:  [.center, .n, .center, .center, .n, .center, .center, .n,
-                             .center, .center, .n, .center, .center, .center]
+                    sessionId: "cmp_w_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
+                    startedAt: daysAgo(5), count: 18,
+                    rings: [10, 11, 11, 10, 11, 11, 10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11],
+                    zones:  [.center, .center, .n, .center, .n, .center, .ne, .center, .center,
+                             .n, .center, .center, .n, .center, .center, .center, .n, .center]
                 ),
-                avgScore: 77.5,
-                sessionCount: 2
+                avgArrowScore: 10.6, xPercentage: 61, sessionCount: 5, config: bc1c
             )
             let prev = PeriodSlice(
                 label: "Last Week",
                 plots: makePlots(
-                    sessionId: "cmp_b2w_prv", bowConfigId: "dev_bc2b", arrowConfigId: "dev_arrow2",
-                    startedAt: daysAgo(12), count: 14,
-                    rings: [9, 10, 9, 9, 10, 9, 10, 9, 10, 9, 9, 10, 9, 9],
-                    zones:  [.nw, .w, .nw, .n, .nw, .w, .n, .nw, .w, .nw,
-                             .n, .nw, .w, .nw]
+                    sessionId: "cmp_w_prv", bowConfigId: "dev_bc1b", arrowConfigId: "dev_arrow1",
+                    startedAt: daysAgo(12), count: 18,
+                    rings: [9, 10, 9, 10, 9, 9, 10, 9, 10, 9, 9, 10, 9, 9, 10, 9, 10, 9],
+                    zones:  [.n, .ne, .nw, .n, .ne, .nw, .n, .ne, .nw, .n, .ne, .n,
+                             .nw, .n, .ne, .nw, .n, .nw]
                 ),
-                avgScore: 62.3,
-                sessionCount: 2
+                avgArrowScore: 9.4, xPercentage: 17, sessionCount: 5, config: bc1b
             )
-            return PeriodComparison(bowId: bowId, period: period, current: cur, previous: prev)
-
-        // ── bow2 / threeDays ───────────────────────────────────────────────────
-        case ("dev_bow2", .threeDays):
-            let cur = PeriodSlice(
-                label: "Last 3 Days",
-                plots: makePlots(
-                    sessionId: "cmp_b2_3d_cur", bowConfigId: "dev_bc2b", arrowConfigId: "dev_arrow2",
-                    startedAt: daysAgo(2), count: 14,
-                    rings: [10, 11, 10, 10, 11, 10, 10, 11, 10, 11, 10, 11, 10, 10],
-                    zones:  [.center, .n, .center, .ne, .center, .n, .center, .n,
-                             .center, .center, .n, .center, .ne, .center]
-                ),
-                avgScore: 76.0,
-                sessionCount: 1
-            )
-            let prev = PeriodSlice(
-                label: "Previous 3 Days",
-                plots: makePlots(
-                    sessionId: "cmp_b2_3d_prv", bowConfigId: "dev_bc2b", arrowConfigId: "dev_arrow2",
-                    startedAt: daysAgo(6), count: 14,
-                    rings: [9, 10, 9, 10, 9, 9, 10, 9, 10, 9, 9, 10, 9, 9],
-                    zones:  [.n, .ne, .nw, .n, .nw, .w, .n, .nw, .ne, .n,
-                             .nw, .n, .w, .nw]
-                ),
-                avgScore: 66.8,
-                sessionCount: 2
-            )
-            return PeriodComparison(bowId: bowId, period: period, current: cur, previous: prev)
-
-        // ── bow2 / twoWeeks ────────────────────────────────────────────────────
-        case ("dev_bow2", .twoWeeks):
-            let cur = PeriodSlice(
-                label: "This 2 Weeks",
-                plots: makePlots(
-                    sessionId: "cmp_b2_2w_cur", bowConfigId: "dev_bc2b", arrowConfigId: "dev_arrow2",
-                    startedAt: daysAgo(7), count: 14,
-                    rings: [10, 10, 11, 10, 11, 10, 10, 11, 10, 10, 11, 10, 11, 10],
-                    zones:  [.center, .n, .center, .ne, .center, .n, .center, .n,
-                             .center, .ne, .center, .n, .center, .center]
-                ),
-                avgScore: 74.2,
-                sessionCount: 3
-            )
-            let prev = PeriodSlice(
-                label: "Previous 2 Weeks",
-                plots: makePlots(
-                    sessionId: "cmp_b2_2w_prv", bowConfigId: "dev_bc2a", arrowConfigId: "dev_arrow2",
-                    startedAt: daysAgo(21), count: 14,
-                    rings: [8, 9, 8, 9, 8, 8, 9, 8, 9, 8, 9, 8, 8, 9],
-                    zones:  [.nw, .w, .sw, .n, .nw, .w, .nw, .s, .nw, .w,
-                             .nw, .n, .w, .nw]
-                ),
-                avgScore: 58.9,
-                sessionCount: 2
-            )
-            return PeriodComparison(bowId: bowId, period: period, current: cur, previous: prev)
-
-        // ── bow2 / month ───────────────────────────────────────────────────────
-        case ("dev_bow2", .month):
-            let cur = PeriodSlice(
-                label: "This Month",
-                plots: makePlots(
-                    sessionId: "cmp_b2_1m_cur", bowConfigId: "dev_bc2b", arrowConfigId: "dev_arrow2",
-                    startedAt: daysAgo(5), count: 14,
-                    rings: [9, 10, 10, 11, 10, 10, 11, 10, 9, 11, 10, 10, 11, 10],
-                    zones:  [.n, .center, .ne, .center, .n, .center, .center, .n,
-                             .ne, .center, .n, .center, .center, .ne]
-                ),
-                avgScore: 73.0,
-                sessionCount: 4
-            )
-            let prev = PeriodSlice(
-                label: "Last Month",
-                plots: makePlots(
-                    sessionId: "cmp_b2_1m_prv", bowConfigId: "dev_bc2a", arrowConfigId: "dev_arrow2",
-                    startedAt: daysAgo(35), count: 14,
-                    rings: [8, 8, 9, 8, 8, 9, 8, 8, 9, 8, 9, 8, 8, 9],
-                    zones:  [.nw, .w, .sw, .n, .nw, .w, .nw, .s, .e, .nw,
-                             .w, .n, .w, .nw]
-                ),
-                avgScore: 60.1,
-                sessionCount: 3
-            )
-            return PeriodComparison(bowId: bowId, period: period, current: cur, previous: prev)
-
-        // ── fallback ───────────────────────────────────────────────────────────
-        default:
-            let empty = PeriodSlice(label: "Current", plots: [], avgScore: 0, sessionCount: 0)
-            let emptyPrev = PeriodSlice(label: "Previous", plots: [], avgScore: 0, sessionCount: 0)
-            return PeriodComparison(bowId: bowId, period: period, current: empty, previous: emptyPrev)
+            return PeriodComparison(period: period, current: cur, previous: prev)
         }
     }
 
     // MARK: - Analytics Overviews
 
-    static func overview(bowId: String, period: AnalyticsPeriod) -> AnalyticsOverview {
-        switch (bowId, period) {
-        case ("dev_bow1", .week):
-            return AnalyticsOverview(bowId: bowId, period: period, sessionCount: 3, avgScore: 81.5, topConfig: bc1c, suggestions: bow1Suggestions)
-        case ("dev_bow1", .twoWeeks):
-            return AnalyticsOverview(bowId: bowId, period: period, sessionCount: 5, avgScore: 76.2, topConfig: bc1c, suggestions: bow1Suggestions)
-        case ("dev_bow1", .month), ("dev_bow1", .threeDays):
-            return AnalyticsOverview(bowId: bowId, period: period, sessionCount: 8, avgScore: 68.9, topConfig: bc1c, suggestions: bow1Suggestions)
-        case ("dev_bow2", .week):
-            return AnalyticsOverview(bowId: bowId, period: period, sessionCount: 2, avgScore: 74.3, topConfig: bc2b, suggestions: bow2Suggestions)
-        case ("dev_bow2", _):
-            return AnalyticsOverview(bowId: bowId, period: period, sessionCount: 4, avgScore: 65.1, topConfig: bc2b, suggestions: bow2Suggestions)
-        default:
-            return AnalyticsOverview(bowId: bowId, period: period, sessionCount: 0, avgScore: 0, topConfig: nil, suggestions: [])
+    static func overview(period: AnalyticsPeriod) -> AnalyticsOverview {
+        let allSuggestions = bow1Suggestions + bow2Suggestions
+        switch period {
+        case .threeDays:   return AnalyticsOverview(period: period, sessionCount: 3,  avgArrowScore: 10.7, xPercentage: 72, suggestions: allSuggestions)
+        case .week:        return AnalyticsOverview(period: period, sessionCount: 5,  avgArrowScore: 10.3, xPercentage: 61, suggestions: allSuggestions)
+        case .twoWeeks:    return AnalyticsOverview(period: period, sessionCount: 9,  avgArrowScore: 10.0, xPercentage: 50, suggestions: allSuggestions)
+        case .month:       return AnalyticsOverview(period: period, sessionCount: 17, avgArrowScore: 9.7,  xPercentage: 41, suggestions: allSuggestions)
+        case .threeMonths: return AnalyticsOverview(period: period, sessionCount: 30, avgArrowScore: 9.4,  xPercentage: 32, suggestions: allSuggestions)
+        case .sixMonths:   return AnalyticsOverview(period: period, sessionCount: 54, avgArrowScore: 9.1,  xPercentage: 24, suggestions: allSuggestions)
+        case .year:        return AnalyticsOverview(period: period, sessionCount: 89, avgArrowScore: 8.8,  xPercentage: 18, suggestions: allSuggestions)
         }
     }
 }

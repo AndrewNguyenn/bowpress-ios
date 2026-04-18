@@ -33,25 +33,12 @@ final class DashboardViewModel {
 
     // MARK: - Actions
 
-    /// Fetches suggestions for all bows concurrently.
-    func load(bows: [Bow]) async {
+    func load() async {
         guard !isLoading else { return }
         isLoading = true
         error = nil
         do {
-            let fetched = try await withThrowingTaskGroup(of: [AnalyticsSuggestion].self) { group in
-                for bow in bows {
-                    group.addTask {
-                        try await APIClient.shared.fetchSuggestions(bowId: bow.id)
-                    }
-                }
-                var all: [AnalyticsSuggestion] = []
-                for try await batch in group {
-                    all.append(contentsOf: batch)
-                }
-                return all
-            }
-            // Preserve any local read-state mutations already applied this session.
+            let fetched = try await APIClient.shared.fetchSuggestions()
             let readIds = Set(suggestions.filter(\.wasRead).map(\.id))
             suggestions = fetched.map { s in
                 var copy = s

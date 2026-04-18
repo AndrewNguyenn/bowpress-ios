@@ -3,22 +3,32 @@ import SwiftUI
 // MARK: - Ring & Zone Thresholds
 
 private enum TargetGeometry {
-    /// Normalised radius boundaries for each ring (0…1 where 1 = outermost edge of ring 8)
-    static let xRadius:   Double = 0.201
-    static let r10Radius: Double = 0.401
-    static let r9Radius:  Double = 0.806
-    static let r8Radius:  Double = 1.00
+    // Pixel-measured boundaries in the 1470×1470 target_face.png (centre 735,735).
+    // Color zones: yellow 0–238px, red 238–475px, blue 475–594px.
+    // Yellow splits: X (0–60px) / ring 10 (60–119px) — user-confirmed X is half of old xRadius.
+    // Red splits: ring 9 (119–238px) / ring 8 (238–357px ... wait re-mapped below).
+    static let xRadius:   Double =  60.0 / 735.0   // 0.082 — X / 10 divider
+    static let r10Radius: Double = 119.0 / 735.0   // 0.162 — 10 / 9 divider
+    static let r9Radius:  Double = 238.0 / 735.0   // 0.324 — 9 / 8 divider (yellow→red)
+    static let r8Radius:  Double = 357.0 / 735.0   // 0.485 — 8 / 7 divider (mid of red)
+    static let r7Radius:  Double = 475.0 / 735.0   // 0.646 — 7 / 6 divider (red→blue)
+    static let r6Radius:  Double = 594.0 / 735.0   // 0.808 — outer edge of ring 6 (blue→white)
+
+    // Real mm per 1.0 normalised unit — used for the arrow-overlap scoring rule.
+    static let mmPerNormUnit: Double = 20.0 / r10Radius  // ring 10 outer ≈ 20mm → ~123.5 mm
 
     /// Within the X ring, this distance from absolute centre is the "CENTER" zone.
-    static let centerZoneRadius: Double = 0.05
+    static let centerZoneRadius: Double = 0.04
 
     static func ring(for normalizedDist: Double) -> Int? {
         switch normalizedDist {
-        case ..<xRadius:   return 11  // X
+        case ..<xRadius:   return 11  // X (displayed as "X", scores 10)
         case ..<r10Radius: return 10
         case ..<r9Radius:  return 9
         case ..<r8Radius:  return 8
-        default:           return nil  // outside target
+        case ..<r7Radius:  return 7
+        case ..<r6Radius:  return 6
+        default:           return nil
         }
     }
 
@@ -57,6 +67,7 @@ struct TargetPlotView: View {
     @State private var confirmationText: String?
     @State private var confirmationPosition: CGPoint = .zero
     @State private var confirmationOpacity: Double = 0
+    @State private var confirmationTask: Task<Void, Never>?
 
     // Live drag preview — dot shown above thumb while placing
     @State private var dragPreviewPoint: CGPoint? = nil
@@ -106,7 +117,6 @@ struct TargetPlotView: View {
                         .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
                         .position(confirmationPosition)
                         .opacity(confirmationOpacity)
-                        .animation(.easeOut(duration: 0.4), value: confirmationOpacity)
                         .allowsHitTesting(false)
                 }
             }
@@ -121,7 +131,10 @@ struct TargetPlotView: View {
                     .onEnded { value in
                         let placement = CGPoint(x: value.location.x,
                                                 y: value.location.y - touchOffset)
-                        handleTap(at: placement, center: center, radius: radius)
+                        // Use displayed dot radius so visual overlap matches scoring.
+                        let dotNormRadius = Double(arrowDotSize / 2) / Double(radius)
+                        handleTap(at: placement, center: center, radius: radius,
+                                  arrowNormRadius: dotNormRadius)
                         dragPreviewPoint = nil
                     } : nil
             )
@@ -131,13 +144,17 @@ struct TargetPlotView: View {
 
     // MARK: - Tap Handling
 
-    private func handleTap(at point: CGPoint, center: CGPoint, radius: CGFloat) {
+    private func handleTap(at point: CGPoint, center: CGPoint, radius: CGFloat,
+                           arrowNormRadius: Double) {
         let dx = point.x - center.x
         let dy = center.y - point.y  // flip y for standard math coords
         let dist = sqrt(dx * dx + dy * dy)
         let normalizedDist = Double(dist / radius)
 
-        guard let ring = TargetGeometry.ring(for: normalizedDist) else { return }
+        // Shift inward by the dot radius: if any visible part of the dot touches a higher ring, score it.
+        let scoringDist = max(0.0, normalizedDist - arrowNormRadius)
+
+        guard let ring = TargetGeometry.ring(for: scoringDist) else { return }
 
         let angle = atan2(Double(dy), Double(dx)) * 180 / .pi
         let zone = TargetGeometry.zone(for: normalizedDist, angle: angle)
@@ -148,8 +165,7 @@ struct TargetPlotView: View {
 
         // Show confirmation
         let ringLabel = ring == 11 ? "X" : "\(ring)"
-        let zoneLabel = zone == .center ? "Center" : zone.rawValue
-        confirmationText = "\(ringLabel)  ·  \(zoneLabel)"
+        confirmationText = ringLabel
         confirmationPosition = clampedLabelPosition(for: point, in: CGPoint(x: 0, y: 0))
         showConfirmation(near: point)
 
@@ -157,16 +173,16 @@ struct TargetPlotView: View {
     }
 
     private func showConfirmation(near point: CGPoint) {
-        // Position the label above the tap, pulled slightly up
+        confirmationTask?.cancel()
         confirmationPosition = CGPoint(x: point.x, y: max(point.y - 36, 24))
         confirmationOpacity = 1.0
 
-        Task {
+        confirmationTask = Task {
             try? await Task.sleep(for: .milliseconds(1200))
-            withAnimation(.easeIn(duration: 0.3)) {
-                confirmationOpacity = 0
-            }
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.3)) { confirmationOpacity = 0 }
             try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
             confirmationText = nil
         }
     }
@@ -194,10 +210,12 @@ struct TargetPlotView: View {
     private func normalizedRadius(for ring: Int, zone: ArrowPlot.Zone) -> Double {
         let jitter = pseudoJitter(for: ring)
         switch ring {
-        case 11: return zone == .center ? 0.04 : (TargetGeometry.xRadius * 0.6) + jitter * 0.03
-        case 10: return midpoint(TargetGeometry.xRadius, TargetGeometry.r10Radius) + jitter * 0.05
-        case 9:  return midpoint(TargetGeometry.r10Radius, TargetGeometry.r9Radius) + jitter * 0.05
-        case 8:  return midpoint(TargetGeometry.r9Radius, TargetGeometry.r8Radius) + jitter * 0.06
+        case 11: return zone == .center ? 0.02 : (TargetGeometry.xRadius * 0.7) + jitter * 0.01
+        case 10: return midpoint(TargetGeometry.xRadius, TargetGeometry.r10Radius) + jitter * 0.02
+        case 9:  return midpoint(TargetGeometry.r10Radius, TargetGeometry.r9Radius) + jitter * 0.04
+        case 8:  return midpoint(TargetGeometry.r9Radius, TargetGeometry.r8Radius) + jitter * 0.04
+        case 7:  return midpoint(TargetGeometry.r8Radius, TargetGeometry.r7Radius) + jitter * 0.04
+        case 6:  return midpoint(TargetGeometry.r7Radius, TargetGeometry.r6Radius) + jitter * 0.04
         default: return 0.5
         }
     }
@@ -265,10 +283,12 @@ private struct ArrowDot: View {
 
     private var dotColor: Color {
         switch ring {
-        case 11: return Color(red: 1.0, green: 0.72, blue: 0.0)
-        case 10: return Color(red: 0.98, green: 0.85, blue: 0.12)
-        case 9:  return Color(red: 0.88, green: 0.28, blue: 0.22)
-        case 8:  return Color(red: 0.42, green: 0.55, blue: 0.72)
+        case 11: return Color(red: 1.0,  green: 0.85, blue: 0.0)   // gold   (X, inner yellow)
+        case 10: return Color(red: 1.0,  green: 0.95, blue: 0.2)   // yellow (outer yellow zone)
+        case 9:  return Color(red: 1.0,  green: 0.95, blue: 0.2)   // yellow (still yellow zone)
+        case 8:  return Color(red: 0.88, green: 0.28, blue: 0.22)  // red
+        case 7:  return Color(red: 0.88, green: 0.28, blue: 0.22)  // red
+        case 6:  return Color(red: 0.0,  green: 0.73, blue: 0.89)  // blue
         default: return .gray
         }
     }
