@@ -77,8 +77,8 @@ struct TargetPlotView: View {
         GeometryReader { geo in
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
             let radius = min(geo.size.width, geo.size.height) / 2
-            // WA 40cm target: ring 8 outer = 160mm → scale arrow to match
-            let arrowDotSize = max(CGFloat(arrowDiameterMm) * (radius * 2) / 160.0, 8)
+            // Scale arrow to match real-world mm on the drawn face.
+            let arrowDotSize = max(CGFloat(arrowDiameterMm / TargetGeometry.mmPerNormUnit) * radius, 8)
 
             ZStack {
                 // MARK: Target face
