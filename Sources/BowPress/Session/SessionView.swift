@@ -153,7 +153,7 @@ struct SessionView: View {
                         Task { await viewModel.plotArrow(ring: ring, zone: zone, plotX: plotX, plotY: plotY) }
                     },
                     isEnabled: !viewModel.isLoading,
-                    arrowDiameterMm: viewModel.activeArrowConfig?.shaftDiameter?.rawValue ?? 5.0
+                    arrowDiameterMm: (viewModel.pendingArrowConfig ?? viewModel.activeArrowConfig)?.shaftDiameter?.rawValue ?? 5.0
                 )
                 .frame(maxWidth: 380)
                 .padding(.horizontal, 24)
