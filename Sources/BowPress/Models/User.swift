@@ -5,4 +5,5 @@ struct User: Identifiable, Codable, Equatable {
     var email: String
     var name: String
     var createdAt: Date
+    var emailVerified: Bool?
 }
