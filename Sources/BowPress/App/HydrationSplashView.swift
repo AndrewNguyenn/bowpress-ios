@@ -61,8 +61,18 @@ struct HydrationSplashView: View {
         ZStack {
             Color.appBackground.ignoresSafeArea()
 
-            VStack(spacing: 28) {
-                Spacer()
+            VStack(spacing: 24) {
+                // Target sits where the Analytics comparison heat map sits
+                // post-launch (~100pt below safe-area-top: inline nav ~44pt
+                // + content padding 8pt + period selector ~35pt + spacing),
+                // so the cross-fade is an in-place dissolve rather than a
+                // visual jump.
+                SplashTargetView(arrows: visibleArrows)
+                    .frame(maxWidth: 280)
+                    .aspectRatio(1, contentMode: .fit)
+                    .scaleEffect(targetScale)
+                    .padding(.horizontal, 40)
+                    .padding(.top, 100)
 
                 VStack(spacing: 6) {
                     Text("BowPress")
@@ -74,13 +84,6 @@ struct HydrationSplashView: View {
                 }
                 .opacity(titleOpacity)
 
-                SplashTargetView(arrows: visibleArrows)
-                    .frame(maxWidth: 280)
-                    .aspectRatio(1, contentMode: .fit)
-                    .scaleEffect(targetScale)
-                    .padding(.horizontal, 40)
-
-                Spacer()
                 Spacer()
             }
         }
