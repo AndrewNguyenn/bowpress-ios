@@ -42,6 +42,14 @@ extension Notification.Name {
 
 // MARK: - Protocol
 
+/// Result of a successful POST /bows/:bowId/suggestions/:id/apply.
+/// The caller persists the new BowConfiguration locally and updates the
+/// existing suggestion in-place to reflect the applied state.
+struct ApplyResult: Codable {
+    var suggestion: AnalyticsSuggestion
+    var newConfig: BowConfiguration
+}
+
 protocol BowPressAPIClient: AnyObject {
     func setToken(_ token: String)
     func signInWithApple(identityToken: String) async throws -> User
@@ -77,6 +85,10 @@ protocol BowPressAPIClient: AnyObject {
     // Subscription
     func fetchEntitlement() async throws -> Entitlement
     func verifyAppleTransaction(jws: String) async throws -> Entitlement
+
+    // Suggestions
+    func fetchSuggestion(bowId: String, id: String) async throws -> AnalyticsSuggestion
+    func applySuggestion(bowId: String, id: String) async throws -> ApplyResult
 }
 
 // MARK: - APIClient
@@ -319,6 +331,76 @@ final class APIClient: BowPressAPIClient {
         )
         try ensureSuccess(response: response, data: data)
         return try decoder.decode(PeriodComparison.self, from: data)
+    }
+
+    // MARK: - Suggestion detail + apply
+    func fetchSuggestion(bowId: String, id: String) async throws -> AnalyticsSuggestion {
+        #if DEBUG
+        if APIClient.useMocks {
+            // Mock mode: pull from in-memory DevMockData; surfacing the same
+            // structured evidence the previews use.
+            if let s = DevMockData.suggestions().first(where: { $0.id == id && $0.bowId == bowId }) {
+                return s
+            }
+            throw URLError(.fileDoesNotExist)
+        }
+        #endif
+        guard
+            let bowEnc = bowId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+            let idEnc = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
+        else { throw URLError(.badURL) }
+        let (data, response) = try await request(
+            method: "GET",
+            path: "/bows/\(bowEnc)/suggestions/\(idEnc)",
+            body: Optional<[String: String]>.none
+        )
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(AnalyticsSuggestion.self, from: data)
+    }
+
+    func applySuggestion(bowId: String, id: String) async throws -> ApplyResult {
+        #if DEBUG
+        if APIClient.useMocks {
+            // Mock-mode apply: synthesize a new BowConfiguration from the
+            // current cached config + the suggested value, return both. The
+            // view-model treats this exactly like a real server response.
+            guard let suggestion = DevMockData.suggestions().first(where: { $0.id == id && $0.bowId == bowId }) else {
+                throw URLError(.fileDoesNotExist)
+            }
+            let configs = DevMockData.bowConfigs(for: bowId)
+            guard let base = configs.sorted(by: { $0.createdAt > $1.createdAt }).first else {
+                throw URLError(.fileDoesNotExist)
+            }
+            var newConfig = base
+            newConfig.id = UUID().uuidString
+            newConfig.createdAt = Date()
+            newConfig.label = (base.label.map { "\($0) (auto: \(suggestion.parameter))" })
+                ?? "Auto-applied: \(suggestion.parameter)"
+            newConfig.isReference = false
+            newConfig.scoreable = false
+            newConfig.avgArrowScore = nil
+            // Best-effort numeric override on a known compound int field.
+            if let value = AnalyticsSuggestion.parsedNumber(from: suggestion.suggestedValue) {
+                AnalyticsSuggestion.applyMockValue(value, to: &newConfig, parameter: suggestion.parameter)
+            }
+            var applied = suggestion
+            applied.wasApplied = true
+            applied.appliedAt = Date()
+            applied.appliedConfigId = newConfig.id
+            return ApplyResult(suggestion: applied, newConfig: newConfig)
+        }
+        #endif
+        guard
+            let bowEnc = bowId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+            let idEnc = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
+        else { throw URLError(.badURL) }
+        let (data, response) = try await request(
+            method: "POST",
+            path: "/bows/\(bowEnc)/suggestions/\(idEnc)/apply",
+            body: Optional<[String: String]>.none
+        )
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(ApplyResult.self, from: data)
     }
 
     // MARK: - Account

@@ -150,19 +150,6 @@ struct AnalyticsView: View {
             .padding(.horizontal, 16)
         }
 
-        // Bow tuning suggestions
-        AnalyticsSuggestionsSection(
-            suggestions: viewModel.suggestions,
-            highlightedId: highlightedSuggestionId,
-            onMarkRead: { suggestion in
-                await viewModel.markRead(suggestion)
-            },
-            onDismiss: { suggestion in
-                await viewModel.dismiss(suggestion)
-            }
-        )
-        .padding(.horizontal, 16)
-
         // Spec §Analysis Outputs #3 and #4 — Change Impact Cards + Subjective-Objective
         // Correlation. Both are per-bow; we show them for the user's primary (first) bow.
         // When no bow exists, sections hide themselves via empty-state copy.
@@ -172,6 +159,20 @@ struct AnalyticsView: View {
             TagCorrelationsSection(bowId: bowId)
                 .padding(.horizontal, 16)
         }
+
+        // Bow tuning suggestions
+        AnalyticsSuggestionsSection(
+            suggestions: viewModel.suggestions,
+            highlightedId: highlightedSuggestionId,
+            onMarkRead: { suggestion in
+                await viewModel.markRead(suggestion)
+            },
+            onDismiss: { suggestion in
+                await viewModel.dismiss(suggestion)
+            },
+            viewModel: viewModel
+        )
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Empty state
