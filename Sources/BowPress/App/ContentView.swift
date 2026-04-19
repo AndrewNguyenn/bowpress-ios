@@ -4,20 +4,12 @@ struct ContentView: View {
     @Environment(AppState.self) private var appState
 
     var body: some View {
-        rootContent
-    }
-
-    @ViewBuilder
-    private var rootContent: some View {
         if !appState.isAuthenticated {
             AuthView()
-        } else if appState.isSubscribed {
-            MainTabView()
         } else {
-            PaywallView()
+            MainTabView()
+                .readOnlyGate(!appState.isSubscribed)
                 .task {
-                    // Pick up a fresher backend entitlement in case a restore
-                    // happened on another device.
                     await SubscriptionManager.shared.refreshEntitlement()
                     appState.entitlement = SubscriptionManager.shared.entitlement
                 }
@@ -27,6 +19,5 @@ struct ContentView: View {
 
 #Preview {
     let state = AppState()
-    ContentView()
-        .environment(state)
+    ContentView().environment(state)
 }
