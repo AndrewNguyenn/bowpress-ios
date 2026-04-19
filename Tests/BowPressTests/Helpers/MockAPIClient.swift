@@ -24,6 +24,15 @@ final class MockAPIClient: BowPressAPIClient {
     var verifyEmailError: AuthError?
     var resendError: Error?
 
+    // Subscription stubs
+    var entitlementToReturn: Entitlement = .inactive
+    var verifyAppleEntitlementToReturn: Entitlement = .inactive
+    var fetchEntitlementError: Error?
+    var verifyAppleError: Error?
+    private(set) var fetchEntitlementCallCount: Int = 0
+    private(set) var verifyAppleCallCount: Int = 0
+    private(set) var lastVerifyAppleJws: String?
+
     // MARK: - Protocol
 
     func setToken(_ token: String) {
@@ -80,4 +89,19 @@ final class MockAPIClient: BowPressAPIClient {
     func fetchPlots(sessionId: String) async throws -> [ArrowPlot] { [] }
     func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot { plot }
     func completeEnd(_ end: SessionEnd) async throws -> SessionEnd { end }
+
+    // MARK: - Subscription
+
+    func fetchEntitlement() async throws -> Entitlement {
+        fetchEntitlementCallCount += 1
+        if let err = fetchEntitlementError { throw err }
+        return entitlementToReturn
+    }
+
+    func verifyAppleTransaction(jws: String) async throws -> Entitlement {
+        verifyAppleCallCount += 1
+        lastVerifyAppleJws = jws
+        if let err = verifyAppleError { throw err }
+        return verifyAppleEntitlementToReturn
+    }
 }

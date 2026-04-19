@@ -21,17 +21,24 @@ final class SubscriptionManager {
 
     weak var appState: AppState?
 
+    /// API client seam — production uses `APIClient.shared`; tests inject a mock.
+    var client: BowPressAPIClient
+
     private var updatesTask: Task<Void, Never>?
 
-    private init() {
+    init(client: BowPressAPIClient = APIClient.shared, listenForTransactionUpdates: Bool = true) {
+        self.client = client
         // Background listener for transaction updates that arrive outside a direct
         // purchase flow (renewals, Ask to Buy approvals, cross-device restores).
-        // The singleton lives for the process lifetime, so we don't cancel in deinit.
-        self.updatesTask = Task.detached { [weak self] in
-            for await update in Transaction.updates {
-                guard case .verified(let transaction) = update else { continue }
-                await self?.handleVerified(transaction)
-                await transaction.finish()
+        // Tests pass listenForTransactionUpdates: false so no background Task
+        // leaks across cases.
+        if listenForTransactionUpdates {
+            self.updatesTask = Task.detached { [weak self] in
+                for await update in Transaction.updates {
+                    guard case .verified(let transaction) = update else { continue }
+                    await self?.handleVerified(transaction)
+                    await transaction.finish()
+                }
             }
         }
     }
@@ -59,7 +66,7 @@ final class SubscriptionManager {
 
     func refreshEntitlement() async {
         do {
-            let entitlement = try await APIClient.shared.fetchEntitlement()
+            let entitlement = try await client.fetchEntitlement()
             self.entitlement = entitlement
             appState?.entitlement = entitlement
         } catch {
@@ -83,7 +90,7 @@ final class SubscriptionManager {
                     return
                 }
                 let jws = verification.jwsRepresentation
-                let entitlement = try await APIClient.shared.verifyAppleTransaction(jws: jws)
+                let entitlement = try await client.verifyAppleTransaction(jws: jws)
                 self.entitlement = entitlement
                 appState?.entitlement = entitlement
                 await transaction.finish()
@@ -106,7 +113,7 @@ final class SubscriptionManager {
             for await result in Transaction.currentEntitlements {
                 guard case .verified = result else { continue }
                 let jws = result.jwsRepresentation
-                let entitlement = try await APIClient.shared.verifyAppleTransaction(jws: jws)
+                let entitlement = try await client.verifyAppleTransaction(jws: jws)
                 self.entitlement = entitlement
                 appState?.entitlement = entitlement
             }
@@ -120,7 +127,7 @@ final class SubscriptionManager {
     private func handleVerified(_ transaction: Transaction) async {
         do {
             let jws = transaction.jsonRepresentation.base64EncodedString()
-            let entitlement = try await APIClient.shared.verifyAppleTransaction(jws: jws)
+            let entitlement = try await client.verifyAppleTransaction(jws: jws)
             self.entitlement = entitlement
             appState?.entitlement = entitlement
         } catch {
