@@ -13,14 +13,28 @@ final class AnalyticsViewModel {
 
     private var engine: LocalAnalyticsEngine?
     private var appState: AppState?
+    private var localStore: LocalStore?
+    /// Optional override for tests; when nil we route through `APIClient.shared`.
+    private var apiClient: BowPressAPIClient?
+
+    /// Test-only setter so unit tests can inject a `MockAPIClient` without
+    /// touching production singleton wiring. Not @MainActor by accident —
+    /// the whole class is.
+    func _setAPIClient(_ client: BowPressAPIClient) {
+        self.apiClient = client
+    }
+
+    private var client: BowPressAPIClient { apiClient ?? APIClient.shared }
 
     func configure(store: LocalStore) {
         engine = LocalAnalyticsEngine(store: store)
+        localStore = store
     }
 
     func configure(store: LocalStore, appState: AppState) {
         engine = LocalAnalyticsEngine(store: store)
         self.appState = appState
+        localStore = store
     }
 
     // MARK: - Public API
@@ -35,6 +49,10 @@ final class AnalyticsViewModel {
             comparison = try engine.comparison(period: period)
             extraInsights = (try? engine.multiSessionInsights()) ?? []
             let readIds = Set(suggestions.filter(\.wasRead).map(\.id))
+            // Carry over any locally-applied state too — the server is the
+            // source of truth for `wasApplied` once it round-trips, but we
+            // optimistically flip it in memory before the network finishes.
+            let appliedIds = Set(suggestions.filter(\.wasApplied).map(\.id))
             var all: [AnalyticsSuggestion] = []
             if let appState {
                 for bow in appState.bows {
@@ -47,6 +65,7 @@ final class AnalyticsViewModel {
             suggestions = all.map { s in
                 var copy = s
                 if readIds.contains(s.id) { copy.wasRead = true }
+                if appliedIds.contains(s.id) { copy.wasApplied = true }
                 return copy
             }
         } catch {
@@ -80,6 +99,44 @@ final class AnalyticsViewModel {
             let insertAt = min(idx, suggestions.count)
             suggestions.insert(removed, at: insertAt)
             self.error = error.localizedDescription
+        }
+    }
+
+    /// Apply a suggestion: optimistically flips wasApplied locally so the row
+    /// re-sorts to the bottom + shows its "Applied" badge instantly, then
+    /// fires the server call. On success, persists the new BowConfiguration
+    /// to LocalStore and bumps the analytics refresh nonce; on failure,
+    /// reverts the optimistic change and surfaces `error`.
+    @discardableResult
+    func apply(_ suggestion: AnalyticsSuggestion) async throws -> BowConfiguration {
+        guard let idx = suggestions.firstIndex(where: { $0.id == suggestion.id }) else {
+            throw URLError(.fileDoesNotExist)
+        }
+        // Snapshot original so we can revert on failure.
+        let original = suggestions[idx]
+        suggestions[idx].wasApplied = true
+        suggestions[idx].appliedAt = Date()
+
+        do {
+            let result = try await client.applySuggestion(bowId: suggestion.bowId, id: suggestion.id)
+            // Reconcile with server-truth (id of new config, exact appliedAt).
+            if let i = suggestions.firstIndex(where: { $0.id == suggestion.id }) {
+                suggestions[i] = result.suggestion
+            }
+            // Persist new config locally so BowDetailView's config list shows
+            // it without a network round-trip.
+            try? localStore?.save(config: result.newConfig)
+            // Tell other tabs to refresh.
+            appState?.analyticsRefreshNonce += 1
+            appState?.bowConfigsRefreshNonce += 1
+            return result.newConfig
+        } catch {
+            // Revert optimistic flip; surface error.
+            if let i = suggestions.firstIndex(where: { $0.id == suggestion.id }) {
+                suggestions[i] = original
+            }
+            self.error = error.localizedDescription
+            throw error
         }
     }
 }

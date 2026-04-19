@@ -7,14 +7,25 @@ struct AnalyticsSuggestionsSection: View {
     var highlightedId: String? = nil
     var onMarkRead: ((AnalyticsSuggestion) async -> Void)? = nil
     var onDismiss: ((AnalyticsSuggestion) async -> Void)? = nil
+    /// Optional view-model handle so the row can push a detail view that
+    /// has the apply-action handle. When nil (previews), tapping a row
+    /// still navigates but the apply CTA is disabled in the detail view.
+    var viewModel: AnalyticsViewModel? = nil
 
     private let limit = 8
 
     @State private var showAll: Bool = false
     @State private var pendingDismiss: AnalyticsSuggestion?
 
-    private var visibleSuggestions: [AnalyticsSuggestion] {
-        let sorted = suggestions.sorted { $0.confidence > $1.confidence }
+    var visibleSuggestions: [AnalyticsSuggestion] {
+        // Push applied suggestions to the bottom — they're an audit trail,
+        // not actionable. Within each bucket, keep highest-confidence first.
+        let sorted = suggestions.sorted { lhs, rhs in
+            if lhs.wasApplied != rhs.wasApplied {
+                return !lhs.wasApplied // pending (false) before applied (true)
+            }
+            return lhs.confidence > rhs.confidence
+        }
         if showAll { return sorted }
         return Array(sorted.prefix(limit))
     }
@@ -41,31 +52,41 @@ struct AnalyticsSuggestionsSection: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(visibleSuggestions) { suggestion in
-                        SuggestionRow(suggestion: suggestion, onMarkRead: onMarkRead)
-                            .id(suggestion.id)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .strokeBorder(Color.appAccent, lineWidth: 3)
-                                    .opacity(suggestion.id == highlightedId ? 1 : 0)
-                                    .animation(.easeInOut(duration: 0.4), value: highlightedId)
-                            )
-                            .onAppear {
-                                if !suggestion.wasRead {
-                                    Task { await onMarkRead?(suggestion) }
+                        // Wrap the row in a NavigationLink so taps push the
+                        // detail view. `.swipeActions` lives at the row level
+                        // and is unaffected by the link wrap (verified by
+                        // SwiftUI's interaction with List/ScrollView swipe
+                        // gestures).
+                        NavigationLink {
+                            AnalyticsSuggestionDetailView(suggestion: suggestion, viewModel: viewModel)
+                        } label: {
+                            SuggestionRow(suggestion: suggestion, onMarkRead: onMarkRead)
+                        }
+                        .buttonStyle(.plain)
+                        .id(suggestion.id)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(Color.appAccent, lineWidth: 3)
+                                .opacity(suggestion.id == highlightedId ? 1 : 0)
+                                .animation(.easeInOut(duration: 0.4), value: highlightedId)
+                        )
+                        .onAppear {
+                            if !suggestion.wasRead {
+                                Task { await onMarkRead?(suggestion) }
+                            }
+                        }
+                        // Swipe-left trash reveals dismiss. allowsFullSwipe so a
+                        // long drag triggers the confirmation directly. Mirrors
+                        // the Equipment list bow/arrow delete UX.
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            if onDismiss != nil {
+                                Button(role: .destructive) {
+                                    pendingDismiss = suggestion
+                                } label: {
+                                    Label("Dismiss", systemImage: "trash")
                                 }
                             }
-                            // Swipe-left trash reveals dismiss. allowsFullSwipe so a
-                            // long drag triggers the confirmation directly. Mirrors
-                            // the Equipment list bow/arrow delete UX.
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                if onDismiss != nil {
-                                    Button(role: .destructive) {
-                                        pendingDismiss = suggestion
-                                    } label: {
-                                        Label("Dismiss", systemImage: "trash")
-                                    }
-                                }
-                            }
+                        }
                     }
                 }
 
@@ -146,10 +167,21 @@ private struct SuggestionRow: View {
                     .padding(.top, 5)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(alignment: .firstTextBaseline) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text(suggestion.parameter.bowParameterDisplayName)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.primary)
+                        if suggestion.wasApplied {
+                            // Audit-trail badge — applied rows stay visible
+                            // (sorted to bottom by visibleSuggestions) so the
+                            // archer can see what's been adopted.
+                            Text("Applied")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.green, in: Capsule())
+                        }
                         Spacer()
                         ConfidenceBadge(confidence: suggestion.confidence)
                     }
