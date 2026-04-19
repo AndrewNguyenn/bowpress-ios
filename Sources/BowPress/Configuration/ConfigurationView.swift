@@ -14,93 +14,98 @@ struct ConfigurationView: View {
     @State private var pendingDeleteBow: Bow?
     @State private var pendingDeleteArrow: ArrowConfiguration?
     @State private var navigateToNewBow: Bow?
+    @State private var pendingNavBow: Bow?
 
     var body: some View {
-        GeometryReader { geo in
-            VStack(spacing: 0) {
-                // MARK: Bows (top half)
-                VStack(spacing: 0) {
-                    sectionHeader(title: "Bows", systemImage: "scope") {
-                        if isReadOnly { showingPaywall = true }
-                        else { showAddBow = true }
+        List {
+            Section {
+                if isLoadingBows && appState.bows.isEmpty {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
                     }
-                    Divider()
-                    if isLoadingBows && appState.bows.isEmpty {
-                        Spacer(); ProgressView(); Spacer()
-                    } else if appState.bows.isEmpty {
-                        emptyState(message: "No bows yet")
-                    } else {
-                        List {
-                            ForEach(appState.bows) { bow in
-                                NavigationLink(destination: BowDetailView(bow: bow, appState: appState)) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(bow.name).font(.body.weight(.semibold))
-                                        Text(bow.bowType.label).font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    .padding(.vertical, 2)
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        if isReadOnly { showingPaywall = true }
-                                        else { pendingDeleteBow = bow }
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
+                } else if appState.bows.isEmpty {
+                    Text("No bows yet")
+                        .font(.subheadline)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    ForEach(appState.bows) { bow in
+                        NavigationLink(destination: BowDetailView(bow: bow, appState: appState)) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(bow.name).font(.body.weight(.semibold))
+                                Text(bow.bowType.label).font(.caption).foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                if isReadOnly { showingPaywall = true }
+                                else { pendingDeleteBow = bow }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
                         }
-                        .listStyle(.plain)
                     }
                 }
-                .frame(height: geo.size.height / 2)
+            } header: {
+                sectionHeader(title: "Bows", systemImage: "scope") {
+                    if isReadOnly { showingPaywall = true }
+                    else { showAddBow = true }
+                }
+            }
 
-                Divider().background(Color.appBorder)
-
-                // MARK: Arrows (bottom half)
-                VStack(spacing: 0) {
-                    sectionHeader(title: "Arrows", systemImage: "arrow.right") {
-                        if isReadOnly { showingPaywall = true }
-                        else { showAddArrow = true }
+            Section {
+                if isLoadingArrows && appState.arrowConfigs.isEmpty {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
                     }
-                    Divider()
-                    if isLoadingArrows && appState.arrowConfigs.isEmpty {
-                        Spacer(); ProgressView(); Spacer()
-                    } else if appState.arrowConfigs.isEmpty {
-                        emptyState(message: "No arrow setups yet")
-                    } else {
-                        List {
-                            ForEach(appState.arrowConfigs) { arrow in
-                                NavigationLink(destination: ArrowDetailView(arrow: arrow, appState: appState)) {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(arrow.label).font(.body.weight(.semibold))
-                                        Text("\(String(format: "%.2f", arrow.length))\" · \(arrow.pointWeight)gr point")
-                                            .font(.caption).foregroundStyle(.secondary)
-                                    }
-                                    .padding(.vertical, 2)
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) {
-                                        if isReadOnly { showingPaywall = true }
-                                        else { pendingDeleteArrow = arrow }
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
+                } else if appState.arrowConfigs.isEmpty {
+                    Text("No arrow setups yet")
+                        .font(.subheadline)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    ForEach(appState.arrowConfigs) { arrow in
+                        NavigationLink(destination: ArrowDetailView(arrow: arrow, appState: appState)) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(arrow.label).font(.body.weight(.semibold))
+                                Text("\(String(format: "%.2f", arrow.length))\" · \(arrow.pointWeight)gr point")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                if isReadOnly { showingPaywall = true }
+                                else { pendingDeleteArrow = arrow }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
                         }
-                        .listStyle(.plain)
                     }
                 }
-                .frame(height: geo.size.height / 2)
+            } header: {
+                sectionHeader(title: "Arrows", systemImage: "arrow.right") {
+                    if isReadOnly { showingPaywall = true }
+                    else { showAddArrow = true }
+                }
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("Equipment")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $navigateToNewBow) { bow in
             BowDetailView(bow: bow, appState: appState)
         }
-        .sheet(isPresented: $showAddBow) {
-            AddBowView(appState: appState, onCreated: { bow in navigateToNewBow = bow })
+        .sheet(isPresented: $showAddBow, onDismiss: {
+            if let bow = pendingNavBow {
+                navigateToNewBow = bow
+                pendingNavBow = nil
+            }
+        }) {
+            AddBowView(appState: appState, onCreated: { bow in pendingNavBow = bow })
         }
         .sheet(isPresented: $showAddArrow) { AddArrowView(appState: appState) }
         .sheet(isPresented: $showingPaywall) { NavigationStack { PaywallView() } }
@@ -163,16 +168,7 @@ struct ConfigurationView: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.appBackground)
-    }
-
-    @ViewBuilder
-    private func emptyState(message: String) -> some View {
-        Spacer()
-        Text(message).font(.subheadline).foregroundStyle(.tertiary)
-        Spacer()
+        .textCase(nil)
     }
 
     // MARK: - Data
