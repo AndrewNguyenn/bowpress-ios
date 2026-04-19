@@ -9,7 +9,7 @@ final class BackgroundSyncService {
     private let api: BowPressAPIClient
     private var store: LocalStore?
     private var isSyncing = false
-    nonisolated(unsafe) private let monitor = NWPathMonitor()
+    nonisolated private let monitor = NWPathMonitor()
 
     init(api: BowPressAPIClient = APIClient.shared) {
         self.api = api

@@ -21,7 +21,7 @@ final class PushRegistrar {
             print("[Push] authorization denied")
             return
         }
-        await UIApplication.shared.registerForRemoteNotifications()
+        UIApplication.shared.registerForRemoteNotifications()
     }
 
     func onTokenReceived(hex: String) {

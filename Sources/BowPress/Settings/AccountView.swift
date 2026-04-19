@@ -42,7 +42,9 @@ struct AccountView: View {
     private var actionsSection: some View {
         Section {
             NavigationLink("Edit Profile") { EditProfileView() }
-            NavigationLink("Change Password") { ChangePasswordView() }
+            if appState.currentUser?.canChangePassword ?? true {
+                NavigationLink("Change Password") { ChangePasswordView() }
+            }
             NavigationLink("Delete Account") { DeleteAccountView() }
                 .foregroundStyle(.red)
         }
@@ -100,6 +102,28 @@ struct AccountView: View {
     state.currentUser = User(
         id: "u2", email: "new@example.com", name: "New Archer",
         createdAt: Date(timeIntervalSince1970: 0), emailVerified: false
+    )
+    return NavigationStack { AccountView() }
+        .environment(state)
+}
+
+#Preview("Apple sign-in") {
+    let state = AppState()
+    state.currentUser = User(
+        id: "u3", email: "apple@example.com", name: "Apple Archer",
+        createdAt: Date(timeIntervalSince1970: 0), emailVerified: true,
+        authProvider: .apple
+    )
+    return NavigationStack { AccountView() }
+        .environment(state)
+}
+
+#Preview("Google sign-in") {
+    let state = AppState()
+    state.currentUser = User(
+        id: "u4", email: "google@example.com", name: "Google Archer",
+        createdAt: Date(timeIntervalSince1970: 0), emailVerified: true,
+        authProvider: .google
     )
     return NavigationStack { AccountView() }
         .environment(state)

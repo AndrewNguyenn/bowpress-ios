@@ -8,6 +8,10 @@ struct DeleteAccountView: View {
     @State private var showConfirmAlert: Bool = false
     @State private var errorMessage: String? = nil
 
+    private var requiresPassword: Bool {
+        appState.currentUser?.canChangePassword ?? true
+    }
+
     var body: some View {
         Form {
             Section {
@@ -22,9 +26,11 @@ struct DeleteAccountView: View {
                 .padding(.vertical, 4)
             }
 
-            Section("Confirm Password") {
-                SecureField("Password", text: $password)
-                    .textContentType(.password)
+            if requiresPassword {
+                Section("Confirm Password") {
+                    SecureField("Password", text: $password)
+                        .textContentType(.password)
+                }
             }
 
             if let errorMessage {
@@ -50,7 +56,7 @@ struct DeleteAccountView: View {
                         Spacer()
                     }
                 }
-                .disabled(password.isEmpty || isDeleting)
+                .disabled(deleteButtonDisabled)
             }
         }
         .navigationTitle("Delete Account")
@@ -63,13 +69,18 @@ struct DeleteAccountView: View {
         }
     }
 
+    private var deleteButtonDisabled: Bool {
+        if isDeleting { return true }
+        return requiresPassword && password.isEmpty
+    }
+
     private func confirmDelete() {
         errorMessage = nil
         isDeleting = true
 
         Task {
             do {
-                try await APIClient.shared.deleteAccount(password: password)
+                try await APIClient.shared.deleteAccount(password: requiresPassword ? password : nil)
                 await MainActor.run {
                     isDeleting = false
                     AuthService(appState: appState).signOut()
@@ -84,11 +95,22 @@ struct DeleteAccountView: View {
     }
 }
 
-#Preview {
+#Preview("Email account") {
     let state = AppState()
     state.currentUser = User(
         id: "u1", email: "a@example.com", name: "Sage Archer",
         createdAt: Date(timeIntervalSince1970: 0), emailVerified: true
+    )
+    return NavigationStack { DeleteAccountView() }
+        .environment(state)
+}
+
+#Preview("Apple account") {
+    let state = AppState()
+    state.currentUser = User(
+        id: "u2", email: "apple@example.com", name: "Apple Archer",
+        createdAt: Date(timeIntervalSince1970: 0), emailVerified: true,
+        authProvider: .apple
     )
     return NavigationStack { DeleteAccountView() }
         .environment(state)

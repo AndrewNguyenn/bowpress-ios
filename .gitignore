@@ -24,3 +24,6 @@ BowPress.xcodeproj/
 
 # macOS
 .DS_Store
+
+# Claude Code local worktrees and tooling
+.claude/
