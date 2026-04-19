@@ -34,8 +34,8 @@ struct ComparisonHeatMapView: View {
                 Canvas { context, size in
                     for (i, plot) in previousPlots.enumerated() {
                         let pt = plotPosition(for: plot, jitterIndex: i, in: size)
-                        let rect = CGRect(x: pt.x - 22, y: pt.y - 22, width: 44, height: 44)
-                        context.fill(Path(ellipseIn: rect), with: .color(previousColor.opacity(0.65)))
+                        let rect = CGRect(x: pt.x - 11, y: pt.y - 11, width: 22, height: 22)
+                        context.fill(Path(ellipseIn: rect), with: .color(previousColor.opacity(0.45)))
                     }
                 }
                 .drawingGroup()
@@ -46,8 +46,8 @@ struct ComparisonHeatMapView: View {
                 Canvas { context, size in
                     for (i, plot) in currentPlots.enumerated() {
                         let pt = plotPosition(for: plot, jitterIndex: i, in: size)
-                        let rect = CGRect(x: pt.x - 22, y: pt.y - 22, width: 44, height: 44)
-                        context.fill(Path(ellipseIn: rect), with: .color(currentColor.opacity(0.65)))
+                        let rect = CGRect(x: pt.x - 11, y: pt.y - 11, width: 22, height: 22)
+                        context.fill(Path(ellipseIn: rect), with: .color(currentColor.opacity(0.45)))
                     }
                 }
                 .drawingGroup()

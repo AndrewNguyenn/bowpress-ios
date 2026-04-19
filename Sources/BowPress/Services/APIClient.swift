@@ -426,8 +426,13 @@ final class APIClient: BowPressAPIClient {
         try ensureSuccess(response: response, data: data)
     }
 
-    func deleteAccount(password: String) async throws {
-        let (data, response) = try await request(method: "DELETE", path: "/me", body: ["password": password])
+    func deleteAccount(password: String?) async throws {
+        let (data, response): (Data, URLResponse)
+        if let password {
+            (data, response) = try await request(method: "DELETE", path: "/me", body: ["password": password])
+        } else {
+            (data, response) = try await request(method: "DELETE", path: "/me", body: Optional<[String: String]>.none)
+        }
         try ensureSuccess(response: response, data: data)
     }
 

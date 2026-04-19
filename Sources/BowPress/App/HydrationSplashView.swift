@@ -120,20 +120,6 @@ private struct SplashTargetView: View {
             .resizable()
             .scaledToFit()
             .overlay {
-                // Heatmap blob layer — grows denser as more arrows land.
-                Canvas { context, size in
-                    for (i, arrow) in arrows.enumerated() {
-                        let pt = position(for: arrow, index: i, in: size)
-                        let rect = CGRect(x: pt.x - 22, y: pt.y - 22, width: 44, height: 44)
-                        context.fill(Path(ellipseIn: rect), with: .color(Color.appAccent.opacity(0.72)))
-                    }
-                }
-                .drawingGroup()
-                .blur(radius: arrows.count < 6 ? 14 : arrows.count < 12 ? 10 : 7)
-                .animation(.easeInOut(duration: 0.4), value: arrows.count)
-            }
-            .overlay {
-                // Crisp arrow dots on top.
                 GeometryReader { geo in
                     ForEach(Array(arrows.enumerated()), id: \.element.id) { idx, arrow in
                         let pt = position(for: arrow, index: idx, in: geo.size)

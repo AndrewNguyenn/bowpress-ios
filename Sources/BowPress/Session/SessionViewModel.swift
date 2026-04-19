@@ -92,42 +92,38 @@ import Observation
     ) async {
         isLoading = true
         error = nil
-        do {
-            let session = ShootingSession(
-                id: UUID().uuidString,
-                bowId: bow.id,
-                bowConfigId: bowConfig.id,
-                arrowConfigId: arrowConfig.id,
-                startedAt: Date(),
-                endedAt: nil,
-                notes: "",
-                feelTags: [],
-                arrowCount: 0
-            )
-            // Persist locally first — session exists even if server is unreachable
-            try? store?.save(session: session)
-            currentSession = session
-            activeBowConfig = bowConfig
-            activeArrowConfig = arrowConfig
-            selectedBow = bow
-            knownBowConfigs = knownConfigs.isEmpty ? [bowConfig] : knownConfigs
-            onConfigConfirmed?(bow.id, bowConfig)
-            currentArrows = []
-            allArrows = []
-            completedEnds = []
-            endArrowCounts = []
-            sessionNotes = ""
-            pendingBowConfig = nil
-            pendingArrowConfig = nil
-            isSessionActive = true
-            // Best-effort immediate sync; BackgroundSyncService retries if offline
-            Task {
-                if let _ = try? await apiClient.createSession(session) {
-                    try? store?.markSessionSynced(id: session.id)
-                }
+        let session = ShootingSession(
+            id: UUID().uuidString,
+            bowId: bow.id,
+            bowConfigId: bowConfig.id,
+            arrowConfigId: arrowConfig.id,
+            startedAt: Date(),
+            endedAt: nil,
+            notes: "",
+            feelTags: [],
+            arrowCount: 0
+        )
+        // Persist locally first — session exists even if server is unreachable
+        try? store?.save(session: session)
+        currentSession = session
+        activeBowConfig = bowConfig
+        activeArrowConfig = arrowConfig
+        selectedBow = bow
+        knownBowConfigs = knownConfigs.isEmpty ? [bowConfig] : knownConfigs
+        onConfigConfirmed?(bow.id, bowConfig)
+        currentArrows = []
+        allArrows = []
+        completedEnds = []
+        endArrowCounts = []
+        sessionNotes = ""
+        pendingBowConfig = nil
+        pendingArrowConfig = nil
+        isSessionActive = true
+        // Best-effort immediate sync; BackgroundSyncService retries if offline
+        Task {
+            if let _ = try? await apiClient.createSession(session) {
+                try? store?.markSessionSynced(id: session.id)
             }
-        } catch {
-            self.error = error.localizedDescription
         }
         isLoading = false
     }
@@ -153,110 +149,106 @@ import Observation
 
         isLoading = true
         error = nil
-        do {
-            // Lazy session creation: if there is a pending config change we must open
-            // a new session segment before recording the arrow.
-            if hasPendingConfigChange {
-                let pendingBow = pendingBowConfig ?? activeBowConfig!
-                let resolvedArrowConfig = pendingArrowConfig ?? activeArrowConfig!
-                let bow = selectedBow!
+        // Lazy session creation: if there is a pending config change we must open
+        // a new session segment before recording the arrow.
+        if hasPendingConfigChange {
+            let pendingBow = pendingBowConfig ?? activeBowConfig!
+            let resolvedArrowConfig = pendingArrowConfig ?? activeArrowConfig!
+            let bow = selectedBow!
 
-                // Match pending config values against history before creating a new record.
-                let resolvedBowConfig: BowConfiguration
-                if let historical = knownBowConfigs.first(where: { $0.hasMatchingValues(pendingBow) }) {
-                    // Values match an existing config — reuse it, no API call needed.
-                    resolvedBowConfig = historical
-                } else {
-                    // Genuinely new config — persist it now that a shot is being fired.
-                    try? store?.save(config: pendingBow)
-                    knownBowConfigs.append(pendingBow)
-                    resolvedBowConfig = pendingBow
-                    Task {
-                        if let _ = try? await apiClient.createConfiguration(pendingBow) {
-                            try? store?.markBowConfigSynced(id: pendingBow.id)
-                        }
-                    }
-                }
-
-                let newSession = ShootingSession(
-                    id: UUID().uuidString,
-                    bowId: bow.id,
-                    bowConfigId: resolvedBowConfig.id,
-                    arrowConfigId: resolvedArrowConfig.id,
-                    startedAt: Date(),
-                    endedAt: nil,
-                    notes: "",
-                    feelTags: [],
-                    arrowCount: 0
-                )
-                try? store?.save(session: newSession)
-                currentSession = newSession
+            // Match pending config values against history before creating a new record.
+            let resolvedBowConfig: BowConfiguration
+            if let historical = knownBowConfigs.first(where: { $0.hasMatchingValues(pendingBow) }) {
+                // Values match an existing config — reuse it, no API call needed.
+                resolvedBowConfig = historical
+            } else {
+                // Genuinely new config — persist it now that a shot is being fired.
+                try? store?.save(config: pendingBow)
+                knownBowConfigs.append(pendingBow)
+                resolvedBowConfig = pendingBow
                 Task {
-                    if let _ = try? await apiClient.createSession(newSession) {
-                        try? store?.markSessionSynced(id: newSession.id)
-                    }
-                }
-
-                // Promote pending → active
-                activeBowConfig = resolvedBowConfig
-                activeArrowConfig = resolvedArrowConfig
-                pendingBowConfig = nil
-                pendingArrowConfig = nil
-                currentArrows = []
-                onConfigConfirmed?(bow.id, resolvedBowConfig)
-
-            } else if currentSession == nil {
-                let bow = selectedBow!
-                let bowConfig = activeBowConfig!
-                let arrowConfig = activeArrowConfig!
-
-                let firstSession = ShootingSession(
-                    id: UUID().uuidString,
-                    bowId: bow.id,
-                    bowConfigId: bowConfig.id,
-                    arrowConfigId: arrowConfig.id,
-                    startedAt: Date(),
-                    endedAt: nil,
-                    notes: "",
-                    feelTags: [],
-                    arrowCount: 0
-                )
-                try? store?.save(session: firstSession)
-                currentSession = firstSession
-                Task {
-                    if let _ = try? await apiClient.createSession(firstSession) {
-                        try? store?.markSessionSynced(id: firstSession.id)
+                    if let _ = try? await apiClient.createConfiguration(pendingBow) {
+                        try? store?.markBowConfigSynced(id: pendingBow.id)
                     }
                 }
             }
 
-            // Build and record the arrow plot
-            let plot = ArrowPlot(
+            let newSession = ShootingSession(
                 id: UUID().uuidString,
-                sessionId: currentSession!.id,
-                bowConfigId: activeBowConfig!.id,
-                arrowConfigId: activeArrowConfig!.id,
-                ring: ring,
-                zone: zone,
-                plotX: plotX,
-                plotY: plotY,
-                shotAt: Date(),
-                excluded: false,
-                notes: nil
+                bowId: bow.id,
+                bowConfigId: resolvedBowConfig.id,
+                arrowConfigId: resolvedArrowConfig.id,
+                startedAt: Date(),
+                endedAt: nil,
+                notes: "",
+                feelTags: [],
+                arrowCount: 0
             )
-            // Save locally first — arrow is never lost even if offline
-            try? store?.save(arrow: plot)
-            currentArrows.append(plot)
-            allArrows.append(plot)
+            try? store?.save(session: newSession)
+            currentSession = newSession
             Task {
-                if let _ = try? await apiClient.plotArrow(plot) {
-                    try? store?.markPlotSynced(id: plot.id)
+                if let _ = try? await apiClient.createSession(newSession) {
+                    try? store?.markSessionSynced(id: newSession.id)
                 }
             }
 
-        } catch {
-            self.error = error.localizedDescription
+            // Promote pending → active
+            activeBowConfig = resolvedBowConfig
+            activeArrowConfig = resolvedArrowConfig
+            pendingBowConfig = nil
+            pendingArrowConfig = nil
+            currentArrows = []
+            onConfigConfirmed?(bow.id, resolvedBowConfig)
+
+        } else if currentSession == nil {
+            let bow = selectedBow!
+            let bowConfig = activeBowConfig!
+            let arrowConfig = activeArrowConfig!
+
+            let firstSession = ShootingSession(
+                id: UUID().uuidString,
+                bowId: bow.id,
+                bowConfigId: bowConfig.id,
+                arrowConfigId: arrowConfig.id,
+                startedAt: Date(),
+                endedAt: nil,
+                notes: "",
+                feelTags: [],
+                arrowCount: 0
+            )
+            try? store?.save(session: firstSession)
+            currentSession = firstSession
+            Task {
+                if let _ = try? await apiClient.createSession(firstSession) {
+                    try? store?.markSessionSynced(id: firstSession.id)
+                }
+            }
         }
+
+        // Build and record the arrow plot
+        let plot = ArrowPlot(
+            id: UUID().uuidString,
+            sessionId: currentSession!.id,
+            bowConfigId: activeBowConfig!.id,
+            arrowConfigId: activeArrowConfig!.id,
+            ring: ring,
+            zone: zone,
+            plotX: plotX,
+            plotY: plotY,
+            shotAt: Date(),
+            excluded: false,
+            notes: nil
+        )
+        // Save locally first — arrow is never lost even if offline
+        try? store?.save(arrow: plot)
+        currentArrows.append(plot)
+        allArrows.append(plot)
+        Task {
+            if let _ = try? await apiClient.plotArrow(plot) {
+                try? store?.markPlotSynced(id: plot.id)
+            }
+        }
+
         isLoading = false
     }
 

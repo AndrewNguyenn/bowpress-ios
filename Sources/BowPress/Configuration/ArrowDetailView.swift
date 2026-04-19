@@ -92,24 +92,6 @@ struct ArrowDetailView: View {
             }
 
             Section {
-                Button {
-                    if isReadOnly { showingPaywall = true } else { Task { await save() } }
-                } label: {
-                    if isSaving {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
-                        }
-                    } else {
-                        Text("Save Changes")
-                            .frame(maxWidth: .infinity)
-                    }
-                }
-                .disabled(isSaving || label.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-
-            Section {
                 Button(role: .destructive) {
                     if isReadOnly { showingPaywall = true } else { showDeleteConfirm = true }
                 } label: {
@@ -123,6 +105,19 @@ struct ArrowDetailView: View {
         }
         .navigationTitle(arrow.label)
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                if isSaving {
+                    ProgressView()
+                } else {
+                    Button("Save") {
+                        if isReadOnly { showingPaywall = true } else { Task { await save() } }
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(label.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
         .alert("Error", isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }
