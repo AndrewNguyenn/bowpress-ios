@@ -37,8 +37,25 @@ struct MainTabView: View {
             .tag(3)
         }
         .tint(.appAccent)
+        .onChange(of: appState.bowConfigs) { _, newConfigs in
+            // Forward equipment-tab config saves into the active session so the banner
+            // and Change sheet reflect the update without requiring a manual re-apply.
+            guard sessionViewModel.isSessionActive,
+                  let bowId = sessionViewModel.selectedBow?.id,
+                  let updated = newConfigs[bowId] else { return }
+            let alreadyActive = sessionViewModel.activeBowConfig?.id == updated.id
+            let alreadyPending = sessionViewModel.pendingBowConfig?.id == updated.id
+            guard !alreadyActive && !alreadyPending else { return }
+            sessionViewModel.applyConfigChange(bowConfig: updated, arrowConfig: nil)
+        }
         .task {
             sessionViewModel.store = store
+            sessionViewModel.onConfigConfirmed = { bowId, config in
+                appState.bowConfigs[bowId] = config
+            }
+            sessionViewModel.onSessionCompleted = { completed in
+                appState.completedSessions.insert(completed, at: 0)
+            }
             syncService.configure(store: store)
             syncService.triggerSync()
             #if DEBUG
@@ -47,6 +64,7 @@ struct MainTabView: View {
             await LocalHydration.hydrateFromAPI(store: store, api: APIClient.shared)
             appState.bows = (try? store.fetchBows()) ?? appState.bows
             appState.arrowConfigs = (try? store.fetchArrowConfigs()) ?? appState.arrowConfigs
+            appState.completedSessions = (try? store.fetchSessions()) ?? appState.completedSessions
         }
     }
 

@@ -251,10 +251,10 @@ struct SessionSetupView: View {
         do {
             let configs = try await APIClient.shared.fetchConfigurations(bowId: bow.id)
             availableConfigs = configs.sorted { $0.createdAt > $1.createdAt }
-            selectedBowConfig = availableConfigs.first ?? BowConfiguration.makeDefault(for: bow.id)
+            selectedBowConfig = availableConfigs.first ?? BowConfiguration.makeDefault(for: bow)
         } catch {
             configError = error.localizedDescription
-            selectedBowConfig = BowConfiguration.makeDefault(for: bow.id)
+            selectedBowConfig = BowConfiguration.makeDefault(for: bow)
         }
         isLoadingConfig = false
     }
@@ -391,7 +391,7 @@ private struct ConfigPickerSheet: View {
                             Text(config.createdAt.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                            Text("Draw \(String(format: "%.1f\"", config.drawLength))  ·  Let-Off \(String(format: "%.0f%%", config.letOffPct))  ·  Peep \(String(format: "%.2f\"", config.peepHeight))")
+                            Text("Draw \(String(format: "%.1f\"", config.drawLength))  ·  Let-Off \(String(format: "%.0f%%", config.letOffPct ?? 0))  ·  Peep \(String(format: "%.2f\"", config.peepHeight ?? 0))")
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                         }

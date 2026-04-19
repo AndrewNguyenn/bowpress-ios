@@ -1,5 +1,19 @@
 import Foundation
 
+// ── DevMockData ──────────────────────────────────────────────────────────────
+// DEPRECATED as a data seed source. Kept as reference for the shape of the
+// fixtures DEBUG builds used to seed the in-memory SwiftData store with.
+//
+// DEBUG builds now fetch the same data from the Cloudflare API by auto-signing
+// in as the e2e test user (see Services/DevAutoSignIn.swift + the hydration
+// block in Navigation/MainTabView.swift). The server-side counterpart lives in
+// bowpress-api/scripts/seed-e2e.ts.
+//
+// Remaining live uses are DEBUG-only: SwiftUI #Preview blocks (Analytics/…)
+// and AppState.unreadSuggestionCount's initial value. If you're tempted to
+// call DevMockData from new code, prefer pulling from the API + LocalStore.
+// Do not delete this file without also updating the preview + AppState sites.
+
 #if DEBUG
 
 // MARK: - DevMockData
@@ -93,7 +107,7 @@ enum DevMockData {
         nockingHeight: 0,
         frontStabWeight: 12,
         frontStabAngle: 0,
-        rearStabSide: .none,
+        rearStabSide: RearStabSide.none,
         rearStabWeight: 0,
         rearStabVertAngle: 0,
         rearStabHorizAngle: 0
@@ -180,7 +194,7 @@ enum DevMockData {
         nockingHeight: 0,
         frontStabWeight: 10,
         frontStabAngle: 0,
-        rearStabSide: .none,
+        rearStabSide: RearStabSide.none,
         rearStabWeight: 0,
         rearStabVertAngle: 0,
         rearStabHorizAngle: 0
@@ -235,7 +249,6 @@ enum DevMockData {
             endedAt: daysAgo(35).addingTimeInterval(4_500),
             notes: "First range session with the new bow. Still finding anchor, groups were wide.",
             feelTags: ["anchor_drift", "rushed"],
-            conditions: SessionConditions(windSpeed: 8, tempF: 62, lighting: "bright"),
             arrowCount: 12
         ),
         ShootingSession(
@@ -247,7 +260,6 @@ enum DevMockData {
             endedAt: daysAgo(32).addingTimeInterval(5_400),
             notes: "Worked on back tension. Some improvement but still inconsistent peep alignment.",
             feelTags: ["back_tension", "peep_alignment"],
-            conditions: SessionConditions(windSpeed: 4, tempF: 68, lighting: "overcast"),
             arrowCount: 15
         ),
         ShootingSession(
@@ -259,7 +271,6 @@ enum DevMockData {
             endedAt: daysAgo(29).addingTimeInterval(5_100),
             notes: "Groups tightening slightly. Wind made it hard to judge impact consistently.",
             feelTags: ["wind_affected", "back_tension"],
-            conditions: SessionConditions(windSpeed: 12, tempF: 60, lighting: "bright"),
             arrowCount: 14
         ),
         ShootingSession(
@@ -271,7 +282,6 @@ enum DevMockData {
             endedAt: daysAgo(23).addingTimeInterval(4_800),
             notes: "New rest position making a clear difference. Cleaner breaks off the wall.",
             feelTags: ["clean_release", "consistent"],
-            conditions: SessionConditions(windSpeed: 2, tempF: 72, lighting: "bright"),
             arrowCount: 16
         ),
         ShootingSession(
@@ -283,7 +293,6 @@ enum DevMockData {
             endedAt: daysAgo(18).addingTimeInterval(3_600),
             notes: "Short session due to fatigue. Still, groups are noticeably tighter than first week.",
             feelTags: ["fatigue", "consistent"],
-            conditions: SessionConditions(windSpeed: 0, tempF: 75, lighting: "indoor"),
             arrowCount: 12
         ),
         ShootingSession(
@@ -295,7 +304,6 @@ enum DevMockData {
             endedAt: daysAgo(9).addingTimeInterval(5_400),
             notes: "Competition setup dialed in. Hitting consistent Xs in low-wind conditions.",
             feelTags: ["consistent", "clean_release"],
-            conditions: SessionConditions(windSpeed: 1, tempF: 70, lighting: "bright"),
             arrowCount: 18
         ),
         ShootingSession(
@@ -307,7 +315,6 @@ enum DevMockData {
             endedAt: daysAgo(5).addingTimeInterval(5_700),
             notes: "Best session yet. Back tension fully engaged, impact pattern very tight.",
             feelTags: ["back_tension", "clean_release", "consistent"],
-            conditions: SessionConditions(windSpeed: 3, tempF: 73, lighting: "bright"),
             arrowCount: 18
         ),
         ShootingSession(
@@ -319,7 +326,6 @@ enum DevMockData {
             endedAt: daysAgo(2).addingTimeInterval(5_400),
             notes: "Pre-comp tune check. Groups holding well. Minor sight drift to correct.",
             feelTags: ["consistent", "clean_release"],
-            conditions: SessionConditions(windSpeed: 5, tempF: 68, lighting: "overcast"),
             arrowCount: 18
         ),
     ]
@@ -334,7 +340,6 @@ enum DevMockData {
             endedAt: daysAgo(34).addingTimeInterval(4_200),
             notes: "Initial setup session. Getting used to the longer draw on the Hoyt.",
             feelTags: ["anchor_drift", "rushed"],
-            conditions: SessionConditions(windSpeed: 6, tempF: 58, lighting: "overcast"),
             arrowCount: 12
         ),
         ShootingSession(
@@ -346,7 +351,6 @@ enum DevMockData {
             endedAt: daysAgo(31).addingTimeInterval(4_500),
             notes: "More comfortable with the draw cycle. Groups still wide but more intentional.",
             feelTags: ["peep_alignment", "back_tension"],
-            conditions: SessionConditions(windSpeed: 9, tempF: 55, lighting: "bright"),
             arrowCount: 13
         ),
         ShootingSession(
@@ -358,7 +362,6 @@ enum DevMockData {
             endedAt: daysAgo(27).addingTimeInterval(5_100),
             notes: "Full tune applied. Huge difference in arrow flight stability off the rest.",
             feelTags: ["consistent", "clean_release"],
-            conditions: SessionConditions(windSpeed: 3, tempF: 71, lighting: "bright"),
             arrowCount: 14
         ),
         ShootingSession(
@@ -370,7 +373,6 @@ enum DevMockData {
             endedAt: daysAgo(20).addingTimeInterval(5_400),
             notes: "Focused on windage. Groups printing slightly left — adjustments logged.",
             feelTags: ["consistent", "peep_alignment"],
-            conditions: SessionConditions(windSpeed: 0, tempF: 78, lighting: "indoor"),
             arrowCount: 15
         ),
         ShootingSession(
@@ -382,7 +384,6 @@ enum DevMockData {
             endedAt: daysAgo(12).addingTimeInterval(5_700),
             notes: "Strong session. Back tension and release timing syncing up well.",
             feelTags: ["back_tension", "clean_release", "consistent"],
-            conditions: SessionConditions(windSpeed: 2, tempF: 74, lighting: "bright"),
             arrowCount: 15
         ),
         ShootingSession(
@@ -394,7 +395,6 @@ enum DevMockData {
             endedAt: daysAgo(6).addingTimeInterval(5_400),
             notes: "Late evening session, slightly fatigued but managed consistent groups.",
             feelTags: ["fatigue", "consistent"],
-            conditions: SessionConditions(windSpeed: 4, tempF: 65, lighting: "overcast"),
             arrowCount: 14
         ),
     ]
@@ -409,7 +409,12 @@ enum DevMockData {
 
     // MARK: - Arrow Plots
 
-    private static func makePlots(sessionId: String, bowConfigId: String, arrowConfigId: String, startedAt: Date, count: Int, rings: [Int], zones: [ArrowPlot.Zone]) -> [ArrowPlot] {
+    private static func makePlots(
+        sessionId: String, bowConfigId: String, arrowConfigId: String,
+        startedAt: Date, count: Int,
+        rings: [Int], zones: [ArrowPlot.Zone],
+        plotX: [Double] = [], plotY: [Double] = []
+    ) -> [ArrowPlot] {
         (0..<count).map { i in
             ArrowPlot(
                 id: "\(sessionId)_p\(i + 1)",
@@ -418,6 +423,8 @@ enum DevMockData {
                 arrowConfigId: arrowConfigId,
                 ring: rings[i % rings.count],
                 zone: zones[i % zones.count],
+                plotX: i < plotX.count ? plotX[i] : nil,
+                plotY: i < plotY.count ? plotY[i] : nil,
                 shotAt: startedAt.addingTimeInterval(Double(i) * 240),
                 excluded: false,
                 notes: nil
@@ -468,28 +475,34 @@ enum DevMockData {
             zones: [.ne, .n, .center, .ne, .center, .n, .ne, .center, .n, .center, .ne, .n]
         )
 
-        // dev_s1_6 — bc1c, 10s/11s, mostly center/n
+        // dev_s1_6 — bc1c, 10s/11s, mostly center/n, NE bias developing
         plots += makePlots(
             sessionId: "dev_s1_6", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
             startedAt: daysAgo(9), count: 18,
             rings: [10, 11, 10, 11, 10, 11, 10, 10, 11, 10, 11, 10, 11, 10, 10, 11, 10, 11],
-            zones: [.center, .n, .center, .center, .n, .center, .ne, .center, .center, .n, .center, .center, .n, .center, .center, .center, .n, .center]
+            zones: [.center, .n, .center, .center, .n, .center, .ne, .center, .center, .n, .center, .center, .n, .center, .center, .center, .n, .center],
+            plotX: [ 0.015,  0.012, -0.010,  0.018,  0.025, -0.005,  0.030, -0.018,  0.022,  0.010, -0.012,  0.028,  0.015, -0.015,  0.020,  0.010, -0.008,  0.008],
+            plotY: [ 0.095,  0.030,  0.112,  0.025,  0.095,  0.040,  0.108,  0.120,  0.035,  0.102,  0.042,  0.115,  0.038,  0.105,  0.092,  0.028,  0.118,  0.032]
         )
 
-        // dev_s1_7 — bc1c, best session, mostly 11s/Xs
+        // dev_s1_7 — bc1c, best session, mostly 11s/Xs, tight NE cluster
         plots += makePlots(
             sessionId: "dev_s1_7", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
             startedAt: daysAgo(5), count: 18,
             rings: [11, 11, 10, 11, 11, 10, 11, 11, 11, 10, 11, 11, 10, 11, 11, 11, 10, 11],
-            zones: [.center, .center, .n, .center, .center, .center, .n, .center, .center, .center, .center, .n, .center, .center, .center, .center, .n, .center]
+            zones: [.center, .center, .n, .center, .center, .center, .n, .center, .center, .center, .center, .n, .center, .center, .center, .center, .n, .center],
+            plotX: [ 0.020,  0.025,  0.088,  0.018,  0.028,  0.095,  0.015,  0.022,  0.030,  0.082,  0.012,  0.025,  0.098,  0.020,  0.018,  0.022,  0.085,  0.015],
+            plotY: [ 0.025,  0.030,  0.095,  0.022,  0.032,  0.105,  0.020,  0.028,  0.018,  0.108,  0.035,  0.030,  0.090,  0.025,  0.040,  0.015,  0.112,  0.028]
         )
 
-        // dev_s1_8 — bc1c, 10s/11s, tight
+        // dev_s1_8 — bc1c, 10s/11s, tightening, N bias only
         plots += makePlots(
             sessionId: "dev_s1_8", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
             startedAt: daysAgo(2), count: 18,
             rings: [10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11, 11],
-            zones: [.center, .center, .n, .center, .center, .n, .center, .center, .n, .center, .center, .center, .n, .center, .center, .center, .n, .center]
+            zones: [.center, .center, .n, .center, .center, .n, .center, .center, .n, .center, .center, .center, .n, .center, .center, .center, .n, .center],
+            plotX: [ 0.008,  0.012, -0.005,  0.015,  0.018, -0.010,  0.010, -0.008,  0.012,  0.020, -0.005,  0.015, -0.010,  0.010,  0.018,  0.008, -0.010,  0.020],
+            plotY: [ 0.088,  0.018,  0.025,  0.095,  0.022,  0.090,  0.015,  0.030,  0.085,  0.012,  0.092,  0.020,  0.028,  0.088,  0.010,  0.086,  0.022,  0.018]
         )
 
         // dev_s2_1 — bc2a, early, wide, 8s/9s
@@ -524,20 +537,24 @@ enum DevMockData {
             zones: [.nw, .w, .nw, .n, .nw, .w, .nw, .n, .w, .nw, .n, .nw, .w, .n, .nw]
         )
 
-        // dev_s2_5 — bc2b, 10s/11s
+        // dev_s2_5 — bc2b, 10s/11s, NW bias (left-high drift)
         plots += makePlots(
             sessionId: "dev_s2_5", bowConfigId: "dev_bc2b", arrowConfigId: "dev_arrow2",
             startedAt: daysAgo(12), count: 15,
             rings: [10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10],
-            zones: [.center, .n, .center, .center, .n, .center, .ne, .center, .n, .center, .center, .n, .center, .center, .n]
+            zones: [.center, .n, .center, .center, .n, .center, .ne, .center, .n, .center, .center, .n, .center, .center, .n],
+            plotX: [-0.068, -0.022, -0.080, -0.018, -0.072, -0.025, -0.085, -0.020, -0.078, -0.028, -0.070, -0.015, -0.082, -0.022, -0.075],
+            plotY: [ 0.065,  0.020,  0.055,  0.025,  0.070,  0.015,  0.062,  0.030,  0.060,  0.018,  0.068,  0.022,  0.058,  0.028,  0.065]
         )
 
-        // dev_s2_6 — bc2b, 10s/11s, consistent
+        // dev_s2_6 — bc2b, 10s/11s, NW bias persisting (consistent drift)
         plots += makePlots(
             sessionId: "dev_s2_6", bowConfigId: "dev_bc2b", arrowConfigId: "dev_arrow2",
             startedAt: daysAgo(6), count: 14,
             rings: [10, 11, 10, 11, 10, 10, 11, 10, 11, 10, 11, 10, 10, 11],
-            zones: [.center, .n, .center, .center, .n, .center, .center, .n, .center, .center, .n, .center, .center, .center]
+            zones: [.center, .n, .center, .center, .n, .center, .center, .n, .center, .center, .n, .center, .center, .center],
+            plotX: [-0.062, -0.018, -0.072, -0.015, -0.065, -0.078, -0.020, -0.070, -0.012, -0.068, -0.018, -0.075, -0.060, -0.015],
+            plotY: [ 0.060,  0.015,  0.055,  0.022,  0.062,  0.050,  0.018,  0.058,  0.025,  0.065,  0.020,  0.052,  0.068,  0.015]
         )
 
         return plots
@@ -545,6 +562,11 @@ enum DevMockData {
 
     static func arrowPlots(for sessionId: String) -> [ArrowPlot] {
         allArrowPlots.filter { $0.sessionId == sessionId }
+    }
+
+    static func ends(for sessionId: String) -> [SessionEnd] {
+        let allSessions = bow1Sessions + bow2Sessions
+        return allSessions.first { $0.id == sessionId }?.ends ?? []
     }
 
     // MARK: - Analytics Suggestions
@@ -669,52 +691,72 @@ enum DevMockData {
         switch period {
 
         case .threeDays:
+            // Current: tight NE cluster — X shots ~4mm NE, missed-X ring-10s just outside X ring N
             let cur = PeriodSlice(
                 label: "Last 3 Days",
                 plots: makePlots(
                     sessionId: "cmp_3d_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
                     startedAt: daysAgo(2), count: 18,
                     rings: [11, 11, 10, 11, 11, 10, 11, 11, 11, 10, 11, 11, 10, 11, 11, 11, 10, 11],
-                    zones:  [.center, .center, .n, .center, .center, .center, .n, .center, .center,
-                             .center, .center, .n, .center, .center, .center, .center, .n, .center]
+                    zones:  [.center, .center, .n, .center, .center, .n, .center, .center, .center,
+                             .n, .center, .center, .n, .center, .center, .center, .n, .center],
+                    plotX: [ 0.022,  0.016,  0.000,  0.025,  0.018,  0.030,  0.028,  0.012,  0.030,
+                            -0.025,  0.022,  0.020,  0.015,  0.025,  0.010,  0.024, -0.010,  0.018],
+                    plotY: [ 0.028,  0.022,  0.092,  0.018,  0.032,  0.088,  0.025,  0.035,  0.020,
+                             0.088,  0.030,  0.015,  0.090,  0.022,  0.038,  0.028,  0.092,  0.025]
                 ),
                 avgArrowScore: 10.7, xPercentage: 72, sessionCount: 3, config: bc1c
             )
+            // Previous: fewer Xs, N drift — missed-X ring-10s barely outside X ring, still very tight
             let prev = PeriodSlice(
                 label: "Previous 3 Days",
                 plots: makePlots(
                     sessionId: "cmp_3d_prv", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
                     startedAt: daysAgo(6), count: 18,
-                    rings: [10, 11, 10, 10, 11, 10, 10, 11, 10, 9, 11, 10, 10, 11, 10, 10, 9, 10],
-                    zones:  [.center, .center, .n, .ne, .center, .n, .center, .n, .ne,
-                             .n, .center, .n, .center, .center, .ne, .n, .ne, .center]
+                    rings: [10, 11, 10, 10, 11, 10, 10, 11, 10, 10, 11, 10, 10, 11, 10, 10, 10, 10],
+                    zones:  [.n, .center, .n, .n, .center, .n, .n, .center, .n,
+                             .n, .center, .n, .n, .center, .n, .n, .n, .n],
+                    plotX: [ 0.005,  0.010, -0.020,  0.025, -0.005, -0.035,  0.040,  0.015, -0.010,
+                             0.048, -0.008, -0.042,  0.030,  0.005, -0.015,  0.035, -0.025,  0.012],
+                    plotY: [ 0.090,  0.015,  0.088,  0.086,  0.022,  0.082,  0.082,  0.018,  0.092,
+                             0.076,  0.025,  0.080,  0.086,  0.020,  0.090,  0.084,  0.087,  0.091]
                 ),
-                avgArrowScore: 10.2, xPercentage: 44, sessionCount: 3, config: bc1c
+                avgArrowScore: 10.28, xPercentage: 28, sessionCount: 3, config: bc1c
             )
             return PeriodComparison(period: period, current: cur, previous: prev)
 
         case .twoWeeks:
+            // Current: tight NW cluster — X shots ~3.7mm NW, ring-10 just outside X ring NW
             let cur = PeriodSlice(
                 label: "This 2 Weeks",
                 plots: makePlots(
                     sessionId: "cmp_2w_cur", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
                     startedAt: daysAgo(7), count: 18,
                     rings: [10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11, 11],
-                    zones:  [.center, .center, .n, .center, .center, .n, .center, .center, .n,
-                             .center, .center, .n, .center, .center, .center, .n, .center, .center]
+                    zones:  [.nw, .nw, .nw, .nw, .nw, .nw, .nw, .nw, .nw,
+                             .nw, .nw, .nw, .nw, .nw, .nw, .nw, .nw, .nw],
+                    plotX: [-0.062, -0.018, -0.025, -0.068, -0.028, -0.072, -0.015, -0.030, -0.058,
+                            -0.020, -0.050, -0.032, -0.012, -0.078, -0.025, -0.045, -0.035, -0.015],
+                    plotY: [ 0.065,  0.020,  0.015,  0.060,  0.022,  0.055,  0.028,  0.012,  0.070,
+                             0.018,  0.078,  0.015,  0.030,  0.048,  0.010,  0.080,  0.018,  0.025]
                 ),
                 avgArrowScore: 10.6, xPercentage: 61, sessionCount: 7, config: bc1c
             )
+            // Previous: N drift on old config bc1a — tighter group, drift shifted after tuning change
             let prev = PeriodSlice(
                 label: "Previous 2 Weeks",
                 plots: makePlots(
                     sessionId: "cmp_2w_prv", bowConfigId: "dev_bc1a", arrowConfigId: "dev_arrow1",
                     startedAt: daysAgo(21), count: 18,
-                    rings: [8, 9, 8, 9, 8, 9, 8, 9, 9, 8, 9, 8, 9, 8, 9, 8, 9, 8],
-                    zones:  [.nw, .n, .ne, .w, .nw, .n, .ne, .nw, .n, .w, .ne, .nw,
-                             .n, .w, .nw, .ne, .n, .nw]
+                    rings: [10, 11, 10, 11, 10, 11, 10, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10],
+                    zones:  [.n, .center, .n, .center, .n, .center, .n, .n, .center,
+                             .n, .center, .n, .center, .n, .center, .n, .center, .n],
+                    plotX: [ 0.008,  0.008, -0.025, -0.010,  0.030,  0.012, -0.040,  0.020, -0.006,
+                            -0.012,  0.010,  0.045, -0.015, -0.038,  0.005,  0.025, -0.008, -0.020],
+                    plotY: [ 0.090,  0.018,  0.086,  0.025,  0.085,  0.015,  0.080,  0.088,  0.028,
+                             0.092,  0.012,  0.078,  0.022,  0.082,  0.020,  0.087,  0.015,  0.089]
                 ),
-                avgArrowScore: 8.5, xPercentage: 0, sessionCount: 5, config: bc1a
+                avgArrowScore: 10.44, xPercentage: 44, sessionCount: 5, config: bc1a
             )
             return PeriodComparison(period: period, current: cur, previous: prev)
 

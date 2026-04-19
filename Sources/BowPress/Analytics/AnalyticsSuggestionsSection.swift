@@ -4,11 +4,14 @@ import SwiftUI
 
 struct AnalyticsSuggestionsSection: View {
     let suggestions: [AnalyticsSuggestion]
+    var highlightedId: String? = nil
     var onMarkRead: ((AnalyticsSuggestion) async -> Void)? = nil
+    var onDismiss: ((AnalyticsSuggestion) async -> Void)? = nil
 
     private let limit = 8
 
     @State private var showAll: Bool = false
+    @State private var pendingDismiss: AnalyticsSuggestion?
 
     private var visibleSuggestions: [AnalyticsSuggestion] {
         let sorted = suggestions.sorted { $0.confidence > $1.confidence }
@@ -39,9 +42,28 @@ struct AnalyticsSuggestionsSection: View {
                 VStack(spacing: 10) {
                     ForEach(visibleSuggestions) { suggestion in
                         SuggestionRow(suggestion: suggestion, onMarkRead: onMarkRead)
+                            .id(suggestion.id)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(Color.appAccent, lineWidth: 3)
+                                    .opacity(suggestion.id == highlightedId ? 1 : 0)
+                                    .animation(.easeInOut(duration: 0.4), value: highlightedId)
+                            )
                             .onAppear {
                                 if !suggestion.wasRead {
                                     Task { await onMarkRead?(suggestion) }
+                                }
+                            }
+                            // Swipe-left trash reveals dismiss. allowsFullSwipe so a
+                            // long drag triggers the confirmation directly. Mirrors
+                            // the Equipment list bow/arrow delete UX.
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                if onDismiss != nil {
+                                    Button(role: .destructive) {
+                                        pendingDismiss = suggestion
+                                    } label: {
+                                        Label("Dismiss", systemImage: "trash")
+                                    }
                                 }
                             }
                     }
@@ -67,6 +89,23 @@ struct AnalyticsSuggestionsSection: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+        .alert(
+            "Dismiss suggestion?",
+            isPresented: Binding(
+                get: { pendingDismiss != nil },
+                set: { if !$0 { pendingDismiss = nil } }
+            ),
+            presenting: pendingDismiss
+        ) { suggestion in
+            Button("Cancel", role: .cancel) { pendingDismiss = nil }
+            Button("Dismiss", role: .destructive) {
+                let s = suggestion
+                pendingDismiss = nil
+                Task { await onDismiss?(s) }
+            }
+        } message: { _ in
+            Text("This suggestion won't appear again unless the underlying pattern re-fires after 3 more sessions.")
         }
     }
 

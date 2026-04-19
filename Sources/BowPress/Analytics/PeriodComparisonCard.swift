@@ -5,9 +5,25 @@ import SwiftUI
 struct ComparisonHeatMapView: View {
     let currentPlots: [ArrowPlot]
     let previousPlots: [ArrowPlot]
+    var currentCentroidColor: Color  = Color(red: 0.62, green: 0.0, blue: 0.05)
+    var previousCentroidColor: Color = Color(red: 0.28, green: 0.0, blue: 0.52)
 
     private let previousColor = Color(red: 0.55, green: 0.10, blue: 0.90)
     private let currentColor  = Color(red: 0.95, green: 0.10, blue: 0.15)
+
+    private func adaptiveBlur(_ plots: [ArrowPlot]) -> CGFloat {
+        let pts = plots.compactMap { p -> (Double, Double)? in
+            guard let x = p.plotX, let y = p.plotY else { return nil }
+            return (x, y)
+        }
+        guard !pts.isEmpty else { return 10 }
+        let cx = pts.map(\.0).reduce(0, +) / Double(pts.count)
+        let cy = pts.map(\.1).reduce(0, +) / Double(pts.count)
+        let spread = sqrt(pts.map { pow($0.0 - cx, 2) + pow($0.1 - cy, 2) }.reduce(0, +) / Double(pts.count))
+        if spread < 0.08 { return 5 }
+        if spread < 0.18 { return 8 }
+        return 12
+    }
 
     var body: some View {
         Image("target_face")
@@ -17,56 +33,71 @@ struct ComparisonHeatMapView: View {
             .overlay {
                 Canvas { context, size in
                     for (i, plot) in previousPlots.enumerated() {
-                        let pt = position(for: plot, jitterIndex: i, in: size)
+                        let pt = plotPosition(for: plot, jitterIndex: i, in: size)
                         let rect = CGRect(x: pt.x - 22, y: pt.y - 22, width: 44, height: 44)
                         context.fill(Path(ellipseIn: rect), with: .color(previousColor.opacity(0.65)))
                     }
                 }
                 .drawingGroup()
-                .blur(radius: 10)
+                .blur(radius: adaptiveBlur(previousPlots))
             }
             // Current period blobs
             .overlay {
                 Canvas { context, size in
                     for (i, plot) in currentPlots.enumerated() {
-                        let pt = position(for: plot, jitterIndex: i, in: size)
+                        let pt = plotPosition(for: plot, jitterIndex: i, in: size)
                         let rect = CGRect(x: pt.x - 22, y: pt.y - 22, width: 44, height: 44)
                         context.fill(Path(ellipseIn: rect), with: .color(currentColor.opacity(0.65)))
                     }
                 }
                 .drawingGroup()
-                .blur(radius: 10)
+                .blur(radius: adaptiveBlur(currentPlots))
             }
-            // Centroid markers — solid dot with black ring showing average impact point
+            // σ spread circles + centroid markers
             .overlay {
                 Canvas { context, size in
+                    let halfW = size.width / 2
                     let r: CGFloat = 14
-                    let borderW: CGFloat = 2.5
-                    if let pc = centroid(for: previousPlots, in: size) {
-                        let fill = CGRect(x: pc.x - r, y: pc.y - r, width: r * 2, height: r * 2)
-                        let ring = CGRect(x: pc.x - r - borderW, y: pc.y - r - borderW,
-                                          width: (r + borderW) * 2, height: (r + borderW) * 2)
-                        context.fill(Path(ellipseIn: fill), with: .color(previousColor))
-                        context.stroke(Path(ellipseIn: ring), with: .color(.black.opacity(0.85)), lineWidth: borderW)
+
+                    func drawCentroidOverlay(_ plots: [ArrowPlot], color: Color, isCurrent: Bool) {
+                        guard let cn = precisionCentroidNorm(plots) else { return }
+                        let cs = normToScreen(cn, in: size)
+                        // σ spread circle
+                        if let spread = groupSpreadNorm(plots) {
+                            let spreadPx = CGFloat(spread * halfW)
+                            let sr = CGRect(x: cs.x - spreadPx, y: cs.y - spreadPx, width: spreadPx * 2, height: spreadPx * 2)
+                            context.stroke(Path(ellipseIn: sr), with: .color(color.opacity(0.4)), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                        }
+                        let dotRect = CGRect(x: cs.x - r, y: cs.y - r, width: r * 2, height: r * 2)
+                        context.fill(Path(ellipseIn: dotRect), with: .color(color))
+                        context.stroke(Path(ellipseIn: dotRect), with: .color(.black.opacity(0.85)), lineWidth: 1.5)
                     }
-                    if let cc = centroid(for: currentPlots, in: size) {
-                        let fill = CGRect(x: cc.x - r, y: cc.y - r, width: r * 2, height: r * 2)
-                        let ring = CGRect(x: cc.x - r - borderW, y: cc.y - r - borderW,
-                                          width: (r + borderW) * 2, height: (r + borderW) * 2)
-                        context.fill(Path(ellipseIn: fill), with: .color(currentColor))
-                        context.stroke(Path(ellipseIn: ring), with: .color(.black.opacity(0.85)), lineWidth: borderW)
-                    }
+
+                    drawCentroidOverlay(previousPlots, color: previousCentroidColor, isCurrent: false)
+                    drawCentroidOverlay(currentPlots,  color: currentCentroidColor,  isCurrent: true)
                 }
             }
-            .clipShape(Circle())
     }
 
     // MARK: - Position helpers
 
-    private func position(for plot: ArrowPlot, jitterIndex: Int, in size: CGSize) -> CGPoint {
+    private func normToScreen(_ norm: (x: Double, y: Double), in size: CGSize) -> CGPoint {
+        CGPoint(
+            x: size.width / 2  + CGFloat(norm.x) * size.width / 2,
+            y: size.height / 2 - CGFloat(norm.y) * size.height / 2
+        )
+    }
+
+    private func plotPosition(for plot: ArrowPlot, jitterIndex: Int, in size: CGSize) -> CGPoint {
+        if let px = plot.plotX, let py = plot.plotY {
+            return normToScreen((px, py), in: size)
+        }
+        return ringZonePosition(for: plot, jitterIndex: jitterIndex, in: size)
+    }
+
+    private func ringZonePosition(for plot: ArrowPlot, jitterIndex: Int, in size: CGSize) -> CGPoint {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         let halfW  = size.width / 2
-
         let normalizedRadius: Double
         switch plot.ring {
         case 11: normalizedRadius = 0.08
@@ -74,7 +105,6 @@ struct ComparisonHeatMapView: View {
         case 9:  normalizedRadius = 0.494
         default: normalizedRadius = 0.83
         }
-
         let baseAngle: Double
         switch plot.zone {
         case .center: baseAngle = Double(jitterIndex % 6) * .pi / 3
@@ -87,19 +117,23 @@ struct ComparisonHeatMapView: View {
         case .w:      baseAngle =  .pi
         case .nw:     baseAngle =  .pi * 3 / 4
         }
-
         let jitter = Double(jitterIndex % 5) * 0.12 - 0.24
-        let angle  = baseAngle + jitter
-        let r      = normalizedRadius * halfW * 0.92
-
-        return CGPoint(x: center.x + r * cos(angle), y: center.y - r * sin(angle))
+        let r = normalizedRadius * halfW * 0.92
+        return CGPoint(x: center.x + r * cos(baseAngle + jitter), y: center.y - r * sin(baseAngle + jitter))
     }
 
-    private func centroid(for plots: [ArrowPlot], in size: CGSize) -> CGPoint? {
+    private func precisionCentroidNorm(_ plots: [ArrowPlot]) -> (x: Double, y: Double)? {
         guard !plots.isEmpty else { return nil }
-        let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        let halfW  = size.width / 2
-        var sumX: Double = 0, sumY: Double = 0
+        let real = plots.compactMap { p -> (Double, Double)? in
+            guard let x = p.plotX, let y = p.plotY else { return nil }
+            return (x, y)
+        }
+        if !real.isEmpty {
+            return (real.map(\.0).reduce(0, +) / Double(real.count),
+                    real.map(\.1).reduce(0, +) / Double(real.count))
+        }
+        // Fallback: ring/zone reconstruction
+        var sumX = 0.0, sumY = 0.0
         for plot in plots {
             let nr: Double
             switch plot.ring {
@@ -120,12 +154,22 @@ struct ComparisonHeatMapView: View {
             case .w:  angle =  .pi
             case .nw: angle =  .pi * 3 / 4
             }
-            let r = nr * halfW * 0.92
-            sumX += center.x + r * cos(angle)
-            sumY += center.y - r * sin(angle)
+            sumX += nr * cos(angle)
+            sumY += nr * sin(angle)
         }
         let n = Double(plots.count)
-        return CGPoint(x: sumX / n, y: sumY / n)
+        return (x: sumX / n, y: sumY / n)
+    }
+
+    private func groupSpreadNorm(_ plots: [ArrowPlot]) -> Double? {
+        let real = plots.compactMap { p -> (Double, Double)? in
+            guard let x = p.plotX, let y = p.plotY else { return nil }
+            return (x, y)
+        }
+        guard !real.isEmpty else { return nil }
+        let cx = real.map(\.0).reduce(0, +) / Double(real.count)
+        let cy = real.map(\.1).reduce(0, +) / Double(real.count)
+        return sqrt(real.map { pow($0.0 - cx, 2) + pow($0.1 - cy, 2) }.reduce(0, +) / Double(real.count))
     }
 }
 
@@ -134,8 +178,10 @@ struct ComparisonHeatMapView: View {
 struct PeriodComparisonCard: View {
     let comparison: PeriodComparison
 
-    private let previousColor = Color(red: 0.55, green: 0.10, blue: 0.90)
-    private let currentColor  = Color(red: 0.95, green: 0.10, blue: 0.15)
+    private let previousColor         = Color(red: 0.55, green: 0.10, blue: 0.90)
+    private let currentColor          = Color(red: 0.95, green: 0.10, blue: 0.15)
+    private let previousCentroidColor = Color(red: 0.28, green: 0.0,  blue: 0.52)
+    private let currentCentroidColor  = Color(red: 0.62, green: 0.0,  blue: 0.05)
 
     private var insights: [Insight] { buildInsights() }
 
@@ -145,7 +191,9 @@ struct PeriodComparisonCard: View {
             // ── Target heat map ──
             ComparisonHeatMapView(
                 currentPlots: comparison.current.plots,
-                previousPlots: comparison.previous.plots
+                previousPlots: comparison.previous.plots,
+                currentCentroidColor: currentCentroidColor,
+                previousCentroidColor: previousCentroidColor
             )
             .padding(12)
             .frame(maxWidth: .infinity)
@@ -267,8 +315,11 @@ struct PeriodComparisonCard: View {
         let curC  = normalizedCentroid(cur.plots)
         let prevDist = hypot(prevC.x, prevC.y)
         let curDist  = hypot(curC.x, curC.y)
+        let isPrecision = max(cur.avgArrowScore, prev.avgArrowScore) >= 9.5
+        let centroidShiftThreshold: Double = isPrecision ? 0.02 : 0.08
+        let dirShiftThreshold: Double = isPrecision ? 0.03 : 0.12
 
-        if abs(prevDist - curDist) >= 0.08 {
+        if abs(prevDist - curDist) >= centroidShiftThreshold {
             if curDist < prevDist {
                 let pct = Int(((prevDist - curDist) / max(prevDist, 0.01)) * 100)
                 result.append(Insight(
@@ -289,7 +340,7 @@ struct PeriodComparisonCard: View {
         let dx = curC.x - prevC.x
         let dy = curC.y - prevC.y
         let shiftMag = hypot(dx, dy)
-        if shiftMag >= 0.12 {
+        if shiftMag >= dirShiftThreshold {
             let dir = primaryDirection(dx: dx, dy: dy)
             result.append(Insight(
                 icon: "arrow.up.left.and.arrow.down.right",
@@ -345,7 +396,7 @@ struct PeriodComparisonCard: View {
     private func configInsights(from prev: BowConfiguration, to cur: BowConfiguration) -> [Insight] {
         var items: [Insight] = []
 
-        let sightDelta = cur.sightPosition - prev.sightPosition
+        let sightDelta = (cur.sightPosition ?? 0) - (prev.sightPosition ?? 0)
         if sightDelta != 0 {
             let dir = sightDelta > 0 ? "back \(abs(sightDelta)) step\(abs(sightDelta)==1 ? "" : "s")"
                                      : "forward \(abs(sightDelta)) step\(abs(sightDelta)==1 ? "" : "s")"
@@ -374,8 +425,9 @@ struct PeriodComparisonCard: View {
             ))
         }
 
-        let cableDelta = (cur.topCableTwists + cur.bottomCableTwists)
-                       - (prev.topCableTwists + prev.bottomCableTwists)
+        let curCables: Int = (cur.topCableTwists ?? 0) + (cur.bottomCableTwists ?? 0)
+        let prevCables: Int = (prev.topCableTwists ?? 0) + (prev.bottomCableTwists ?? 0)
+        let cableDelta = curCables - prevCables
         if cableDelta != 0 {
             items.append(Insight(
                 icon: "tuningfork",
@@ -384,8 +436,9 @@ struct PeriodComparisonCard: View {
             ))
         }
 
-        let limbDelta = (cur.topLimbTurns + cur.bottomLimbTurns)
-                      - (prev.topLimbTurns + prev.bottomLimbTurns)
+        let curLimbs: Double = (cur.topLimbTurns ?? 0) + (cur.bottomLimbTurns ?? 0)
+        let prevLimbs: Double = (prev.topLimbTurns ?? 0) + (prev.bottomLimbTurns ?? 0)
+        let limbDelta = curLimbs - prevLimbs
         if limbDelta != 0 {
             items.append(Insight(
                 icon: "tuningfork",
@@ -401,6 +454,14 @@ struct PeriodComparisonCard: View {
 
     private func normalizedCentroid(_ plots: [ArrowPlot]) -> (x: Double, y: Double) {
         guard !plots.isEmpty else { return (0, 0) }
+        let real = plots.compactMap { p -> (Double, Double)? in
+            guard let x = p.plotX, let y = p.plotY else { return nil }
+            return (x, y)
+        }
+        if !real.isEmpty {
+            return (x: real.map(\.0).reduce(0, +) / Double(real.count),
+                    y: real.map(\.1).reduce(0, +) / Double(real.count))
+        }
         var sumX = 0.0, sumY = 0.0
         for plot in plots {
             let r: Double
@@ -423,7 +484,7 @@ struct PeriodComparisonCard: View {
             case .nw: angle =  .pi * 3 / 4
             }
             sumX += r * cos(angle)
-            sumY += r * sin(angle) // positive y = north/up on target
+            sumY += r * sin(angle)
         }
         let n = Double(plots.count)
         return (x: sumX / n, y: sumY / n)

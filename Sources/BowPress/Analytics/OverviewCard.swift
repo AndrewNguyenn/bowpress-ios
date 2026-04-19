@@ -13,6 +13,12 @@ struct OverviewCard: View {
         }
     }
 
+    private var scoreString: String {
+        overview.avgArrowScore >= 9.8
+            ? String(format: "%.2f", overview.avgArrowScore)
+            : String(format: "%.1f", overview.avgArrowScore)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
 
@@ -26,7 +32,7 @@ struct OverviewCard: View {
 
                 // Avg arrow score
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(String(format: "%.1f", overview.avgArrowScore))
+                    Text(scoreString)
                         .font(.system(size: 52, weight: .bold, design: .rounded))
                         .foregroundStyle(scoreColor)
                         .contentTransition(.numericText())
@@ -141,7 +147,7 @@ extension BowConfiguration {
             restVertical: 0, restHorizontal: 0, restDepth: 0,
             sightPosition: 0, gripAngle: 0, nockingHeight: 0,
             frontStabWeight: 12, frontStabAngle: 0,
-            rearStabSide: .none, rearStabWeight: 0, rearStabVertAngle: 0, rearStabHorizAngle: 0
+            rearStabSide: RearStabSide.none, rearStabWeight: 0, rearStabVertAngle: 0, rearStabHorizAngle: 0
         ),
         BowConfiguration(
             id: "c2", bowId: "b1",
@@ -155,7 +161,7 @@ extension BowConfiguration {
             restVertical: 1, restHorizontal: 0, restDepth: 0,
             sightPosition: 0, gripAngle: 0, nockingHeight: 0,
             frontStabWeight: 12, frontStabAngle: 0,
-            rearStabSide: .none, rearStabWeight: 0, rearStabVertAngle: 0, rearStabHorizAngle: 0
+            rearStabSide: RearStabSide.none, rearStabWeight: 0, rearStabVertAngle: 0, rearStabHorizAngle: 0
         ),
         BowConfiguration(
             id: "c3", bowId: "b1",

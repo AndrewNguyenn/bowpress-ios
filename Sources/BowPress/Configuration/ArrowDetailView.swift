@@ -4,6 +4,8 @@ struct ArrowDetailView: View {
     var arrow: ArrowConfiguration
     var appState: AppState
 
+    @Environment(LocalStore.self) private var store
+
     @State private var label = ""
     @State private var brand = ""
     @State private var model = ""
@@ -20,6 +22,9 @@ struct ArrowDetailView: View {
     @State private var isSaving = false
     @State private var errorMessage: String?
     @State private var showSavedBanner = false
+    @State private var showDeleteConfirm = false
+
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         Form {
@@ -101,6 +106,18 @@ struct ArrowDetailView: View {
                 }
                 .disabled(isSaving || label.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+
+            Section {
+                Button(role: .destructive) {
+                    showDeleteConfirm = true
+                } label: {
+                    HStack {
+                        Spacer()
+                        Text("Delete Arrow").foregroundStyle(.red)
+                        Spacer()
+                    }
+                }
+            }
         }
         .navigationTitle(arrow.label)
         .navigationBarTitleDisplayMode(.large)
@@ -111,6 +128,18 @@ struct ArrowDetailView: View {
             Button("OK", role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
+        }
+        .alert("Delete \(arrow.label)?", isPresented: $showDeleteConfirm) {
+            Button("Cancel", role: .cancel) { showDeleteConfirm = false }
+            Button("Delete", role: .destructive) {
+                if let err = deleteArrowEverywhere(arrow, appState: appState, store: store) {
+                    errorMessage = err.localizedDescription
+                } else {
+                    dismiss()
+                }
+            }
+        } message: {
+            Text("This permanently removes this arrow configuration. Past sessions that used it are preserved. This cannot be undone.")
         }
         .overlay(alignment: .top) {
             if showSavedBanner {
@@ -155,34 +184,31 @@ struct ArrowDetailView: View {
     private func save() async {
         isSaving = true
         let updatedArrow = ArrowConfiguration(
-            id: arrow.id,
-            userId: arrow.userId,
+            id: arrow.id, userId: arrow.userId,
             label: label.trimmingCharacters(in: .whitespaces),
             brand: brand.isEmpty ? nil : brand.trimmingCharacters(in: .whitespaces),
             model: model.isEmpty ? nil : model.trimmingCharacters(in: .whitespaces),
-            length: length,
-            pointWeight: pointWeight,
-            fletchingType: fletchingType,
-            fletchingLength: fletchingLength,
+            length: length, pointWeight: pointWeight,
+            fletchingType: fletchingType, fletchingLength: fletchingLength,
             fletchingOffset: fletchingOffset,
             nockType: nockType.isEmpty ? nil : nockType.trimmingCharacters(in: .whitespaces),
-            totalWeight: Int(totalWeightText),
-            shaftDiameter: shaftDiameter,
+            totalWeight: Int(totalWeightText), shaftDiameter: shaftDiameter,
             notes: notes.isEmpty ? nil : notes
         )
         do {
-            let saved = try await APIClient.shared.createArrowConfig(updatedArrow)
+            try store.save(arrowConfig: updatedArrow)
+            Task {
+                if let _ = try? await APIClient.shared.createArrowConfig(updatedArrow) {
+                    try? store.markArrowConfigSynced(id: updatedArrow.id)
+                }
+            }
             if let idx = appState.arrowConfigs.firstIndex(where: { $0.id == arrow.id }) {
-                appState.arrowConfigs[idx] = saved
+                appState.arrowConfigs[idx] = updatedArrow
             }
-            withAnimation {
-                showSavedBanner = true
-            }
+            withAnimation { showSavedBanner = true }
             Task {
                 try? await Task.sleep(for: .seconds(2))
-                withAnimation {
-                    showSavedBanner = false
-                }
+                withAnimation { showSavedBanner = false }
             }
         } catch {
             errorMessage = error.localizedDescription

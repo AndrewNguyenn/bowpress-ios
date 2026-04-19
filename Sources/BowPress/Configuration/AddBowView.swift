@@ -4,97 +4,31 @@ struct AddBowView: View {
     var appState: AppState
 
     @Environment(\.dismiss) private var dismiss
-    private let catalog = BowCatalogLoader.shared
+    @Environment(LocalStore.self) private var store
 
-    @State private var selectedManufacturer: CatalogManufacturer?
-    @State private var selectedModel: CatalogModel?
-    @State private var selectedColor: CatalogColor?
-    @State private var isOtherSelected = false
-    @State private var otherBrand = ""
-    @State private var otherModel = ""
-    @State private var customName = ""
+    @State private var bowType: BowType = .compound
+    @State private var customName: String = ""
     @State private var isSaving = false
     @State private var errorMessage: String?
 
-    private var readyForName: Bool {
-        isOtherSelected || selectedColor != nil
-    }
-
     private var canSave: Bool {
-        guard !customName.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
-        return isOtherSelected || (selectedModel != nil && selectedColor != nil)
+        !customName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Manufacturer") {
-                    ForEach(catalog.manufacturers) { mfr in
-                        catalogRow(mfr.name, isSelected: selectedManufacturer?.id == mfr.id) {
-                            selectedManufacturer = mfr
-                            selectedModel = nil
-                            selectedColor = nil
-                            isOtherSelected = false
+                Section("Bow Type") {
+                    Picker("Type", selection: $bowType) {
+                        ForEach(BowType.allCases, id: \.self) {
+                            Text($0.label).tag($0)
                         }
                     }
-                    catalogRow("Other", isSelected: isOtherSelected) {
-                        isOtherSelected = true
-                        selectedManufacturer = nil
-                        selectedModel = nil
-                        selectedColor = nil
-                    }
+                    .pickerStyle(.segmented)
                 }
 
-                if isOtherSelected {
-                    Section("Details") {
-                        LabeledContent("Brand") {
-                            TextField("Optional", text: $otherBrand)
-                                .multilineTextAlignment(.trailing)
-                        }
-                        LabeledContent("Model") {
-                            TextField("Optional", text: $otherModel)
-                                .multilineTextAlignment(.trailing)
-                        }
-                    }
-                }
-
-                if let mfr = selectedManufacturer {
-                    Section("Model") {
-                        ForEach(mfr.models) { model in
-                            catalogRow(model.name, isSelected: selectedModel?.id == model.id) {
-                                selectedModel = model
-                                selectedColor = nil
-                            }
-                        }
-                    }
-                }
-
-                if let model = selectedModel {
-                    Section("Color") {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 5), spacing: 12) {
-                            ForEach(model.colors) { color in
-                                ColorSwatch(color: color, isSelected: selectedColor?.id == color.id) {
-                                    selectedColor = color
-                                }
-                            }
-                        }
-                        .padding(.vertical, 8)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-
-                        if let selected = selectedColor {
-                            Text(selected.name)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, alignment: .center)
-                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 8, trailing: 16))
-                        }
-                    }
-                }
-
-                if readyForName {
-                    Section("Name Your Bow") {
-                        TextField("e.g. My Mathews, Competition Rig", text: $customName)
-                    }
+                Section("Name Your Bow") {
+                    TextField("e.g. My Hoyt, Competition Rig", text: $customName)
                 }
             }
             .navigationTitle("Add Bow")
@@ -123,81 +57,44 @@ struct AddBowView: View {
         }
     }
 
-    @ViewBuilder
-    private func catalogRow(_ name: String, isSelected: Bool, onTap: @escaping () -> Void) -> some View {
-        HStack {
-            Text(name)
-                .font(.body.weight(isSelected ? .semibold : .regular))
-            Spacer()
-            if isSelected {
-                Image(systemName: "checkmark")
-                    .foregroundStyle(Color.appAccent)
-                    .font(.caption.weight(.semibold))
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { onTap() }
-    }
-
     private func save() async {
         guard canSave else { return }
         isSaving = true
-        let brand = isOtherSelected ? otherBrand.trimmingCharacters(in: .whitespaces) : (selectedManufacturer?.name ?? "")
-        let model = isOtherSelected ? otherModel.trimmingCharacters(in: .whitespaces) : (selectedModel?.name ?? "")
         let newBow = Bow(
             id: UUID().uuidString,
             userId: appState.currentUser?.id ?? "",
             name: customName.trimmingCharacters(in: .whitespaces),
-            brand: brand,
-            model: model,
+            bowType: bowType,
+            brand: "",
+            model: "",
             createdAt: Date()
         )
         do {
-            let created = try await APIClient.shared.createBow(newBow)
-            appState.bows.append(created)
+            try store.save(bow: newBow)
+            appState.bows.append(newBow)
+
+            // Spec "Data Flow Summary": a new Bow always gets a v1 BowConfiguration
+            // so analysis has something to anchor to. Without this, sessions starting
+            // immediately after bow creation fall back to an in-memory compound
+            // default that never persists — which caused the "can't start session"
+            // symptom for newly-added recurve bows.
+            let initialConfig = BowConfiguration.makeDefault(for: newBow)
+            try store.save(config: initialConfig)
+            appState.bowConfigs[newBow.id] = initialConfig
+
+            Task {
+                if let _ = try? await APIClient.shared.createBow(newBow) {
+                    try? store.markBowSynced(id: newBow.id)
+                }
+                if let _ = try? await APIClient.shared.createConfiguration(initialConfig) {
+                    try? store.markBowConfigSynced(id: initialConfig.id)
+                }
+            }
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
         }
         isSaving = false
-    }
-}
-
-// MARK: - Supporting views
-
-private struct ColorSwatch: View {
-    let color: CatalogColor
-    let isSelected: Bool
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            ZStack {
-                Circle()
-                    .fill(color.swatchColor)
-                    .frame(width: 44, height: 44)
-                    .overlay(
-                        Circle()
-                            .strokeBorder(isSelected ? Color.accentColor : Color(.systemGray4), lineWidth: isSelected ? 3 : 1)
-                    )
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(color.swatchColor.luminance > 0.6 ? Color.black : Color.white)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// Luminance helper for checkmark contrast
-extension Color {
-    var luminance: Double {
-        let uiColor = UIColor(self)
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0
-        uiColor.getRed(&r, green: &g, blue: &b, alpha: nil)
-        return 0.299 * Double(r) + 0.587 * Double(g) + 0.114 * Double(b)
     }
 }
 
@@ -207,6 +104,7 @@ struct AddArrowView: View {
     var appState: AppState
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(LocalStore.self) private var store
 
     @State private var label = ""
     @State private var brand = ""
@@ -314,8 +212,13 @@ struct AddArrowView: View {
             notes: nil
         )
         do {
-            let created = try await APIClient.shared.createArrowConfig(newArrow)
-            appState.arrowConfigs.append(created)
+            try store.save(arrowConfig: newArrow)
+            appState.arrowConfigs.append(newArrow)
+            Task {
+                if let _ = try? await APIClient.shared.createArrowConfig(newArrow) {
+                    try? store.markArrowConfigSynced(id: newArrow.id)
+                }
+            }
             dismiss()
         } catch { errorMessage = error.localizedDescription }
         isSaving = false

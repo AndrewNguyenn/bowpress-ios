@@ -17,11 +17,12 @@ struct TrendInsight: Identifiable {
 struct AnalyticsTrendInsightsSection: View {
     let comparison: PeriodComparison
     let overview: AnalyticsOverview
+    var extraInsights: [TrendInsight] = []
 
     private let limit = 8
     @State private var showAll = false
 
-    private var insights: [TrendInsight] { buildInsights() }
+    private var insights: [TrendInsight] { buildInsights() + extraInsights }
 
     private var visibleInsights: [TrendInsight] {
         showAll ? insights : Array(insights.prefix(limit))
@@ -119,15 +120,29 @@ struct AnalyticsTrendInsightsSection: View {
         }
 
         // 3. Directional bias in current period
-        if centroidDist > 0.15 {
+        // Elite archers need a much tighter threshold — sub-ring-level drift matters
+        let isPrecision = overview.avgArrowScore >= 9.5
+        let biasThreshold = isPrecision ? 0.04 : 0.12
+        if centroidDist > biasThreshold {
             let dir = verboseDirection(centroid.x, centroid.y)
-            result.append(TrendInsight(
-                id: "directional_bias",
-                icon: "location.circle",
-                headline: "Groups trending \(dir.short) this period",
-                detail: "\(dir.long) Across \(cur.plots.count) shots this period, a consistent directional bias usually points to a repeatable form issue or sight misalignment — both are correctable once identified.",
-                kind: .neutral
-            ))
+            if isPrecision {
+                let distMM = String(format: "%.1f", centroidDist * mmPerNorm)
+                result.append(TrendInsight(
+                    id: "directional_bias",
+                    icon: "location.circle",
+                    headline: "Group center ~\(distMM)mm \(dir.short) of X",
+                    detail: "\(dir.long) At this level a \(distMM)mm drift is meaningful — cross-reference with your feel tags. Common causes: peep height, nocking point position, or subtle anchor point drift.",
+                    kind: .neutral
+                ))
+            } else {
+                result.append(TrendInsight(
+                    id: "directional_bias",
+                    icon: "location.circle",
+                    headline: "Groups trending \(dir.short) this period",
+                    detail: "\(dir.long) Across \(cur.plots.count) shots this period, a consistent directional bias usually points to a repeatable form issue or sight misalignment — both are correctable once identified.",
+                    kind: .neutral
+                ))
+            }
         }
 
         // 4. X-ring rate
@@ -188,8 +203,20 @@ struct AnalyticsTrendInsightsSection: View {
 
     // MARK: - Helpers
 
+    private let mmPerNorm: Double = 20.0 / (119.0 / 735.0)  // ≈ 123.5mm (WA 40cm indoor target)
+
     private func normalizedCentroid(_ plots: [ArrowPlot]) -> (x: Double, y: Double) {
         guard !plots.isEmpty else { return (0, 0) }
+        // Use actual plotX/plotY when available — far more precise than ring/zone reconstruction
+        let realPts = plots.compactMap { p -> (Double, Double)? in
+            guard let x = p.plotX, let y = p.plotY else { return nil }
+            return (x, y)
+        }
+        if !realPts.isEmpty {
+            return (x: realPts.map(\.0).reduce(0, +) / Double(realPts.count),
+                    y: realPts.map(\.1).reduce(0, +) / Double(realPts.count))
+        }
+        // Fallback: ring/zone reconstruction (legacy data without stored coordinates)
         var sumX = 0.0, sumY = 0.0
         for plot in plots {
             let r: Double

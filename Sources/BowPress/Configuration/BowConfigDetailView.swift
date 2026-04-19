@@ -20,63 +20,13 @@ struct BowConfigDetailView: View {
             Section {
                 LabeledContent("Label", value: config.label ?? (isSetup ? "Initial Setup" : "—"))
                 LabeledContent("Recorded", value: Self.dateFormatter.string(from: config.createdAt))
+                LabeledContent("Type", value: bow.bowType.label)
             }
 
-            if isSetup {
-                Section("Bow Setup") {
-                    row("Draw Length", value: "\(String(format: "%.1f", config.drawLength))\"")
-                    row("Let-off", value: "\(Int(config.letOffPct))%")
-                    row("Peep Height", value: "\(String(format: "%.2f", config.peepHeight))\"")
-                    row("D-Loop Length", value: "\(String(format: "%.3f", config.dLoopLength))\"")
-                }
-            } else {
-                Section("Base Setup") {
-                    Text("Draw \(String(format: "%.1f", config.drawLength))\" · Let-off \(Int(config.letOffPct))% · Peep \(String(format: "%.2f", config.peepHeight))\" · D-loop \(String(format: "%.3f", config.dLoopLength))\"")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Section("String & Cable") {
-                deltaRow("Top Cable Twists", value: halfTwistLabel(config.topCableTwists), isChanged: config.topCableTwists != 0)
-                deltaRow("Bottom Cable Twists", value: halfTwistLabel(config.bottomCableTwists), isChanged: config.bottomCableTwists != 0)
-                deltaRow("Main String Top Twists", value: halfTwistLabel(config.mainStringTopTwists), isChanged: config.mainStringTopTwists != 0)
-                deltaRow("Main String Bottom Twists", value: halfTwistLabel(config.mainStringBottomTwists), isChanged: config.mainStringBottomTwists != 0)
-            }
-
-            Section("Limbs") {
-                deltaRow("Top Limb", value: limbTurnsLabel(config.topLimbTurns), isChanged: config.topLimbTurns != 0)
-                deltaRow("Bottom Limb", value: limbTurnsLabel(config.bottomLimbTurns), isChanged: config.bottomLimbTurns != 0)
-            }
-
-            Section("Rest") {
-                deltaRow("Vertical", value: sixteenthLabel(config.restVertical), isChanged: config.restVertical != 0)
-                deltaRow("Horizontal", value: sixteenthLabel(config.restHorizontal), isChanged: config.restHorizontal != 0)
-                deltaRow("Depth", value: "\(String(format: "%.2f", config.restDepth))\"", isChanged: config.restDepth != 0)
-            }
-
-            Section("Sight, Grip & Nock") {
-                deltaRow(
-                    "Sight Position",
-                    value: config.sightPosition == 0 ? "0 (baseline)" : "\(config.sightPosition > 0 ? "+" : "")\(config.sightPosition)",
-                    isChanged: config.sightPosition != 0
-                )
-                deltaRow("Grip Angle", value: "\(String(format: "%.1f", config.gripAngle))°", isChanged: config.gripAngle != 0)
-                deltaRow("Nocking Height", value: sixteenthLabel(config.nockingHeight), isChanged: config.nockingHeight != 0)
-            }
-
-            Section("Front Stabilizer") {
-                row("Weight", value: config.frontStabWeight == 0 ? "None" : "\(String(format: "%g", config.frontStabWeight)) oz")
-                row("Angle", value: "\(String(format: "%.0f", config.frontStabAngle))°")
-            }
-
-            Section("Rear Stabilizer") {
-                row("Side", value: config.rearStabSide.label)
-                if config.rearStabSide != .none {
-                    row("Weight", value: "\(String(format: "%g", config.rearStabWeight)) oz")
-                    row("Vertical Angle", value: "\(Int(config.rearStabVertAngle))°")
-                    row("Horizontal Angle", value: "\(Int(config.rearStabHorizAngle))°")
-                }
+            switch bow.bowType {
+            case .compound: compoundSections
+            case .recurve:  recurveSections
+            case .barebow:  barebowSections
             }
 
             if !isSetup {
@@ -95,6 +45,145 @@ struct BowConfigDetailView: View {
         .navigationBarTitleDisplayMode(.large)
         .sheet(isPresented: $showEditSheet) {
             BowConfigEditView(bow: bow, baseConfig: config, appState: appState, isSetup: false)
+        }
+    }
+
+    // MARK: - Compound
+
+    @ViewBuilder
+    private var compoundSections: some View {
+        if isSetup {
+            Section("Bow Setup") {
+                row("Draw Length", value: "\(String(format: "%.1f", config.drawLength))\"")
+                row("Let-off", value: "\(Int(config.letOffPct ?? 0))%")
+                row("Peep Height", value: "\(String(format: "%.2f", config.peepHeight ?? 0))\"")
+                row("D-Loop Length", value: "\(String(format: "%.3f", config.dLoopLength ?? 0))\"")
+            }
+        } else {
+            Section("Base Setup") {
+                Text("Draw \(String(format: "%.1f", config.drawLength))\" · Let-off \(Int(config.letOffPct ?? 0))% · Peep \(String(format: "%.2f", config.peepHeight ?? 0))\" · D-loop \(String(format: "%.3f", config.dLoopLength ?? 0))\"")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+
+        Section("String & Cable") {
+            deltaRow("Top Cable Twists", value: halfTwistLabel(config.topCableTwists ?? 0), isChanged: (config.topCableTwists ?? 0) != 0)
+            deltaRow("Bottom Cable Twists", value: halfTwistLabel(config.bottomCableTwists ?? 0), isChanged: (config.bottomCableTwists ?? 0) != 0)
+            deltaRow("Main String Top Twists", value: halfTwistLabel(config.mainStringTopTwists ?? 0), isChanged: (config.mainStringTopTwists ?? 0) != 0)
+            deltaRow("Main String Bottom Twists", value: halfTwistLabel(config.mainStringBottomTwists ?? 0), isChanged: (config.mainStringBottomTwists ?? 0) != 0)
+        }
+
+        Section("Limbs") {
+            deltaRow("Top Limb", value: limbTurnsLabel(config.topLimbTurns ?? 0), isChanged: (config.topLimbTurns ?? 0) != 0)
+            deltaRow("Bottom Limb", value: limbTurnsLabel(config.bottomLimbTurns ?? 0), isChanged: (config.bottomLimbTurns ?? 0) != 0)
+        }
+
+        restDisplaySection
+
+        Section("Sight, Grip & Nock") {
+            let sp = config.sightPosition ?? 0
+            deltaRow(
+                "Sight Position",
+                value: sp == 0 ? "0 (baseline)" : "\(sp > 0 ? "+" : "")\(sp)",
+                isChanged: sp != 0
+            )
+            deltaRow("Grip Angle", value: "\(String(format: "%.1f", config.gripAngle))°", isChanged: config.gripAngle != 0)
+            deltaRow("Nocking Height", value: sixteenthLabel(config.nockingHeight), isChanged: config.nockingHeight != 0)
+        }
+
+        Section("Front Stabilizer") {
+            let w = config.frontStabWeight ?? 0
+            row("Weight", value: w == 0 ? "None" : "\(String(format: "%g", w)) oz")
+            row("Angle", value: "\(String(format: "%.0f", config.frontStabAngle ?? 0))°")
+        }
+
+        Section("Rear Stabilizer") {
+            let side = config.rearStabSide ?? .none
+            row("Side", value: side.label)
+            if side != .none {
+                row("Weight", value: "\(String(format: "%g", config.rearStabWeight ?? 0)) oz")
+                row("Vertical Angle", value: "\(Int(config.rearStabVertAngle ?? 0))°")
+                row("Horizontal Angle", value: "\(Int(config.rearStabHorizAngle ?? 0))°")
+            }
+        }
+    }
+
+    // MARK: - Recurve
+
+    @ViewBuilder
+    private var recurveSections: some View {
+        Section("Bow Setup") {
+            row("Draw Length", value: "\(String(format: "%.1f", config.drawLength))\"")
+            row("Brace Height", value: "\(String(format: "%.3f", config.braceHeight ?? 0))\"")
+        }
+
+        Section("Tiller") {
+            let t = config.tillerTop ?? 0
+            let b = config.tillerBottom ?? 0
+            deltaRow("Top", value: String(format: "%+.1f mm", t), isChanged: t != 0)
+            deltaRow("Bottom", value: String(format: "%+.1f mm", b), isChanged: b != 0)
+        }
+
+        Section("Plunger") {
+            row("Tension", value: "\(config.plungerTension ?? 0) clicks")
+        }
+
+        Section("Clicker") {
+            let c = config.clickerPosition ?? 0
+            deltaRow("Position", value: String(format: "%+.0f mm", c), isChanged: c != 0)
+        }
+
+        Section("Grip & Nock") {
+            deltaRow("Grip Angle", value: "\(String(format: "%.1f", config.gripAngle))°", isChanged: config.gripAngle != 0)
+            deltaRow("Nocking Height", value: sixteenthLabel(config.nockingHeight), isChanged: config.nockingHeight != 0)
+        }
+
+        Section("Front Stabilizer") {
+            row("Weight", value: "\(String(format: "%g", config.frontStabWeight ?? 0)) oz")
+            row("Angle", value: "\(String(format: "%.0f", config.frontStabAngle ?? 0))°")
+        }
+
+        Section("V-Bar (Rear Stabilizer)") {
+            row("Left Weight", value: "\(String(format: "%g", config.rearStabLeftWeight ?? 0)) oz")
+            row("Right Weight", value: "\(String(format: "%g", config.rearStabRightWeight ?? 0)) oz")
+            row("Vertical Angle", value: "\(Int(config.rearStabVertAngle ?? 0))°")
+            row("Horizontal Angle", value: "\(Int(config.rearStabHorizAngle ?? 0))°")
+        }
+    }
+
+    // MARK: - Barebow
+
+    @ViewBuilder
+    private var barebowSections: some View {
+        Section("Bow Setup") {
+            row("Draw Length", value: "\(String(format: "%.1f", config.drawLength))\"")
+            row("Brace Height", value: "\(String(format: "%.3f", config.braceHeight ?? 0))\"")
+        }
+
+        Section("Tiller") {
+            let t = config.tillerTop ?? 0
+            let b = config.tillerBottom ?? 0
+            deltaRow("Top", value: String(format: "%+.1f mm", t), isChanged: t != 0)
+            deltaRow("Bottom", value: String(format: "%+.1f mm", b), isChanged: b != 0)
+        }
+
+        Section("Plunger") {
+            row("Tension", value: "\(config.plungerTension ?? 0) clicks")
+        }
+
+        Section("Grip & Nock") {
+            deltaRow("Grip Angle", value: "\(String(format: "%.1f", config.gripAngle))°", isChanged: config.gripAngle != 0)
+            deltaRow("Nocking Height", value: sixteenthLabel(config.nockingHeight), isChanged: config.nockingHeight != 0)
+        }
+    }
+
+    @ViewBuilder
+    private var restDisplaySection: some View {
+        Section("Rest") {
+            deltaRow("Vertical", value: sixteenthLabel(config.restVertical), isChanged: config.restVertical != 0)
+            deltaRow("Horizontal", value: sixteenthLabel(config.restHorizontal), isChanged: config.restHorizontal != 0)
+            deltaRow("Depth", value: "\(String(format: "%.2f", config.restDepth))\"", isChanged: config.restDepth != 0)
         }
     }
 
@@ -136,44 +225,26 @@ struct BowConfigDetailView: View {
 
 // MARK: - Previews
 
-#Preview("Setup") {
-    let bow = Bow(id: "b1", userId: "u1", name: "My Hoyt", brand: "Hoyt", model: "Carbon RX-8", createdAt: Date())
-    let config = BowConfiguration(
-        id: "c1", bowId: "b1",
-        createdAt: Date().addingTimeInterval(-86400 * 7),
-        label: "Initial Setup",
-        drawLength: 28.5, letOffPct: 80,
-        peepHeight: 9.25, dLoopLength: 2.0,
-        topCableTwists: 0, bottomCableTwists: 0,
-        mainStringTopTwists: 0, mainStringBottomTwists: 0,
-        topLimbTurns: 0, bottomLimbTurns: 0,
-        restVertical: 0, restHorizontal: 0, restDepth: 0,
-        sightPosition: 0, gripAngle: 0, nockingHeight: 0,
-        frontStabWeight: 14, frontStabAngle: 5,
-        rearStabSide: .left, rearStabWeight: 10, rearStabVertAngle: -45, rearStabHorizAngle: 45
-    )
+#Preview("Compound Setup") {
+    let bow = Bow(id: "b1", userId: "u1", name: "My Hoyt", bowType: .compound, createdAt: Date())
+    let config = BowConfiguration.makeDefault(for: bow)
     NavigationStack {
         BowConfigDetailView(config: config, bow: bow, appState: AppState(), isSetup: true)
     }
 }
 
-#Preview("Tuning Record") {
-    let bow = Bow(id: "b1", userId: "u1", name: "My Hoyt", brand: "Hoyt", model: "Carbon RX-8", createdAt: Date())
-    let config = BowConfiguration(
-        id: "c2", bowId: "b1",
-        createdAt: Date().addingTimeInterval(-86400),
-        label: "Pre-tournament",
-        drawLength: 28.5, letOffPct: 80,
-        peepHeight: 9.25, dLoopLength: 2.0,
-        topCableTwists: 2, bottomCableTwists: 2,
-        mainStringTopTwists: 1, mainStringBottomTwists: 0,
-        topLimbTurns: 0, bottomLimbTurns: 0,
-        restVertical: 2, restHorizontal: -1, restDepth: 0,
-        sightPosition: 1, gripAngle: 0, nockingHeight: 3,
-        frontStabWeight: 14, frontStabAngle: 5,
-        rearStabSide: .left, rearStabWeight: 10, rearStabVertAngle: -45, rearStabHorizAngle: 45
-    )
+#Preview("Recurve Setup") {
+    let bow = Bow(id: "b2", userId: "u1", name: "My Recurve", bowType: .recurve, createdAt: Date())
+    let config = BowConfiguration.makeDefault(for: bow)
     NavigationStack {
-        BowConfigDetailView(config: config, bow: bow, appState: AppState(), isSetup: false)
+        BowConfigDetailView(config: config, bow: bow, appState: AppState(), isSetup: true)
+    }
+}
+
+#Preview("Barebow Setup") {
+    let bow = Bow(id: "b3", userId: "u1", name: "My Barebow", bowType: .barebow, createdAt: Date())
+    let config = BowConfiguration.makeDefault(for: bow)
+    NavigationStack {
+        BowConfigDetailView(config: config, bow: bow, appState: AppState(), isSetup: true)
     }
 }

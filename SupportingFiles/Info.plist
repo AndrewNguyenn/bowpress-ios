@@ -26,6 +26,14 @@
 				<string>com.googleusercontent.apps.516990179779-05k066j5guhgc0021jsbl9pvj8bb285m</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.andrewnguyen.bowpress</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>bowpress</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>

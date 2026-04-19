@@ -58,31 +58,50 @@ final class PersistentBowConfig {
     var createdAt: Date
     var label: String?
 
+    // Shared
     var drawLength: Double
-    var letOffPct: Double
-    var peepHeight: Double
-    var dLoopLength: Double
-    var topCableTwists: Int
-    var bottomCableTwists: Int
-    var mainStringTopTwists: Int
-    var mainStringBottomTwists: Int
-    var topLimbTurns: Double
-    var bottomLimbTurns: Double
-
     var restVertical: Int
     var restHorizontal: Int
     var restDepth: Double
-
-    var sightPosition: Int
-    var gripAngle: Double
     var nockingHeight: Int
+    var gripAngle: Double
+    var sightPosition: Int?
 
-    var frontStabWeight: Double
-    var frontStabAngle: Double
-    var rearStabSideStr: String      // RearStabSide.rawValue
-    var rearStabWeight: Double
-    var rearStabVertAngle: Double
-    var rearStabHorizAngle: Double
+    // Compound-only
+    var letOffPct: Double?
+    var peepHeight: Double?
+    var dLoopLength: Double?
+    var topCableTwists: Int?
+    var bottomCableTwists: Int?
+    var mainStringTopTwists: Int?
+    var mainStringBottomTwists: Int?
+    var topLimbTurns: Double?
+    var bottomLimbTurns: Double?
+
+    // Compound + recurve (barebow nil)
+    var frontStabWeight: Double?
+    var frontStabAngle: Double?
+
+    // Compound single rear-stab
+    var rearStabSideStr: String?      // RearStabSide.rawValue, nil on recurve/barebow
+    var rearStabWeight: Double?
+    var rearStabVertAngle: Double?
+    var rearStabHorizAngle: Double?
+
+    // Recurve-specific
+    var braceHeight: Double?
+    var tillerTop: Double?
+    var tillerBottom: Double?
+    var plungerTension: Int?
+    var clickerPosition: Double?
+    var rearStabLeftWeight: Double?
+    var rearStabRightWeight: Double?
+
+    // Analytics fields (server-computed; cached locally so the "pinned" star persists offline).
+    var isReference: Bool = false
+    var referenceManuallyPinned: Bool = false
+    var avgArrowScore: Double?
+    var scoreable: Bool = false
 
     var pendingSync: Bool = false
 
@@ -92,33 +111,46 @@ final class PersistentBowConfig {
         createdAt: Date,
         label: String?,
         drawLength: Double,
-        letOffPct: Double,
-        peepHeight: Double,
-        dLoopLength: Double,
-        topCableTwists: Int,
-        bottomCableTwists: Int,
-        mainStringTopTwists: Int,
-        mainStringBottomTwists: Int,
-        topLimbTurns: Double,
-        bottomLimbTurns: Double,
         restVertical: Int,
         restHorizontal: Int,
         restDepth: Double,
-        sightPosition: Int,
-        gripAngle: Double,
         nockingHeight: Int,
-        frontStabWeight: Double,
-        frontStabAngle: Double,
-        rearStabSideStr: String,
-        rearStabWeight: Double,
-        rearStabVertAngle: Double,
-        rearStabHorizAngle: Double
+        gripAngle: Double,
+        sightPosition: Int?,
+        letOffPct: Double?,
+        peepHeight: Double?,
+        dLoopLength: Double?,
+        topCableTwists: Int?,
+        bottomCableTwists: Int?,
+        mainStringTopTwists: Int?,
+        mainStringBottomTwists: Int?,
+        topLimbTurns: Double?,
+        bottomLimbTurns: Double?,
+        frontStabWeight: Double?,
+        frontStabAngle: Double?,
+        rearStabSideStr: String?,
+        rearStabWeight: Double?,
+        rearStabVertAngle: Double?,
+        rearStabHorizAngle: Double?,
+        braceHeight: Double?,
+        tillerTop: Double?,
+        tillerBottom: Double?,
+        plungerTension: Int?,
+        clickerPosition: Double?,
+        rearStabLeftWeight: Double?,
+        rearStabRightWeight: Double?
     ) {
         self.id = id
         self.bowId = bowId
         self.createdAt = createdAt
         self.label = label
         self.drawLength = drawLength
+        self.restVertical = restVertical
+        self.restHorizontal = restHorizontal
+        self.restDepth = restDepth
+        self.nockingHeight = nockingHeight
+        self.gripAngle = gripAngle
+        self.sightPosition = sightPosition
         self.letOffPct = letOffPct
         self.peepHeight = peepHeight
         self.dLoopLength = dLoopLength
@@ -128,22 +160,23 @@ final class PersistentBowConfig {
         self.mainStringBottomTwists = mainStringBottomTwists
         self.topLimbTurns = topLimbTurns
         self.bottomLimbTurns = bottomLimbTurns
-        self.restVertical = restVertical
-        self.restHorizontal = restHorizontal
-        self.restDepth = restDepth
-        self.sightPosition = sightPosition
-        self.gripAngle = gripAngle
-        self.nockingHeight = nockingHeight
         self.frontStabWeight = frontStabWeight
         self.frontStabAngle = frontStabAngle
         self.rearStabSideStr = rearStabSideStr
         self.rearStabWeight = rearStabWeight
         self.rearStabVertAngle = rearStabVertAngle
         self.rearStabHorizAngle = rearStabHorizAngle
+        self.braceHeight = braceHeight
+        self.tillerTop = tillerTop
+        self.tillerBottom = tillerBottom
+        self.plungerTension = plungerTension
+        self.clickerPosition = clickerPosition
+        self.rearStabLeftWeight = rearStabLeftWeight
+        self.rearStabRightWeight = rearStabRightWeight
     }
 
     func toDTO() -> BowConfiguration {
-        BowConfiguration(
+        var dto = BowConfiguration(
             id: id,
             bowId: bowId,
             createdAt: createdAt,
@@ -166,20 +199,38 @@ final class PersistentBowConfig {
             nockingHeight: nockingHeight,
             frontStabWeight: frontStabWeight,
             frontStabAngle: frontStabAngle,
-            rearStabSide: RearStabSide(rawValue: rearStabSideStr) ?? .none,
+            rearStabSide: rearStabSideStr.flatMap { RearStabSide(rawValue: $0) },
             rearStabWeight: rearStabWeight,
             rearStabVertAngle: rearStabVertAngle,
-            rearStabHorizAngle: rearStabHorizAngle
+            rearStabHorizAngle: rearStabHorizAngle,
+            braceHeight: braceHeight,
+            tillerTop: tillerTop,
+            tillerBottom: tillerBottom,
+            plungerTension: plungerTension,
+            clickerPosition: clickerPosition,
+            rearStabLeftWeight: rearStabLeftWeight,
+            rearStabRightWeight: rearStabRightWeight
         )
+        dto.isReference = isReference
+        dto.referenceManuallyPinned = referenceManuallyPinned
+        dto.avgArrowScore = avgArrowScore
+        dto.scoreable = scoreable
+        return dto
     }
 
     static func from(_ dto: BowConfiguration) -> PersistentBowConfig {
-        PersistentBowConfig(
+        let record = PersistentBowConfig(
             id: dto.id,
             bowId: dto.bowId,
             createdAt: dto.createdAt,
             label: dto.label,
             drawLength: dto.drawLength,
+            restVertical: dto.restVertical,
+            restHorizontal: dto.restHorizontal,
+            restDepth: dto.restDepth,
+            nockingHeight: dto.nockingHeight,
+            gripAngle: dto.gripAngle,
+            sightPosition: dto.sightPosition,
             letOffPct: dto.letOffPct,
             peepHeight: dto.peepHeight,
             dLoopLength: dto.dLoopLength,
@@ -189,19 +240,25 @@ final class PersistentBowConfig {
             mainStringBottomTwists: dto.mainStringBottomTwists,
             topLimbTurns: dto.topLimbTurns,
             bottomLimbTurns: dto.bottomLimbTurns,
-            restVertical: dto.restVertical,
-            restHorizontal: dto.restHorizontal,
-            restDepth: dto.restDepth,
-            sightPosition: dto.sightPosition,
-            gripAngle: dto.gripAngle,
-            nockingHeight: dto.nockingHeight,
             frontStabWeight: dto.frontStabWeight,
             frontStabAngle: dto.frontStabAngle,
-            rearStabSideStr: dto.rearStabSide.rawValue,
+            rearStabSideStr: dto.rearStabSide?.rawValue,
             rearStabWeight: dto.rearStabWeight,
             rearStabVertAngle: dto.rearStabVertAngle,
-            rearStabHorizAngle: dto.rearStabHorizAngle
+            rearStabHorizAngle: dto.rearStabHorizAngle,
+            braceHeight: dto.braceHeight,
+            tillerTop: dto.tillerTop,
+            tillerBottom: dto.tillerBottom,
+            plungerTension: dto.plungerTension,
+            clickerPosition: dto.clickerPosition,
+            rearStabLeftWeight: dto.rearStabLeftWeight,
+            rearStabRightWeight: dto.rearStabRightWeight
         )
+        record.isReference = dto.isReference ?? false
+        record.referenceManuallyPinned = dto.referenceManuallyPinned ?? false
+        record.avgArrowScore = dto.avgArrowScore
+        record.scoreable = dto.scoreable ?? false
+        return record
     }
 }
 

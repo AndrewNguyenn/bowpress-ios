@@ -21,6 +21,13 @@ final class AppState {
     var unreadSuggestionCount: Int = 0
     #endif
 
+    /// Single source of truth for each bow's current configuration — read/written
+    /// by both the session tab and equipment tab, keyed by bowId.
+    var bowConfigs: [String: BowConfiguration] = [:]
+
+    /// Completed sessions available for analytics history, newest first.
+    var completedSessions: [ShootingSession] = []
+
     var entitlement: Entitlement?
 
     // TODO: real implementation lands in follow-up

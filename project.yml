@@ -39,6 +39,12 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         INFOPLIST_FILE: SupportingFiles/Info.plist
         CODE_SIGN_ENTITLEMENTS: SupportingFiles/BowPress.entitlements
+        STORE_KIT_CONFIGURATION_FILE_PATH: Sources/BowPress/Subscriptions/Products.storekit
+      configs:
+        Debug:
+          APS_ENVIRONMENT: development
+        Release:
+          APS_ENVIRONMENT: production
 
   BowPressTests:
     type: bundle.unit-test
@@ -72,4 +78,7 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - com.googleusercontent.apps.516990179779-05k066j5guhgc0021jsbl9pvj8bb285m
+          - CFBundleURLName: com.andrewnguyen.bowpress
+            CFBundleURLSchemes:
+              - bowpress
         GIDClientID: 516990179779-05k066j5guhgc0021jsbl9pvj8bb285m.apps.googleusercontent.com

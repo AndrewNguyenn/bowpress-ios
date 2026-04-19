@@ -84,10 +84,17 @@ final class LocalStore {
             existing.nockingHeight = config.nockingHeight
             existing.frontStabWeight = config.frontStabWeight
             existing.frontStabAngle = config.frontStabAngle
-            existing.rearStabSideStr = config.rearStabSide.rawValue
+            existing.rearStabSideStr = config.rearStabSide?.rawValue
             existing.rearStabWeight = config.rearStabWeight
             existing.rearStabVertAngle = config.rearStabVertAngle
             existing.rearStabHorizAngle = config.rearStabHorizAngle
+            existing.braceHeight = config.braceHeight
+            existing.tillerTop = config.tillerTop
+            existing.tillerBottom = config.tillerBottom
+            existing.plungerTension = config.plungerTension
+            existing.clickerPosition = config.clickerPosition
+            existing.rearStabLeftWeight = config.rearStabLeftWeight
+            existing.rearStabRightWeight = config.rearStabRightWeight
         } else {
             let record = PersistentBowConfig.from(config)
             record.pendingSync = true

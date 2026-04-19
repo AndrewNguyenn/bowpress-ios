@@ -5,10 +5,20 @@ import Observation
 
     // MARK: - Dependencies
 
-    /// Local store for offline-first session persistence. Optional so call sites that
-    /// construct `SessionViewModel()` (previews, legacy tests) keep compiling; the host
-    /// view assigns it in its `.task` block.
+    private let apiClient: BowPressAPIClient
     var store: LocalStore?
+
+    /// Called whenever the active bow config is confirmed (session start or first shot after a change).
+    /// Wire this up in the host view to propagate the confirmed config to AppState.
+    var onConfigConfirmed: ((String, BowConfiguration) -> Void)?
+
+    /// Called when a session is successfully ended. Passes the completed session for immediate local display.
+    var onSessionCompleted: ((ShootingSession) -> Void)?
+
+    init(apiClient: BowPressAPIClient = APIClient.shared, store: LocalStore? = nil) {
+        self.apiClient = apiClient
+        self.store = store
+    }
 
     // MARK: - Active Session State
 
@@ -62,6 +72,9 @@ import Observation
 
     var selectedBow: Bow?
 
+    /// All known configs for the current bow — used to match pending changes against history.
+    var knownBowConfigs: [BowConfiguration] = []
+
     // MARK: - UI State
 
     var isLoading: Bool = false
@@ -74,40 +87,47 @@ import Observation
     func startSession(
         bow: Bow,
         bowConfig: BowConfiguration,
-        arrowConfig: ArrowConfiguration
+        arrowConfig: ArrowConfiguration,
+        knownConfigs: [BowConfiguration] = []
     ) async {
         isLoading = true
         error = nil
-        let session = ShootingSession(
-            id: UUID().uuidString,
-            bowId: bow.id,
-            bowConfigId: bowConfig.id,
-            arrowConfigId: arrowConfig.id,
-            startedAt: Date(),
-            endedAt: nil,
-            notes: "",
-            feelTags: [],
-            conditions: nil,
-            arrowCount: 0
-        )
-        try? store?.save(session: session)
-        currentSession = session
-        activeBowConfig = bowConfig
-        activeArrowConfig = arrowConfig
-        selectedBow = bow
-        currentArrows = []
-        allArrows = []
-        completedEnds = []
-        endArrowCounts = []
-        sessionNotes = ""
-        pendingBowConfig = nil
-        pendingArrowConfig = nil
-        isSessionActive = true
-        let store = self.store
-        Task {
-            if let _ = try? await APIClient.shared.createSession(session) {
-                try? store?.markSessionSynced(id: session.id)
+        do {
+            let session = ShootingSession(
+                id: UUID().uuidString,
+                bowId: bow.id,
+                bowConfigId: bowConfig.id,
+                arrowConfigId: arrowConfig.id,
+                startedAt: Date(),
+                endedAt: nil,
+                notes: "",
+                feelTags: [],
+                arrowCount: 0
+            )
+            // Persist locally first — session exists even if server is unreachable
+            try? store?.save(session: session)
+            currentSession = session
+            activeBowConfig = bowConfig
+            activeArrowConfig = arrowConfig
+            selectedBow = bow
+            knownBowConfigs = knownConfigs.isEmpty ? [bowConfig] : knownConfigs
+            onConfigConfirmed?(bow.id, bowConfig)
+            currentArrows = []
+            allArrows = []
+            completedEnds = []
+            endArrowCounts = []
+            sessionNotes = ""
+            pendingBowConfig = nil
+            pendingArrowConfig = nil
+            isSessionActive = true
+            // Best-effort immediate sync; BackgroundSyncService retries if offline
+            Task {
+                if let _ = try? await apiClient.createSession(session) {
+                    try? store?.markSessionSynced(id: session.id)
+                }
             }
+        } catch {
+            self.error = error.localizedDescription
         }
         isLoading = false
     }
@@ -133,121 +153,177 @@ import Observation
 
         isLoading = true
         error = nil
-        let store = self.store
+        do {
+            // Lazy session creation: if there is a pending config change we must open
+            // a new session segment before recording the arrow.
+            if hasPendingConfigChange {
+                let pendingBow = pendingBowConfig ?? activeBowConfig!
+                let resolvedArrowConfig = pendingArrowConfig ?? activeArrowConfig!
+                let bow = selectedBow!
 
-        // Lazy session creation: if there is a pending config change we must open
-        // a new session segment before recording the arrow.
-        if hasPendingConfigChange {
-            let resolvedBowConfig = pendingBowConfig ?? activeBowConfig!
-            let resolvedArrowConfig = pendingArrowConfig ?? activeArrowConfig!
-            let bow = selectedBow!
+                // Match pending config values against history before creating a new record.
+                let resolvedBowConfig: BowConfiguration
+                if let historical = knownBowConfigs.first(where: { $0.hasMatchingValues(pendingBow) }) {
+                    // Values match an existing config — reuse it, no API call needed.
+                    resolvedBowConfig = historical
+                } else {
+                    // Genuinely new config — persist it now that a shot is being fired.
+                    try? store?.save(config: pendingBow)
+                    knownBowConfigs.append(pendingBow)
+                    resolvedBowConfig = pendingBow
+                    Task {
+                        if let _ = try? await apiClient.createConfiguration(pendingBow) {
+                            try? store?.markBowConfigSynced(id: pendingBow.id)
+                        }
+                    }
+                }
 
-            let newSession = ShootingSession(
-                id: UUID().uuidString,
-                bowId: bow.id,
-                bowConfigId: resolvedBowConfig.id,
-                arrowConfigId: resolvedArrowConfig.id,
-                startedAt: Date(),
-                endedAt: nil,
-                notes: "",
-                feelTags: [],
-                conditions: nil,
-                arrowCount: 0
-            )
-            try? store?.save(session: newSession)
-            currentSession = newSession
-            Task {
-                if let _ = try? await APIClient.shared.createSession(newSession) {
-                    try? store?.markSessionSynced(id: newSession.id)
+                let newSession = ShootingSession(
+                    id: UUID().uuidString,
+                    bowId: bow.id,
+                    bowConfigId: resolvedBowConfig.id,
+                    arrowConfigId: resolvedArrowConfig.id,
+                    startedAt: Date(),
+                    endedAt: nil,
+                    notes: "",
+                    feelTags: [],
+                    arrowCount: 0
+                )
+                try? store?.save(session: newSession)
+                currentSession = newSession
+                Task {
+                    if let _ = try? await apiClient.createSession(newSession) {
+                        try? store?.markSessionSynced(id: newSession.id)
+                    }
+                }
+
+                // Promote pending → active
+                activeBowConfig = resolvedBowConfig
+                activeArrowConfig = resolvedArrowConfig
+                pendingBowConfig = nil
+                pendingArrowConfig = nil
+                currentArrows = []
+                onConfigConfirmed?(bow.id, resolvedBowConfig)
+
+            } else if currentSession == nil {
+                let bow = selectedBow!
+                let bowConfig = activeBowConfig!
+                let arrowConfig = activeArrowConfig!
+
+                let firstSession = ShootingSession(
+                    id: UUID().uuidString,
+                    bowId: bow.id,
+                    bowConfigId: bowConfig.id,
+                    arrowConfigId: arrowConfig.id,
+                    startedAt: Date(),
+                    endedAt: nil,
+                    notes: "",
+                    feelTags: [],
+                    arrowCount: 0
+                )
+                try? store?.save(session: firstSession)
+                currentSession = firstSession
+                Task {
+                    if let _ = try? await apiClient.createSession(firstSession) {
+                        try? store?.markSessionSynced(id: firstSession.id)
+                    }
                 }
             }
 
-            // Promote pending → active
-            activeBowConfig = resolvedBowConfig
-            activeArrowConfig = resolvedArrowConfig
-            pendingBowConfig = nil
-            pendingArrowConfig = nil
-            currentArrows = []
-
-        } else if currentSession == nil {
-            // Safety net: should not normally be reached after startSession(),
-            // but guard against it anyway.
-            let bow = selectedBow!
-            let bowConfig = activeBowConfig!
-            let arrowConfig = activeArrowConfig!
-
-            let firstSession = ShootingSession(
+            // Build and record the arrow plot
+            let plot = ArrowPlot(
                 id: UUID().uuidString,
-                bowId: bow.id,
-                bowConfigId: bowConfig.id,
-                arrowConfigId: arrowConfig.id,
-                startedAt: Date(),
-                endedAt: nil,
-                notes: "",
-                feelTags: [],
-                conditions: nil,
-                arrowCount: 0
+                sessionId: currentSession!.id,
+                bowConfigId: activeBowConfig!.id,
+                arrowConfigId: activeArrowConfig!.id,
+                ring: ring,
+                zone: zone,
+                plotX: plotX,
+                plotY: plotY,
+                shotAt: Date(),
+                excluded: false,
+                notes: nil
             )
-            try? store?.save(session: firstSession)
-            currentSession = firstSession
+            // Save locally first — arrow is never lost even if offline
+            try? store?.save(arrow: plot)
+            currentArrows.append(plot)
+            allArrows.append(plot)
             Task {
-                if let _ = try? await APIClient.shared.createSession(firstSession) {
-                    try? store?.markSessionSynced(id: firstSession.id)
+                if let _ = try? await apiClient.plotArrow(plot) {
+                    try? store?.markPlotSynced(id: plot.id)
                 }
             }
-        }
 
-        // Build and record the arrow plot
-        let plot = ArrowPlot(
-            id: UUID().uuidString,
-            sessionId: currentSession!.id,
-            bowConfigId: activeBowConfig!.id,
-            arrowConfigId: activeArrowConfig!.id,
-            ring: ring,
-            zone: zone,
-            plotX: plotX,
-            plotY: plotY,
-            shotAt: Date(),
-            excluded: false,
-            notes: nil
-        )
-        try? store?.save(arrow: plot)
-        currentArrows.append(plot)
-        allArrows.append(plot)
-        Task {
-            if let _ = try? await APIClient.shared.plotArrow(plot) {
-                try? store?.markPlotSynced(id: plot.id)
-            }
+        } catch {
+            self.error = error.localizedDescription
         }
-
         isLoading = false
     }
 
-    /// End the current session, flushing the latest session notes to the API.
-    func endSession() async {
-        guard let session = currentSession else {
-            isSessionActive = false
-            return
+    /// Toggle an arrow's flier (excluded) flag. Updates local state + store immediately,
+    /// fires background API sync. Spec §ArrowPlot.excluded — archer-controlled flier flag.
+    func toggleFlier(arrowId: String) {
+        guard let idx = allArrows.firstIndex(where: { $0.id == arrowId }) else { return }
+        allArrows[idx].excluded.toggle()
+        let updated = allArrows[idx]
+        try? store?.save(arrow: updated)
+        if let currentIdx = currentArrows.firstIndex(where: { $0.id == arrowId }) {
+            currentArrows[currentIdx].excluded = updated.excluded
         }
+        // Background API sync — best-effort, BackgroundSyncService retries on failure.
+        Task { try? await apiClient.plotArrow(updated) }
+    }
+
+    /// End the current session. Saves locally immediately for instant analytics visibility,
+    /// fires onSessionCompleted, and kicks the backend so the analytics pipeline runs
+    /// right away (the backend enqueues the Cloudflare Workflow when `endedAt` transitions
+    /// from null → set on PUT /sessions/:id). Falls back silently on network error —
+    /// BackgroundSyncService will catch it on the next connectivity event.
+    func endSession() async {
+        guard let session = currentSession else { resetState(); return }
         isLoading = true
         error = nil
         let endedAt = Date()
         let notes = sessionNotes
-        // Persist the true arrow count locally so the session log row renders correctly
-        // even if the session already exists as a row with arrowCount=0 from startSession.
-        try? store?.updateSession(
+        try? store?.updateSession(id: session.id, endedAt: endedAt, notes: notes, arrowCount: allArrows.count)
+        let completed = ShootingSession(
             id: session.id,
+            bowId: session.bowId,
+            bowConfigId: session.bowConfigId,
+            arrowConfigId: session.arrowConfigId,
+            startedAt: session.startedAt,
             endedAt: endedAt,
             notes: notes,
+            feelTags: session.feelTags,
             arrowCount: allArrows.count
         )
+        onSessionCompleted?(completed)
+        // Trigger analytics pipeline immediately — spec: "Every time a session closes".
+        // Awaited so by the time this function returns, the session is either synced
+        // (marked so BackgroundSyncService doesn't double-fire) or still pending (drain
+        // retries on next connectivity event).
         do {
-            try await APIClient.shared.endSession(id: session.id, notes: notes)
+            try await apiClient.endSession(id: session.id, notes: notes)
             try? store?.markSessionSynced(id: session.id)
         } catch {
-            self.error = error.localizedDescription
+            // Best-effort — leave pendingSync set so drain retries on reconnect.
         }
-        // Reset regardless of error so the UI returns to setup
+        resetState()
+    }
+
+    /// Discard the session — deletes it from the backend so it won't appear in analytics.
+    func cancelSession() async {
+        guard let session = currentSession else { resetState(); return }
+        isLoading = true
+        do {
+            try await apiClient.deleteSession(id: session.id)
+        } catch {
+            // Proceed with local reset even if the delete fails
+        }
+        resetState()
+    }
+
+    private func resetState() {
         currentSession = nil
         isSessionActive = false
         activeBowConfig = nil
@@ -268,39 +344,38 @@ import Observation
         guard isSessionActive, !currentEndArrows.isEmpty, let session = currentSession else { return }
         isLoading = true
         error = nil
-        let store = self.store
-        let arrowsInEnd = currentEndArrows
-        let count = arrowsInEnd.count
-        let newEnd = SessionEnd(
-            id: UUID().uuidString,
-            sessionId: session.id,
-            endNumber: currentEndNumber,
-            notes: notes?.isEmpty == true ? nil : notes,
-            completedAt: Date()
-        )
-        try? store?.save(end: newEnd)
-        // Stamp each arrow that belonged to this end with the new end's id.
-        // Without this, the session detail's per-end filter returns empty.
-        for arrow in arrowsInEnd {
-            var updated = arrow
-            updated.endId = newEnd.id
-            if let idx = allArrows.firstIndex(where: { $0.id == updated.id }) {
-                allArrows[idx].endId = newEnd.id
-            }
-            if let idx = currentArrows.firstIndex(where: { $0.id == updated.id }) {
-                currentArrows[idx].endId = newEnd.id
-            }
-            try? store?.save(arrow: updated)
-            Task { [updated] in
-                if let _ = try? await APIClient.shared.plotArrow(updated) {
-                    try? store?.markPlotSynced(id: updated.id)
+        do {
+            let arrowsInEnd = currentEndArrows
+            let count = arrowsInEnd.count
+            let newEnd = SessionEnd(
+                id: UUID().uuidString,
+                sessionId: session.id,
+                endNumber: currentEndNumber,
+                notes: notes?.isEmpty == true ? nil : notes,
+                completedAt: Date()
+            )
+            let saved = try await apiClient.completeEnd(newEnd)
+            completedEnds.append(saved)
+            endArrowCounts.append(count)
+            try? store?.save(end: saved)
+            // Stamp each arrow that belonged to this end with the new end's id.
+            // Mirrors the plotArrow/toggleFlier pattern: update in-memory, persist locally,
+            // fire best-effort API sync, mark synced on success.
+            for arrow in arrowsInEnd {
+                var updated = arrow
+                updated.endId = saved.id
+                if let idx = allArrows.firstIndex(where: { $0.id == updated.id }) {
+                    allArrows[idx].endId = saved.id
+                }
+                try? store?.save(arrow: updated)
+                Task {
+                    if let _ = try? await apiClient.plotArrow(updated) {
+                        try? store?.markPlotSynced(id: updated.id)
+                    }
                 }
             }
-        }
-        completedEnds.append(newEnd)
-        endArrowCounts.append(count)
-        Task { [newEnd] in
-            _ = try? await APIClient.shared.completeEnd(newEnd)
+        } catch {
+            self.error = error.localizedDescription
         }
         isLoading = false
     }

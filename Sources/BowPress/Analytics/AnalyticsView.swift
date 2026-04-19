@@ -7,6 +7,7 @@ struct AnalyticsView: View {
     @Environment(LocalStore.self) private var store
     @State private var viewModel = AnalyticsViewModel()
     @State private var selectedPeriod: AnalyticsPeriod = .threeDays
+    @State private var highlightedSuggestionId: String?
 
     var body: some View {
         Group {
@@ -18,81 +19,106 @@ struct AnalyticsView: View {
         }
         .navigationTitle("Analytics")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                if !appState.bows.isEmpty {
-                    NavigationLink {
-                        HistoricalSessionsView(
-                            sessions: hydratedSessions(),
-                            bowName: "All Bows"
-                        )
-                    } label: {
-                        Label("History", systemImage: "list.bullet.clipboard")
-                            .labelStyle(.iconOnly)
-                    }
-                }
-            }
-        }
         .task {
             await initialLoad()
+        }
+        .onChange(of: appState.analyticsRefreshNonce) { _, _ in
+            Task { await viewModel.refresh() }
         }
     }
 
     // MARK: - Sub-views
 
     private var mainContent: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
 
-                // Period selector
-                periodSelector
-                    .padding(.horizontal, 16)
+                    // Period selector
+                    periodSelector
 
-                // Error banner
-                if let errorMessage = viewModel.error {
-                    errorBanner(message: errorMessage)
-                        .padding(.horizontal, 16)
-                }
-
-                // Content or empty state
-                if let overview = viewModel.overview, overview.sessionCount > 0 {
-                    analyticsContent(overview: overview)
-                } else if !viewModel.isLoading {
-                    emptyStateView
-                        .padding(.horizontal, 16)
-                }
-
-                // Loading overlay while refreshing with stale data
-                if viewModel.isLoading && viewModel.overview != nil {
-                    HStack {
-                        Spacer()
-                        ProgressView("Refreshing…")
-                            .controlSize(.small)
-                        Spacer()
+                    // Error banner
+                    if let errorMessage = viewModel.error {
+                        errorBanner(message: errorMessage)
+                            .padding(.horizontal, 16)
                     }
-                    .padding(.vertical, 8)
+
+                    // Content or empty state
+                    if let overview = viewModel.overview, overview.sessionCount > 0 {
+                        analyticsContent(overview: overview)
+                    } else if !viewModel.isLoading {
+                        emptyStateView
+                            .padding(.horizontal, 16)
+                    }
+
+                    // Loading overlay while refreshing with stale data
+                    if viewModel.isLoading && viewModel.overview != nil {
+                        HStack {
+                            Spacer()
+                            ProgressView("Refreshing…")
+                                .controlSize(.small)
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                    }
                 }
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
-            .padding(.top, 8)
-            .padding(.bottom, 32)
+            .refreshable {
+                await viewModel.refresh()
+            }
+            .onChange(of: appState.pendingAnalyticsNavigation) { _, intent in
+                scrollToIntent(intent, proxy: proxy)
+            }
         }
-        .refreshable {
-            await viewModel.refresh()
+    }
+
+    private func scrollToIntent(_ intent: SuggestionNavigationIntent?, proxy: ScrollViewProxy) {
+        guard case .suggestion(let id, _) = intent else { return }
+        withAnimation(.easeInOut(duration: 0.4)) {
+            proxy.scrollTo(id, anchor: .top)
+        }
+        highlightedSuggestionId = id
+        Task {
+            try? await Task.sleep(for: .seconds(1.8))
+            await MainActor.run {
+                highlightedSuggestionId = nil
+                appState.pendingAnalyticsNavigation = nil
+            }
         }
     }
 
     // MARK: - Period selector
 
     private var periodSelector: some View {
-        Picker("Period", selection: $selectedPeriod) {
-            ForEach(AnalyticsPeriod.allCases, id: \.self) { period in
-                Text(period.label).tag(period)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(AnalyticsPeriod.allCases, id: \.self) { period in
+                    let selected = period == selectedPeriod
+                    Button {
+                        guard period != selectedPeriod else { return }
+                        selectedPeriod = period
+                        Task {
+                            viewModel.configure(store: store, appState: appState)
+                            await viewModel.load(period: period)
+                        }
+                    } label: {
+                        Text(period.label)
+                            .font(.subheadline.weight(selected ? .semibold : .regular))
+                            .foregroundStyle(selected ? .white : Color.appAccent)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                selected ? Color.appAccent : Color.appAccent.opacity(0.1),
+                                in: Capsule()
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .animation(.easeInOut(duration: 0.15), value: selectedPeriod)
+                }
             }
-        }
-        .pickerStyle(.menu)
-        .tint(Color.appAccent)
-        .onChange(of: selectedPeriod) { _, period in
-            Task { await viewModel.load(period: period) }
+            .padding(.horizontal, 16)
         }
     }
 
@@ -116,18 +142,36 @@ struct AnalyticsView: View {
 
         // Trend insights
         if let comparison = viewModel.comparison {
-            AnalyticsTrendInsightsSection(comparison: comparison, overview: overview)
-                .padding(.horizontal, 16)
+            AnalyticsTrendInsightsSection(
+                comparison: comparison,
+                overview: overview,
+                extraInsights: viewModel.extraInsights
+            )
+            .padding(.horizontal, 16)
         }
 
         // Bow tuning suggestions
         AnalyticsSuggestionsSection(
             suggestions: viewModel.suggestions,
+            highlightedId: highlightedSuggestionId,
             onMarkRead: { suggestion in
                 await viewModel.markRead(suggestion)
+            },
+            onDismiss: { suggestion in
+                await viewModel.dismiss(suggestion)
             }
         )
         .padding(.horizontal, 16)
+
+        // Spec §Analysis Outputs #3 and #4 — Change Impact Cards + Subjective-Objective
+        // Correlation. Both are per-bow; we show them for the user's primary (first) bow.
+        // When no bow exists, sections hide themselves via empty-state copy.
+        if let bowId = appState.bows.first?.id {
+            ChangeImpactCardsSection(bowId: bowId)
+                .padding(.horizontal, 16)
+            TagCorrelationsSection(bowId: bowId)
+                .padding(.horizontal, 16)
+        }
     }
 
     // MARK: - Empty state
@@ -205,21 +249,8 @@ struct AnalyticsView: View {
 
     private func initialLoad() async {
         guard viewModel.overview == nil else { return }
+        viewModel.configure(store: store, appState: appState)
         await viewModel.load(period: .threeDays)
-    }
-
-    /// Pulls completed sessions from the local store and hydrates each with its
-    /// arrows and ends so the detail sheet's per-end filter has data to work with.
-    private func hydratedSessions() -> [ShootingSession] {
-        guard let sessions = try? store.fetchSessions() else { return [] }
-        let arrows = (try? store.fetchAllArrows()) ?? []
-        let arrowsBySession = Dictionary(grouping: arrows, by: { $0.sessionId })
-        return sessions.map { session in
-            var hydrated = session
-            hydrated.arrows = arrowsBySession[session.id]
-            hydrated.ends = try? store.fetchEnds(sessionId: session.id)
-            return hydrated
-        }
     }
 }
 

@@ -69,6 +69,7 @@ protocol BowPressAPIClient: AnyObject {
     func fetchSessions() async throws -> [ShootingSession]
     func createSession(_ session: ShootingSession) async throws -> ShootingSession
     func endSession(id: String, notes: String) async throws
+    func deleteSession(id: String) async throws
     func fetchPlots(sessionId: String) async throws -> [ArrowPlot]
     func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot
     func completeEnd(_ end: SessionEnd) async throws -> SessionEnd
@@ -391,5 +392,26 @@ extension APIClient {
     func registerDeviceToken(_ token: String, environment: String) async throws {
         return
     }
+
+    // TODO: real implementation lands in follow-up — pins/unpins the reference config.
+    func setReferenceConfiguration(id: String, pinned: Bool) async throws -> BowConfiguration {
+        throw URLError(.unsupportedURL)
+    }
+
+    // TODO: real implementation lands in follow-up
+    func fetchSuggestions(bowId: String) async throws -> [AnalyticsSuggestion] {
+        return try await fetchSuggestions()
+    }
+
+    // TODO: real implementation lands in follow-up
+    func dismissSuggestion(id: String) async throws { }
+
+    // TODO: real implementation lands in follow-up
+    func deleteSession(id: String) async throws { }
+
+    // TODO: real implementation lands in follow-up
+    func deleteDeviceToken(_ token: String) async throws { }
+
+    func clearToken() { setToken("") }
 }
 

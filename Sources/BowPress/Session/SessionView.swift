@@ -3,10 +3,13 @@ import SwiftUI
 struct SessionView: View {
     var appState: AppState
     @Bindable var viewModel: SessionViewModel
+    @Environment(LocalStore.self) private var store
 
     @State private var showConfigSheet = false
     @State private var showEndConfirmation = false
+    @State private var showDiscardConfirmation = false
     @State private var isEnding = false
+    @State private var isDiscarding = false
     @State private var isStarting = false
     @State private var selectedBow: Bow? = nil
     @State private var selectedArrow: ArrowConfiguration? = nil
@@ -29,6 +32,14 @@ struct SessionView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This will end your session. This cannot be undone.")
+        }
+        .alert("Discard Session?", isPresented: $showDiscardConfirmation) {
+            Button("Discard Session", role: .destructive) {
+                Task { await discardSession() }
+            }
+            Button("Keep Shooting", role: .cancel) {}
+        } message: {
+            Text("All arrows logged will be permanently deleted. This session won't be included in your analytics.")
         }
         .alert("Error", isPresented: Binding(
             get: { viewModel.error != nil },
@@ -53,7 +64,7 @@ struct SessionView: View {
                     ForEach(appState.bows) { bow in
                         StartPickerRow(
                             title: bow.name,
-                            subtitle: "\(bow.brand) \(bow.model)",
+                            subtitle: bow.bowType.label,
                             isSelected: selectedBow?.id == bow.id
                         ) { selectedBow = bow }
                         .listRowBackground(selectedBow?.id == bow.id ? Color.appAccent : nil)
@@ -112,6 +123,14 @@ struct SessionView: View {
         .listStyle(.insetGrouped)
         .environment(\.editMode, .constant(.active))
         .onAppear {
+            // Defensive reload: if the tab was backgrounded while the user added a bow
+            // or arrow in Equipment, make sure we pick up the fresh data from the store.
+            if let fresh = try? store.fetchBows(), fresh.count != appState.bows.count {
+                appState.bows = fresh
+            }
+            if let fresh = try? store.fetchArrowConfigs(), fresh.count != appState.arrowConfigs.count {
+                appState.arrowConfigs = fresh
+            }
             if selectedBow == nil { selectedBow = appState.bows.first }
             if selectedArrow == nil { selectedArrow = appState.arrowConfigs.first }
         }
@@ -126,10 +145,18 @@ struct SessionView: View {
     private func startNewSession() async {
         guard let bow = selectedBow, let arrow = selectedArrow else { return }
         isStarting = true
-        let configs = (try? await APIClient.shared.fetchConfigurations(bowId: bow.id)) ?? []
-        let latestConfig = configs.sorted { $0.createdAt > $1.createdAt }.first
-            ?? BowConfiguration.makeDefault(for: bow.id)
-        await viewModel.startSession(bow: bow, bowConfig: latestConfig, arrowConfig: arrow)
+        // Prefer the config saved from the Equipment tab (live AppState source of truth).
+        // Fall back to the API/mock only if nothing has been saved yet.
+        let latestConfig: BowConfiguration
+        if let live = appState.bowConfigs[bow.id] {
+            latestConfig = live
+        } else {
+            let configs = (try? await APIClient.shared.fetchConfigurations(bowId: bow.id)) ?? []
+            latestConfig = configs.sorted { $0.createdAt > $1.createdAt }.first
+                ?? BowConfiguration.makeDefault(for: bow)
+        }
+        let freshArrow = appState.arrowConfigs.first(where: { $0.id == arrow.id }) ?? arrow
+        await viewModel.startSession(bow: bow, bowConfig: latestConfig, arrowConfig: freshArrow)
         isStarting = false
     }
 
@@ -153,7 +180,11 @@ struct SessionView: View {
                         Task { await viewModel.plotArrow(ring: ring, zone: zone, plotX: plotX, plotY: plotY) }
                     },
                     isEnabled: !viewModel.isLoading,
-                    arrowDiameterMm: viewModel.activeArrowConfig?.shaftDiameter?.rawValue ?? 5.0
+                    arrowDiameterMm: {
+                        let current = viewModel.pendingArrowConfig ?? viewModel.activeArrowConfig
+                        let live = appState.arrowConfigs.first(where: { $0.id == current?.id })
+                        return (live ?? current)?.shaftDiameter?.rawValue ?? 5.0
+                    }()
                 )
                 .frame(maxWidth: 380)
                 .padding(.horizontal, 24)
@@ -255,8 +286,33 @@ struct SessionView: View {
                 .tint(.red)
                 .padding(.horizontal, 20)
                 .padding(.top, 14)
-                .padding(.bottom, 30)
+                .padding(.bottom, 8)
                 .disabled(isEnding)
+
+                // MARK: Discard Session
+                Button(role: .destructive) {
+                    showDiscardConfirmation = true
+                } label: {
+                    HStack {
+                        if isDiscarding {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.red)
+                                .scaleEffect(0.85)
+                        } else {
+                            Image(systemName: "trash")
+                        }
+                        Text(isDiscarding ? "Discarding…" : "Discard Session")
+                            .fontWeight(.medium)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 30)
+                .disabled(isDiscarding || isEnding)
             }
         }
         .sheet(isPresented: $showConfigSheet) {
@@ -373,18 +429,29 @@ struct SessionView: View {
 
             // Current in-progress end
             if !viewModel.currentEndArrows.isEmpty {
-                EndRow(end: nil, endNumber: viewModel.currentEndNumber,
-                       arrows: viewModel.currentEndArrows, isCurrent: true)
+                EndRow(
+                    end: nil,
+                    endNumber: viewModel.currentEndNumber,
+                    arrows: viewModel.currentEndArrows,
+                    isCurrent: true,
+                    onToggleFlier: { id in viewModel.toggleFlier(arrowId: id) }
+                )
             }
         }
     }
 
-    // MARK: - End Session
+    // MARK: - End / Discard Session
 
     private func endSession() async {
         isEnding = true
         await viewModel.endSession()
         isEnding = false
+    }
+
+    private func discardSession() async {
+        isDiscarding = true
+        await viewModel.cancelSession()
+        isDiscarding = false
     }
 }
 
@@ -395,6 +462,10 @@ struct EndRow: View {
     var endNumber: Int = 0
     var arrows: [ArrowPlot]
     var isCurrent: Bool
+    /// Optional: tap-to-toggle flier flag. When provided, each arrow becomes a
+    /// Button that toggles `excluded`. Only passed for the in-progress end
+    /// (editing a completed end's arrows is out of scope for now).
+    var onToggleFlier: ((String) -> Void)? = nil
 
     private var displayNumber: Int { end?.endNumber ?? endNumber }
     private var total: Int { arrows.reduce(0) { $0 + min($1.ring, 10) } }
@@ -423,10 +494,26 @@ struct EndRow: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 4) {
-                    ForEach(arrows) { arrow in RingBadge(ring: arrow.ring) }
+                    ForEach(arrows) { arrow in
+                        if let onToggleFlier {
+                            Button {
+                                onToggleFlier(arrow.id)
+                            } label: {
+                                RingBadge(ring: arrow.ring, excluded: arrow.excluded)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            RingBadge(ring: arrow.ring, excluded: arrow.excluded)
+                        }
+                    }
                 }
             }
             .frame(height: 28)
+            if isCurrent && onToggleFlier != nil {
+                Text("Tap an arrow to flag it as a flier (excluded from analytics).")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
+            }
             if let notes = end?.notes, !notes.isEmpty {
                 Text(notes)
                     .font(.caption2).foregroundStyle(.secondary)
@@ -466,6 +553,7 @@ private struct StartPickerRow: View {
 
 struct RingBadge: View {
     var ring: Int
+    var excluded: Bool = false
 
     var body: some View {
         Text(ring == 11 ? "X" : "\(ring)")
@@ -474,6 +562,16 @@ struct RingBadge: View {
             .frame(width: 24, height: 24)
             .background(bgColor)
             .clipShape(Circle())
+            .opacity(excluded ? 0.35 : 1.0)
+            .overlay {
+                // Strike-through line indicates flier-flagged (excluded from analytics)
+                if excluded {
+                    Rectangle()
+                        .fill(Color.red.opacity(0.85))
+                        .frame(width: 28, height: 2)
+                        .rotationEffect(.degrees(-45))
+                }
+            }
     }
 
     private var bgColor: Color {
@@ -515,7 +613,7 @@ struct RingBadge: View {
     vm.activeArrowConfig = appState.arrowConfigs.first
     vm.currentSession = ShootingSession(
         id: "s1", bowId: "b1", bowConfigId: "bc1", arrowConfigId: "a1",
-        startedAt: Date(), endedAt: nil, notes: "", feelTags: [], conditions: nil, arrowCount: 0
+        startedAt: Date(), endedAt: nil, notes: "", feelTags: [], arrowCount: 0
     )
     vm.allArrows = [
         ArrowPlot(id: "1", sessionId: "s1", bowConfigId: "bc1", arrowConfigId: "a1",
@@ -554,7 +652,7 @@ struct RingBadge: View {
     vm.pendingBowConfig = pending
     vm.currentSession = ShootingSession(
         id: "s1", bowId: "b1", bowConfigId: "bc1", arrowConfigId: "a1",
-        startedAt: Date(), endedAt: nil, notes: "", feelTags: [], conditions: nil, arrowCount: 0
+        startedAt: Date(), endedAt: nil, notes: "", feelTags: [], arrowCount: 0
     )
 
     return NavigationStack {
