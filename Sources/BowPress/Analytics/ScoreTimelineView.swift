@@ -36,6 +36,30 @@ struct ScoreTimelineView: View {
     }
 
     @State private var selectedConfig: BowConfiguration?
+    @State private var committedZoom: CGFloat = 1.0
+    @State private var liveZoom: CGFloat = 1.0
+
+    private var fullDateRange: ClosedRange<Date>? {
+        let dates = dataPoints.map(\.config.createdAt)
+        guard let earliest = dates.min(), let latest = dates.max() else { return nil }
+        if earliest == latest {
+            return earliest.addingTimeInterval(-86_400)...earliest.addingTimeInterval(86_400)
+        }
+        return earliest...latest
+    }
+
+    // Fraction of the full span that should be visible. Pinch out → scale > 1 → smaller fraction → magnified.
+    private var currentZoom: CGFloat {
+        min(max(committedZoom / liveZoom, 0.2), 1.0)
+    }
+
+    private var visibleDateRange: ClosedRange<Date>? {
+        guard let full = fullDateRange else { return nil }
+        let totalSpan = full.upperBound.timeIntervalSince(full.lowerBound)
+        let visibleSpan = totalSpan * Double(currentZoom)
+        let center = full.lowerBound.addingTimeInterval(totalSpan / 2)
+        return center.addingTimeInterval(-visibleSpan / 2)...center.addingTimeInterval(visibleSpan / 2)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -119,6 +143,7 @@ struct ScoreTimelineView: View {
                 }
             }
             .chartYScale(domain: 6...11)
+            .chartXScale(domain: visibleDateRange ?? fullDateRange ?? (Date()...Date().addingTimeInterval(86_400)))
             .chartOverlay { proxy in
                 GeometryReader { geo in
                     Rectangle()
@@ -129,6 +154,14 @@ struct ScoreTimelineView: View {
                         }
                 }
             }
+            .simultaneousGesture(
+                MagnificationGesture()
+                    .onChanged { scale in liveZoom = scale }
+                    .onEnded { scale in
+                        committedZoom = min(max(committedZoom / scale, 0.2), 1.0)
+                        liveZoom = 1.0
+                    }
+            )
             .frame(height: 200)
             .animation(.easeInOut(duration: 0.2), value: selectedConfig?.id)
 

@@ -582,8 +582,8 @@ private struct SessionHeatMapView: View {
                 Canvas { context, size in
                     for (i, plot) in renderPlots.enumerated() {
                         let pt = blobPosition(for: plot, index: i, in: size)
-                        let rect = CGRect(x: pt.x - 22, y: pt.y - 22, width: 44, height: 44)
-                        context.fill(Path(ellipseIn: rect), with: .color(Color.appAccent.opacity(0.72)))
+                        let rect = CGRect(x: pt.x - 11, y: pt.y - 11, width: 22, height: 22)
+                        context.fill(Path(ellipseIn: rect), with: .color(Color.appAccent.opacity(0.50)))
                     }
                 }
                 .drawingGroup()
