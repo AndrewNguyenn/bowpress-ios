@@ -4,6 +4,7 @@ import SwiftUI
 
 struct AnalyticsView: View {
     @Environment(AppState.self) private var appState
+    @Environment(LocalStore.self) private var store
     @State private var viewModel = AnalyticsViewModel()
     @State private var selectedPeriod: AnalyticsPeriod = .threeDays
 
@@ -22,7 +23,7 @@ struct AnalyticsView: View {
                 if !appState.bows.isEmpty {
                     NavigationLink {
                         HistoricalSessionsView(
-                            sessions: ShootingSession.mockSessions,
+                            sessions: hydratedSessions(),
                             bowName: "All Bows"
                         )
                     } label: {
@@ -205,6 +206,20 @@ struct AnalyticsView: View {
     private func initialLoad() async {
         guard viewModel.overview == nil else { return }
         await viewModel.load(period: .threeDays)
+    }
+
+    /// Pulls completed sessions from the local store and hydrates each with its
+    /// arrows and ends so the detail sheet's per-end filter has data to work with.
+    private func hydratedSessions() -> [ShootingSession] {
+        guard let sessions = try? store.fetchSessions() else { return [] }
+        let arrows = (try? store.fetchAllArrows()) ?? []
+        let arrowsBySession = Dictionary(grouping: arrows, by: { $0.sessionId })
+        return sessions.map { session in
+            var hydrated = session
+            hydrated.arrows = arrowsBySession[session.id]
+            hydrated.ends = try? store.fetchEnds(sessionId: session.id)
+            return hydrated
+        }
     }
 }
 

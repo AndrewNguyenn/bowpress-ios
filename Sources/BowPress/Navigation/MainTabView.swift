@@ -38,6 +38,7 @@ struct MainTabView: View {
         }
         .tint(.appAccent)
         .task {
+            sessionViewModel.store = store
             syncService.configure(store: store)
             syncService.triggerSync()
             #if DEBUG

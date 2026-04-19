@@ -3,6 +3,13 @@ import Observation
 
 @Observable @MainActor final class SessionViewModel {
 
+    // MARK: - Dependencies
+
+    /// Local store for offline-first session persistence. Optional so call sites that
+    /// construct `SessionViewModel()` (previews, legacy tests) keep compiling; the host
+    /// view assigns it in its `.task` block.
+    var store: LocalStore?
+
     // MARK: - Active Session State
 
     var currentSession: ShootingSession?
@@ -71,34 +78,36 @@ import Observation
     ) async {
         isLoading = true
         error = nil
-        do {
-            let session = ShootingSession(
-                id: UUID().uuidString,
-                bowId: bow.id,
-                bowConfigId: bowConfig.id,
-                arrowConfigId: arrowConfig.id,
-                startedAt: Date(),
-                endedAt: nil,
-                notes: "",
-                feelTags: [],
-                conditions: nil,
-                arrowCount: 0
-            )
-            let created = try await APIClient.shared.createSession(session)
-            currentSession = created
-            activeBowConfig = bowConfig
-            activeArrowConfig = arrowConfig
-            selectedBow = bow
-            currentArrows = []
-            allArrows = []
-            completedEnds = []
-            endArrowCounts = []
-            sessionNotes = ""
-            pendingBowConfig = nil
-            pendingArrowConfig = nil
-            isSessionActive = true
-        } catch {
-            self.error = error.localizedDescription
+        let session = ShootingSession(
+            id: UUID().uuidString,
+            bowId: bow.id,
+            bowConfigId: bowConfig.id,
+            arrowConfigId: arrowConfig.id,
+            startedAt: Date(),
+            endedAt: nil,
+            notes: "",
+            feelTags: [],
+            conditions: nil,
+            arrowCount: 0
+        )
+        try? store?.save(session: session)
+        currentSession = session
+        activeBowConfig = bowConfig
+        activeArrowConfig = arrowConfig
+        selectedBow = bow
+        currentArrows = []
+        allArrows = []
+        completedEnds = []
+        endArrowCounts = []
+        sessionNotes = ""
+        pendingBowConfig = nil
+        pendingArrowConfig = nil
+        isSessionActive = true
+        let store = self.store
+        Task {
+            if let _ = try? await APIClient.shared.createSession(session) {
+                try? store?.markSessionSynced(id: session.id)
+            }
         }
         isLoading = false
     }
@@ -124,80 +133,93 @@ import Observation
 
         isLoading = true
         error = nil
-        do {
-            // Lazy session creation: if there is a pending config change we must open
-            // a new session segment before recording the arrow.
-            if hasPendingConfigChange {
-                let resolvedBowConfig = pendingBowConfig ?? activeBowConfig!
-                let resolvedArrowConfig = pendingArrowConfig ?? activeArrowConfig!
-                let bow = selectedBow!
+        let store = self.store
 
-                let newSession = ShootingSession(
-                    id: UUID().uuidString,
-                    bowId: bow.id,
-                    bowConfigId: resolvedBowConfig.id,
-                    arrowConfigId: resolvedArrowConfig.id,
-                    startedAt: Date(),
-                    endedAt: nil,
-                    notes: "",
-                    feelTags: [],
-                    conditions: nil,
-                    arrowCount: 0
-                )
-                let created = try await APIClient.shared.createSession(newSession)
-                currentSession = created
+        // Lazy session creation: if there is a pending config change we must open
+        // a new session segment before recording the arrow.
+        if hasPendingConfigChange {
+            let resolvedBowConfig = pendingBowConfig ?? activeBowConfig!
+            let resolvedArrowConfig = pendingArrowConfig ?? activeArrowConfig!
+            let bow = selectedBow!
 
-                // Promote pending → active
-                activeBowConfig = resolvedBowConfig
-                activeArrowConfig = resolvedArrowConfig
-                pendingBowConfig = nil
-                pendingArrowConfig = nil
-                currentArrows = []
-
-            } else if currentSession == nil {
-                // Safety net: should not normally be reached after startSession(),
-                // but guard against it anyway.
-                let bow = selectedBow!
-                let bowConfig = activeBowConfig!
-                let arrowConfig = activeArrowConfig!
-
-                let firstSession = ShootingSession(
-                    id: UUID().uuidString,
-                    bowId: bow.id,
-                    bowConfigId: bowConfig.id,
-                    arrowConfigId: arrowConfig.id,
-                    startedAt: Date(),
-                    endedAt: nil,
-                    notes: "",
-                    feelTags: [],
-                    conditions: nil,
-                    arrowCount: 0
-                )
-                let created = try await APIClient.shared.createSession(firstSession)
-                currentSession = created
+            let newSession = ShootingSession(
+                id: UUID().uuidString,
+                bowId: bow.id,
+                bowConfigId: resolvedBowConfig.id,
+                arrowConfigId: resolvedArrowConfig.id,
+                startedAt: Date(),
+                endedAt: nil,
+                notes: "",
+                feelTags: [],
+                conditions: nil,
+                arrowCount: 0
+            )
+            try? store?.save(session: newSession)
+            currentSession = newSession
+            Task {
+                if let _ = try? await APIClient.shared.createSession(newSession) {
+                    try? store?.markSessionSynced(id: newSession.id)
+                }
             }
 
-            // Build and record the arrow plot
-            let plot = ArrowPlot(
-                id: UUID().uuidString,
-                sessionId: currentSession!.id,
-                bowConfigId: activeBowConfig!.id,
-                arrowConfigId: activeArrowConfig!.id,
-                ring: ring,
-                zone: zone,
-                plotX: plotX,
-                plotY: plotY,
-                shotAt: Date(),
-                excluded: false,
-                notes: nil
-            )
-            let saved = try await APIClient.shared.plotArrow(plot)
-            currentArrows.append(saved)
-            allArrows.append(saved)
+            // Promote pending → active
+            activeBowConfig = resolvedBowConfig
+            activeArrowConfig = resolvedArrowConfig
+            pendingBowConfig = nil
+            pendingArrowConfig = nil
+            currentArrows = []
 
-        } catch {
-            self.error = error.localizedDescription
+        } else if currentSession == nil {
+            // Safety net: should not normally be reached after startSession(),
+            // but guard against it anyway.
+            let bow = selectedBow!
+            let bowConfig = activeBowConfig!
+            let arrowConfig = activeArrowConfig!
+
+            let firstSession = ShootingSession(
+                id: UUID().uuidString,
+                bowId: bow.id,
+                bowConfigId: bowConfig.id,
+                arrowConfigId: arrowConfig.id,
+                startedAt: Date(),
+                endedAt: nil,
+                notes: "",
+                feelTags: [],
+                conditions: nil,
+                arrowCount: 0
+            )
+            try? store?.save(session: firstSession)
+            currentSession = firstSession
+            Task {
+                if let _ = try? await APIClient.shared.createSession(firstSession) {
+                    try? store?.markSessionSynced(id: firstSession.id)
+                }
+            }
         }
+
+        // Build and record the arrow plot
+        let plot = ArrowPlot(
+            id: UUID().uuidString,
+            sessionId: currentSession!.id,
+            bowConfigId: activeBowConfig!.id,
+            arrowConfigId: activeArrowConfig!.id,
+            ring: ring,
+            zone: zone,
+            plotX: plotX,
+            plotY: plotY,
+            shotAt: Date(),
+            excluded: false,
+            notes: nil
+        )
+        try? store?.save(arrow: plot)
+        currentArrows.append(plot)
+        allArrows.append(plot)
+        Task {
+            if let _ = try? await APIClient.shared.plotArrow(plot) {
+                try? store?.markPlotSynced(id: plot.id)
+            }
+        }
+
         isLoading = false
     }
 
@@ -209,8 +231,19 @@ import Observation
         }
         isLoading = true
         error = nil
+        let endedAt = Date()
+        let notes = sessionNotes
+        // Persist the true arrow count locally so the session log row renders correctly
+        // even if the session already exists as a row with arrowCount=0 from startSession.
+        try? store?.updateSession(
+            id: session.id,
+            endedAt: endedAt,
+            notes: notes,
+            arrowCount: allArrows.count
+        )
         do {
-            try await APIClient.shared.endSession(id: session.id, notes: sessionNotes)
+            try await APIClient.shared.endSession(id: session.id, notes: notes)
+            try? store?.markSessionSynced(id: session.id)
         } catch {
             self.error = error.localizedDescription
         }
@@ -235,20 +268,39 @@ import Observation
         guard isSessionActive, !currentEndArrows.isEmpty, let session = currentSession else { return }
         isLoading = true
         error = nil
-        do {
-            let count = currentEndArrows.count
-            let newEnd = SessionEnd(
-                id: UUID().uuidString,
-                sessionId: session.id,
-                endNumber: currentEndNumber,
-                notes: notes?.isEmpty == true ? nil : notes,
-                completedAt: Date()
-            )
-            let saved = try await APIClient.shared.completeEnd(newEnd)
-            completedEnds.append(saved)
-            endArrowCounts.append(count)
-        } catch {
-            self.error = error.localizedDescription
+        let store = self.store
+        let arrowsInEnd = currentEndArrows
+        let count = arrowsInEnd.count
+        let newEnd = SessionEnd(
+            id: UUID().uuidString,
+            sessionId: session.id,
+            endNumber: currentEndNumber,
+            notes: notes?.isEmpty == true ? nil : notes,
+            completedAt: Date()
+        )
+        try? store?.save(end: newEnd)
+        // Stamp each arrow that belonged to this end with the new end's id.
+        // Without this, the session detail's per-end filter returns empty.
+        for arrow in arrowsInEnd {
+            var updated = arrow
+            updated.endId = newEnd.id
+            if let idx = allArrows.firstIndex(where: { $0.id == updated.id }) {
+                allArrows[idx].endId = newEnd.id
+            }
+            if let idx = currentArrows.firstIndex(where: { $0.id == updated.id }) {
+                currentArrows[idx].endId = newEnd.id
+            }
+            try? store?.save(arrow: updated)
+            Task { [updated] in
+                if let _ = try? await APIClient.shared.plotArrow(updated) {
+                    try? store?.markPlotSynced(id: updated.id)
+                }
+            }
+        }
+        completedEnds.append(newEnd)
+        endArrowCounts.append(count)
+        Task { [newEnd] in
+            _ = try? await APIClient.shared.completeEnd(newEnd)
         }
         isLoading = false
     }
