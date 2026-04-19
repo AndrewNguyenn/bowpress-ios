@@ -17,24 +17,35 @@ struct MainTabView: View {
             .tag(0)
 
             NavigationStack {
+                HistoricalSessionsView(
+                    sessions: appState.completedSessions,
+                    bowName: "All Bows",
+                    allConfigs: Array(appState.bowConfigs.values)
+                )
+                .safeAreaInset(edge: .top, spacing: 0) { sessionBanner }
+            }
+            .tabItem { Label("Log", systemImage: "list.bullet.clipboard") }
+            .tag(1)
+
+            NavigationStack {
                 SessionView(appState: appState, viewModel: sessionViewModel)
             }
             .tabItem { Label("Session", systemImage: "target") }
-            .tag(1)
+            .tag(2)
 
             NavigationStack {
                 ConfigurationView(appState: appState)
                     .safeAreaInset(edge: .top, spacing: 0) { sessionBanner }
             }
             .tabItem { Label("Equipment", systemImage: "slider.horizontal.3") }
-            .tag(2)
+            .tag(3)
 
             NavigationStack {
                 SettingsView()
                     .safeAreaInset(edge: .top, spacing: 0) { sessionBanner }
             }
             .tabItem { Label("Settings", systemImage: "person.crop.circle") }
-            .tag(3)
+            .tag(4)
         }
         .tint(.appAccent)
         .onChange(of: appState.bowConfigs) { _, newConfigs in
@@ -72,7 +83,7 @@ struct MainTabView: View {
     private var sessionBanner: some View {
         if sessionViewModel.isSessionActive {
             ActiveSessionBanner(viewModel: sessionViewModel) {
-                selectedTab = 1
+                selectedTab = 2
             }
         }
     }
