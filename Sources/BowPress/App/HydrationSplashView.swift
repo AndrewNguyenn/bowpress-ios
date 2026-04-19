@@ -68,11 +68,11 @@ struct HydrationSplashView: View {
                 // so the cross-fade is an in-place dissolve rather than a
                 // visual jump.
                 SplashTargetView(arrows: visibleArrows)
-                    .frame(maxWidth: 280)
+                    .frame(maxWidth: 340)
                     .aspectRatio(1, contentMode: .fit)
                     .scaleEffect(targetScale)
-                    .padding(.horizontal, 40)
-                    .padding(.top, 100)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 130)
 
                 VStack(spacing: 6) {
                     Text("BowPress")
