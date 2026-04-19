@@ -17,20 +17,151 @@ struct PeriodComparison: Codable {
     let previous: PeriodSlice
 }
 
+// MARK: - Auth response shapes
+
+struct SignUpResult: Equatable {
+    let email: String
+}
+
+private struct SignUpResponseBody: Decodable {
+    let status: String
+    let email: String
+}
+
+private struct AuthSuccessBody: Decodable {
+    let user: User
+    let token: String
+}
+
+private struct ErrorBody: Decodable {
+    let error: String?
+    let email: String?
+    let attemptsRemaining: Int?
+}
+
+// MARK: - Protocol
+
+protocol BowPressAPIClient: AnyObject {
+    func setToken(_ token: String)
+    func signInWithApple(identityToken: String) async throws -> User
+    func signInWithGoogle(idToken: String) async throws -> User
+    func signUp(name: String, email: String, password: String) async throws -> SignUpResult
+    func signIn(email: String, password: String) async throws -> User
+    func verifyEmail(email: String, code: String) async throws -> User
+    func resendVerification(email: String) async throws
+}
+
 // MARK: - APIClient
 
-final class APIClient {
+final class APIClient: BowPressAPIClient {
     static let shared = APIClient()
     private let baseURL = ProcessInfo.processInfo.environment["API_BASE_URL"] ?? "http://localhost:8787"
     private var authToken: String?
+    private let session: URLSession
+    private let decoder: JSONDecoder
+
+    init(session: URLSession = .shared) {
+        self.session = session
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        self.decoder = decoder
+    }
 
     func setToken(_ token: String) { self.authToken = token }
 
     // MARK: - Auth
     func signInWithApple(identityToken: String) async throws -> User { fatalError("stub") }
     func signInWithGoogle(idToken: String) async throws -> User { fatalError("stub") }
-    func signUp(name: String, email: String, password: String) async throws -> User { fatalError("stub") }
-    func signIn(email: String, password: String) async throws -> User { fatalError("stub") }
+
+    func signUp(name: String, email: String, password: String) async throws -> SignUpResult {
+        let body: [String: String] = ["name": name, "email": email, "password": password]
+        let (data, response) = try await post(path: "/auth/signup", body: body)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        if http.statusCode == 202 {
+            let decoded = try decoder.decode(SignUpResponseBody.self, from: data)
+            return SignUpResult(email: decoded.email)
+        }
+        throw try authError(from: data, status: http.statusCode)
+    }
+
+    func signIn(email: String, password: String) async throws -> User {
+        let body: [String: String] = ["email": email, "password": password]
+        let (data, response) = try await post(path: "/auth/signin", body: body)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        if (200..<300).contains(http.statusCode) {
+            let decoded = try decoder.decode(AuthSuccessBody.self, from: data)
+            setToken(decoded.token)
+            return decoded.user
+        }
+        if http.statusCode == 403, let body = try? decoder.decode(ErrorBody.self, from: data),
+           body.error == "email_not_verified", let echoed = body.email {
+            throw AuthError.emailNotVerified(email: echoed)
+        }
+        throw try authError(from: data, status: http.statusCode)
+    }
+
+    func verifyEmail(email: String, code: String) async throws -> User {
+        let body: [String: String] = ["email": email, "code": code]
+        let (data, response) = try await post(path: "/auth/verify-email", body: body)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        if (200..<300).contains(http.statusCode) {
+            let decoded = try decoder.decode(AuthSuccessBody.self, from: data)
+            setToken(decoded.token)
+            return decoded.user
+        }
+        throw try verifyEmailError(from: data, status: http.statusCode)
+    }
+
+    func resendVerification(email: String) async throws {
+        let body: [String: String] = ["email": email]
+        let (data, response) = try await post(path: "/auth/resend-verification", body: body)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        if (200..<300).contains(http.statusCode) { return }
+        throw try authError(from: data, status: http.statusCode)
+    }
+
+    // MARK: - HTTP helpers
+
+    private func post(path: String, body: [String: String]) async throws -> (Data, URLResponse) {
+        guard let url = URL(string: baseURL + path) else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = authToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return try await session.data(for: request)
+    }
+
+    private func authError(from data: Data, status: Int) throws -> Error {
+        if let body = try? decoder.decode(ErrorBody.self, from: data), let code = body.error {
+            return NSError(domain: "APIClient", code: status, userInfo: [NSLocalizedDescriptionKey: code])
+        }
+        return NSError(domain: "APIClient", code: status, userInfo: [NSLocalizedDescriptionKey: "HTTP \(status)"])
+    }
+
+    private func verifyEmailError(from data: Data, status: Int) throws -> Error {
+        let body = try? decoder.decode(ErrorBody.self, from: data)
+        switch (status, body?.error) {
+        case (401, "invalid_code"):
+            return AuthError.invalidCode(attemptsRemaining: body?.attemptsRemaining ?? 0)
+        case (410, "verification_expired"):
+            return AuthError.codeExpired
+        case (429, "too_many_attempts"):
+            return AuthError.tooManyAttempts
+        default:
+            return try authError(from: data, status: status)
+        }
+    }
 
     // MARK: - Bows
     func fetchBows() async throws -> [Bow] {

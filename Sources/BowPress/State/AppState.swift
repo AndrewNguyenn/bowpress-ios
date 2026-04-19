@@ -10,6 +10,7 @@ final class AppState {
     var isAuthenticated: Bool = false
     var currentUser: User?
     #endif
+    var pendingVerificationEmail: String? = nil
     #if DEBUG
     var bows: [Bow] = DevMockData.bows
     var arrowConfigs: [ArrowConfiguration] = DevMockData.arrowConfigs

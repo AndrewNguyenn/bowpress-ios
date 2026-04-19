@@ -18,6 +18,7 @@ struct EmailAuthView: View {
     @State private var confirmPassword: String = ""
     @State private var isLoading: Bool = false
     @State private var errorMessage: String? = nil
+    @State private var verificationEmail: String? = nil
 
     // MARK: - Validation
 
@@ -60,7 +61,19 @@ struct EmailAuthView: View {
                     Button("Cancel") { dismiss() }
                 }
             }
+            .sheet(item: Binding(
+                get: { verificationEmail.map(VerificationTarget.init) },
+                set: { verificationEmail = $0?.email }
+            )) { target in
+                VerifyEmailView(authService: authService, email: target.email)
+                    .environment(appState)
+            }
         }
+    }
+
+    private struct VerificationTarget: Identifiable {
+        let email: String
+        var id: String { email }
     }
 
     // MARK: - Sections
@@ -159,16 +172,25 @@ struct EmailAuthView: View {
                 switch mode {
                 case .signIn:
                     try await authService.signIn(email: email, password: password)
+                    await MainActor.run {
+                        isLoading = false
+                        dismiss()
+                    }
                 case .createAccount:
                     try await authService.signUp(
                         name: name.trimmingCharacters(in: .whitespaces),
                         email: email,
                         password: password
                     )
+                    await MainActor.run {
+                        isLoading = false
+                        verificationEmail = email
+                    }
                 }
+            } catch AuthError.emailNotVerified(let verifyEmail) {
                 await MainActor.run {
                     isLoading = false
-                    dismiss()
+                    verificationEmail = verifyEmail
                 }
             } catch {
                 await MainActor.run {
