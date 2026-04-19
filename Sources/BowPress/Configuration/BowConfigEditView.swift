@@ -8,6 +8,8 @@ struct BowConfigEditView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(LocalStore.self) private var store
+    @Environment(\.isReadOnly) private var isReadOnly
+    @State private var showingPaywall = false
 
     @State private var label = ""
 
@@ -74,7 +76,9 @@ struct BowConfigEditView: View {
                     if isSaving {
                         ProgressView()
                     } else {
-                        Button("Save") { Task { await save() } }
+                        Button("Save") {
+                            if isReadOnly { showingPaywall = true } else { Task { await save() } }
+                        }
                     }
                 }
             }
@@ -85,6 +89,9 @@ struct BowConfigEditView: View {
                 Button("OK", role: .cancel) { errorMessage = nil }
             } message: {
                 Text(errorMessage ?? "")
+            }
+            .sheet(isPresented: $showingPaywall) {
+                NavigationStack { PaywallView() }
             }
             .onAppear { seedFromBase() }
         }

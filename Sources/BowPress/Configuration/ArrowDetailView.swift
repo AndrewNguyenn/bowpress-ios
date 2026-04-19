@@ -23,8 +23,10 @@ struct ArrowDetailView: View {
     @State private var errorMessage: String?
     @State private var showSavedBanner = false
     @State private var showDeleteConfirm = false
+    @State private var showingPaywall = false
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.isReadOnly) private var isReadOnly
 
     var body: some View {
         Form {
@@ -91,7 +93,7 @@ struct ArrowDetailView: View {
 
             Section {
                 Button {
-                    Task { await save() }
+                    if isReadOnly { showingPaywall = true } else { Task { await save() } }
                 } label: {
                     if isSaving {
                         HStack {
@@ -109,7 +111,7 @@ struct ArrowDetailView: View {
 
             Section {
                 Button(role: .destructive) {
-                    showDeleteConfirm = true
+                    if isReadOnly { showingPaywall = true } else { showDeleteConfirm = true }
                 } label: {
                     HStack {
                         Spacer()
@@ -140,6 +142,9 @@ struct ArrowDetailView: View {
             }
         } message: {
             Text("This permanently removes this arrow configuration. Past sessions that used it are preserved. This cannot be undone.")
+        }
+        .sheet(isPresented: $showingPaywall) {
+            NavigationStack { PaywallView() }
         }
         .overlay(alignment: .top) {
             if showSavedBanner {
