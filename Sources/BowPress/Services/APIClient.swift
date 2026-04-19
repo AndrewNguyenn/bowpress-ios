@@ -230,7 +230,13 @@ final class APIClient: BowPressAPIClient {
     }
     func createSession(_ session: ShootingSession) async throws -> ShootingSession { session }
     func endSession(id: String, notes: String) async throws {}
-    func fetchPlots(sessionId: String) async throws -> [ArrowPlot] { [] }
+    func fetchPlots(sessionId: String) async throws -> [ArrowPlot] {
+        #if DEBUG
+        return DevMockData.arrowPlots(for: sessionId)
+        #else
+        return []
+        #endif
+    }
     func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot { plot }
     func completeEnd(_ end: SessionEnd) async throws -> SessionEnd { end }
 

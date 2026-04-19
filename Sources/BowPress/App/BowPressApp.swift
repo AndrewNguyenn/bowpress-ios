@@ -14,7 +14,11 @@ struct BowPressApp: App {
             PersistentBow.self, PersistentBowConfig.self, PersistentArrowConfig.self,
             PersistentSession.self, PersistentArrowPlot.self, PersistentEnd.self, PersistentSuggestion.self,
         ])
+        #if DEBUG
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        #else
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        #endif
         let container = try! ModelContainer(for: schema, configurations: [config])
         self.container = container
         self.store = LocalStore(context: container.mainContext)
