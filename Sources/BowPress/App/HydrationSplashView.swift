@@ -68,7 +68,7 @@ struct HydrationSplashView: View {
                     Text("BowPress")
                         .font(.system(size: 36, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.appAccent)
-                    Text("Analyzing your data…")
+                    AnalyzingDotsLabel()
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -153,6 +153,26 @@ private struct SplashTargetView: View {
             x: center.x + CGFloat(x) * halfW,
             y: center.y - CGFloat(y) * halfW
         )
+    }
+}
+
+/// "Analyzing your data" with three trailing dots that cycle 1→2→3→1…
+/// at ~0.4s per step. Uses `TimelineView` so the animation is driven by
+/// the system clock — no state timer to manage, nothing to tear down.
+private struct AnalyzingDotsLabel: View {
+    private let stepSeconds: Double = 0.4
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: stepSeconds)) { context in
+            let phase = Int(context.date.timeIntervalSinceReferenceDate / stepSeconds) % 3
+            HStack(spacing: 1) {
+                Text("Analyzing your data")
+                ForEach(0..<3, id: \.self) { i in
+                    Text(".")
+                        .opacity(phase >= i ? 1 : 0)
+                }
+            }
+        }
     }
 }
 
