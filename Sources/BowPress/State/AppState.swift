@@ -23,6 +23,12 @@ final class AppState {
 
     var entitlement: Entitlement?
 
+    // TODO: real implementation lands in follow-up
+    var analyticsRefreshNonce: Int = 0
+    var pendingAnalyticsNavigation: SuggestionNavigationIntent?
+    var selectedTab: Int = 0
+    var deviceToken: String?
+
     /// Whether the user has access to paid features.
     ///
     /// In DEBUG this is always `true` so the auto-signed-in dev user can exercise gated

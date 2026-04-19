@@ -1,22 +1,5 @@
 import Foundation
 
-// MARK: - Period Comparison Models
-
-struct PeriodSlice: Codable {
-    let label: String
-    let plots: [ArrowPlot]
-    let avgArrowScore: Double
-    let xPercentage: Double
-    let sessionCount: Int
-    let config: BowConfiguration?   // dominant config active during this period
-}
-
-struct PeriodComparison: Codable {
-    let period: AnalyticsPeriod
-    let current: PeriodSlice
-    let previous: PeriodSlice
-}
-
 // MARK: - Auth response shapes
 
 struct SignUpResult: Equatable {
@@ -393,10 +376,20 @@ enum AnalyticsPeriod: String, Codable, CaseIterable {
     }
 }
 
-struct AnalyticsOverview: Codable {
-    var period: AnalyticsPeriod
-    var sessionCount: Int
-    var avgArrowScore: Double   // 6–11 scale; X = 11
-    var xPercentage: Double     // 0–100, % of arrows hitting X (ring 11)
-    var suggestions: [AnalyticsSuggestion]
+extension APIClient {
+    // TODO: real implementation lands in follow-up
+    func fetchTagCorrelations(bowId: String) async throws -> [TagCorrelation] {
+        return []
+    }
+
+    // TODO: real implementation lands in follow-up
+    func fetchConfigurationChanges(bowId: String) async throws -> [ConfigurationChange] {
+        return []
+    }
+
+    // TODO: real implementation lands in follow-up
+    func registerDeviceToken(_ token: String, environment: String) async throws {
+        return
+    }
 }
+
