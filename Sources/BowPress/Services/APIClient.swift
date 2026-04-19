@@ -73,6 +73,10 @@ protocol BowPressAPIClient: AnyObject {
     func fetchPlots(sessionId: String) async throws -> [ArrowPlot]
     func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot
     func completeEnd(_ end: SessionEnd) async throws -> SessionEnd
+
+    // Subscription
+    func fetchEntitlement() async throws -> Entitlement
+    func verifyAppleTransaction(jws: String) async throws -> Entitlement
 }
 
 // MARK: - APIClient

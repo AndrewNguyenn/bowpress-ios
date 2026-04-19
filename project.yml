@@ -23,6 +23,15 @@ schemes:
       environmentVariables:
         USE_LOCAL_API: "1"
         API_BASE_URL: "http://localhost:8787"
+  BowPressTests:
+    build:
+      targets:
+        BowPress: test
+        BowPressTests: test
+    test:
+      config: Debug
+      targets:
+        - BowPressTests
 
 packages:
   GoogleSignIn-iOS:
@@ -83,19 +92,3 @@ targets:
         SWIFT_VERSION: "5.9"
         PRODUCT_BUNDLE_IDENTIFIER: com.andrewnguyen.bowpress.tests
         GENERATE_INFOPLIST_FILE: NO
-    info:
-      path: SupportingFiles/Info.plist
-      properties:
-        CFBundleName: BowPress
-        CFBundleDisplayName: BowPress
-        CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "1"
-        UILaunchScreen:
-          UIColorName: ""
-        CFBundleURLTypes:
-          - CFBundleURLSchemes:
-              - com.googleusercontent.apps.516990179779-05k066j5guhgc0021jsbl9pvj8bb285m
-          - CFBundleURLName: com.andrewnguyen.bowpress
-            CFBundleURLSchemes:
-              - bowpress
-        GIDClientID: 516990179779-05k066j5guhgc0021jsbl9pvj8bb285m.apps.googleusercontent.com
