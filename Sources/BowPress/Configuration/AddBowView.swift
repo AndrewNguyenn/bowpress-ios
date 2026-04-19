@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AddBowView: View {
     var appState: AppState
+    var onCreated: (Bow) -> Void = { _ in }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(LocalStore.self) private var store
@@ -90,6 +91,7 @@ struct AddBowView: View {
                     try? store.markBowConfigSynced(id: initialConfig.id)
                 }
             }
+            onCreated(newBow)
             dismiss()
         } catch {
             errorMessage = error.localizedDescription

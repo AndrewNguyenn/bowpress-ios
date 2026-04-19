@@ -13,6 +13,7 @@ struct ConfigurationView: View {
     @State private var showingPaywall = false
     @State private var pendingDeleteBow: Bow?
     @State private var pendingDeleteArrow: ArrowConfiguration?
+    @State private var navigateToNewBow: Bow?
 
     var body: some View {
         GeometryReader { geo in
@@ -95,7 +96,12 @@ struct ConfigurationView: View {
         }
         .navigationTitle("Equipment")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $showAddBow) { AddBowView(appState: appState) }
+        .navigationDestination(item: $navigateToNewBow) { bow in
+            BowDetailView(bow: bow, appState: appState)
+        }
+        .sheet(isPresented: $showAddBow) {
+            AddBowView(appState: appState, onCreated: { bow in navigateToNewBow = bow })
+        }
         .sheet(isPresented: $showAddArrow) { AddArrowView(appState: appState) }
         .sheet(isPresented: $showingPaywall) { NavigationStack { PaywallView() } }
         .alert("Error", isPresented: Binding(
