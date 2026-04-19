@@ -7,8 +7,6 @@ struct HistoricalSessionsView: View {
     let bowName: String
     var allConfigs: [BowConfiguration] = []
 
-    @State private var selectedSession: ShootingSession?
-
     // Group sessions by week bucket.
     private var groupedSessions: [(header: String, sessions: [ShootingSession])] {
         let sorted = sessions.sorted { $0.startedAt > $1.startedAt }
@@ -35,8 +33,11 @@ struct HistoricalSessionsView: View {
                     ForEach(groupedSessions, id: \.header) { group in
                         Section {
                             ForEach(group.sessions) { session in
-                                SessionRow(session: session)
-                                    .onTapGesture { selectedSession = session }
+                                NavigationLink {
+                                    SessionDetailSheet(session: session, allConfigs: allConfigs)
+                                } label: {
+                                    SessionRow(session: session)
+                                }
                             }
                         } header: {
                             Text(group.header)
@@ -49,11 +50,8 @@ struct HistoricalSessionsView: View {
                 .listStyle(.insetGrouped)
             }
         }
-        .navigationTitle("Sessions — \(bowName)")
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $selectedSession) { session in
-            SessionDetailSheet(session: session, allConfigs: allConfigs)
-        }
+        .navigationTitle("Session Log")
+        .navigationBarTitleDisplayMode(.large)
     }
 
     private var emptyState: some View {
@@ -157,12 +155,72 @@ struct WrappingTagRow: View {
 struct SessionDetailSheet: View {
     let session: ShootingSession
     var allConfigs: [BowConfiguration] = []
-    @Environment(\.dismiss) private var dismiss
 
+    @Environment(LocalStore.self) private var store: LocalStore?
     @State private var selectedEnd: SessionEnd?
+    @State private var loadedArrows: [ArrowPlot] = []
+    @State private var loadedEnds: [SessionEnd] = []
+    @State private var visibleCount: Int = 0
+    @State private var didInitScrub: Bool = false
 
-    private var sessionEnds: [SessionEnd] { session.ends ?? [] }
-    private var allArrows: [ArrowPlot] { session.arrows ?? [] }
+    private var sessionEnds: [SessionEnd] {
+        loadedEnds.isEmpty ? (session.ends ?? []) : loadedEnds
+    }
+    private var allArrows: [ArrowPlot] {
+        loadedArrows.isEmpty ? (session.arrows ?? []) : loadedArrows
+    }
+
+    private var sortedArrows: [ArrowPlot] {
+        allArrows.sorted { $0.shotAt < $1.shotAt }
+    }
+
+    /// Arrow counts at which each subsequent end begins (for slider tick marks).
+    private var endBoundaries: [Int] {
+        let sorted = sortedArrows
+        var seen = Set<String>()
+        var boundaries: [Int] = []
+        for (idx, arrow) in sorted.enumerated() {
+            guard let endId = arrow.endId else { continue }
+            if !seen.contains(endId) {
+                seen.insert(endId)
+                if idx > 0 { boundaries.append(idx) }
+            }
+        }
+        return boundaries
+    }
+
+    private var arrowIdToEndNumber: [String: Int] {
+        var map: [String: Int] = [:]
+        for end in sessionEnds {
+            map[end.id] = end.endNumber
+        }
+        var result: [String: Int] = [:]
+        for arrow in allArrows {
+            if let endId = arrow.endId, let num = map[endId] {
+                result[arrow.id] = num
+            }
+        }
+        return result
+    }
+
+    private var currentScrubEndNumber: Int? {
+        guard visibleCount > 0, visibleCount <= sortedArrows.count else { return nil }
+        let last = sortedArrows[visibleCount - 1]
+        return arrowIdToEndNumber[last.id]
+    }
+
+    private var isScrubbing: Bool {
+        didInitScrub && visibleCount < allArrows.count
+    }
+
+    private var highlightArrowId: String? {
+        guard isScrubbing, visibleCount > 0 else { return nil }
+        return sortedArrows[visibleCount - 1].id
+    }
+
+    private var scrubbedArrows: [ArrowPlot] {
+        Array(sortedArrows.prefix(max(0, visibleCount)))
+    }
 
     private var displayedArrows: [ArrowPlot] {
         guard let end = selectedEnd else { return allArrows }
@@ -195,30 +253,47 @@ struct SessionDetailSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                // Performance summary
-                Section("Performance") {
-                    DetailRow(label: "Total Arrows", value: "\(session.arrowCount)")
-                    if !allArrows.isEmpty {
-                        DetailRow(label: "Avg Ring Score", value: String(format: "%.1f", avgRing))
-                        if xCount > 0 {
-                            DetailRow(label: "X Count", value: "\(xCount)")
-                        }
-                        DetailRow(label: "10+ Ring Rate", value: String(format: "%.0f%%",
-                            Double(allArrows.filter { $0.ring >= 10 }.count) / Double(allArrows.count) * 100))
-                    }
-                }
-
+        List {
                 // Shot distribution heatmap
                 if !allArrows.isEmpty {
                     Section {
                         VStack(spacing: 8) {
-                            SessionHeatMapView(plots: displayedArrows)
-                                .frame(maxWidth: .infinity)
-                                .aspectRatio(1, contentMode: .fit)
-                                .padding(.horizontal, 24)
-                                .animation(.easeInOut(duration: 0.25), value: selectedEnd?.id)
+                            SessionHeatMapView(
+                                plots: allArrows,
+                                endArrows: selectedEnd != nil ? displayedArrows : [],
+                                scrubArrows: isScrubbing ? scrubbedArrows : nil,
+                                highlightArrowId: highlightArrowId
+                            )
+                            .frame(maxWidth: .infinity)
+                            .aspectRatio(1, contentMode: .fit)
+                            .padding(.horizontal, 24)
+                            .animation(.easeInOut(duration: 0.25), value: selectedEnd?.id)
+                            .animation(.easeInOut(duration: 0.15), value: visibleCount)
+
+                            if allArrows.count > 1 {
+                                ArrowProgressionSlider(
+                                    totalArrows: allArrows.count,
+                                    endBoundaries: endBoundaries,
+                                    currentEnd: currentScrubEndNumber,
+                                    endCount: sessionEnds.count,
+                                    isDisabled: selectedEnd != nil,
+                                    visibleCount: $visibleCount
+                                )
+                            }
+
+                            if selectedEnd == nil && PrecisionStats.isEliteContext(allArrows) {
+                                let statsPlots = isScrubbing ? scrubbedArrows : allArrows
+                                let stats = PrecisionStats.compute(statsPlots)
+                                PrecisionStatsRow(stats: stats)
+                                    .padding(.horizontal, 24)
+                                    .animation(.easeInOut(duration: 0.15), value: visibleCount)
+                                PrecisionScatterView(plots: statsPlots, stats: stats)
+                                    .frame(width: 180, height: 180)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.horizontal, 24)
+                                    .padding(.top, 4)
+                                    .animation(.easeInOut(duration: 0.15), value: visibleCount)
+                            }
 
                             if let end = selectedEnd {
                                 let endArrows = allArrows.filter { $0.endId == end.id }
@@ -293,6 +368,24 @@ struct SessionDetailSheet: View {
                     }
                 }
 
+                // Performance summary (moved to below ends)
+                Section("Performance") {
+                    DetailRow(label: "Total Arrows", value: "\(session.arrowCount)")
+                    if !allArrows.isEmpty {
+                        let avgFmt = avgRing >= 9.8 ? "%.2f" : "%.1f"
+                        DetailRow(label: "Avg Ring Score", value: String(format: avgFmt, avgRing))
+                        if xCount > 0 {
+                            DetailRow(label: "X Count", value: "\(xCount)")
+                        }
+                        DetailRow(label: "10+ Ring Rate", value: String(format: "%.0f%%",
+                            Double(allArrows.filter { $0.ring >= 10 }.count) / Double(allArrows.count) * 100))
+                        if let stats = PrecisionStats.compute(allArrows), PrecisionStats.isEliteContext(allArrows) {
+                            DetailRow(label: "Avg from Center", value: String(format: "~%.1fmm", stats.meanDistMM))
+                            DetailRow(label: "Group Spread σ", value: String(format: "±%.1fmm", stats.groupSigmaMM))
+                        }
+                    }
+                }
+
                 // Feel tags
                 if !session.feelTags.isEmpty {
                     Section("Feel") {
@@ -340,13 +433,26 @@ struct SessionDetailSheet: View {
                     }
                 }
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle("Session Detail")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Session Detail")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            guard let store else { return }
+            if loadedArrows.isEmpty {
+                loadedArrows = (try? store.fetchArrows(sessionId: session.id)) ?? []
+            }
+            if loadedEnds.isEmpty {
+                loadedEnds = (try? store.fetchEnds(sessionId: session.id)) ?? []
+            }
+            if !didInitScrub && !allArrows.isEmpty {
+                visibleCount = allArrows.count
+                didInitScrub = true
+            }
+        }
+        .onAppear {
+            if !didInitScrub && !allArrows.isEmpty {
+                visibleCount = allArrows.count
+                didInitScrub = true
             }
         }
     }
@@ -359,75 +465,71 @@ struct SessionDetailSheet: View {
     }
 }
 
+// MARK: - Precision math helpers (shared across heatmap, stats row, scatter view)
+
+private struct PrecisionStats {
+    let centroid: (x: Double, y: Double)
+    let meanDistMM: Double
+    let groupSigmaMM: Double
+
+    static let mmPerNorm: Double = 20.0 / (119.0 / 735.0)  // ≈ 123.5 (WA 40cm indoor)
+
+    static func compute(_ plots: [ArrowPlot]) -> PrecisionStats? {
+        let pts = plots.compactMap { p -> (Double, Double)? in
+            guard let x = p.plotX, let y = p.plotY else { return nil }
+            return (x, y)
+        }
+        guard !pts.isEmpty else { return nil }
+        let cx = pts.map(\.0).reduce(0, +) / Double(pts.count)
+        let cy = pts.map(\.1).reduce(0, +) / Double(pts.count)
+        let meanDist = sqrt(pts.map { $0.0 * $0.0 + $0.1 * $0.1 }.reduce(0, +) / Double(pts.count))
+        let sigma = sqrt(pts.map { pow($0.0 - cx, 2) + pow($0.1 - cy, 2) }.reduce(0, +) / Double(pts.count))
+        return PrecisionStats(
+            centroid: (cx, cy),
+            meanDistMM: meanDist * mmPerNorm,
+            groupSigmaMM: sigma * mmPerNorm
+        )
+    }
+
+    static func isEliteContext(_ plots: [ArrowPlot]) -> Bool {
+        guard plots.count >= 3, plots.contains(where: { $0.plotX != nil }) else { return false }
+        let xRate = Double(plots.filter { $0.ring == 11 }.count) / Double(plots.count)
+        let avgScore = Double(plots.reduce(0) { $0 + $1.ring }) / Double(plots.count)
+        return xRate >= 0.4 || avgScore >= 9.5
+    }
+
+    var directionArrow: String {
+        let dist = hypot(centroid.x, centroid.y)
+        guard dist >= 0.01 else { return "⊙" }
+        let adx = abs(centroid.x), ady = abs(centroid.y)
+        if ady > adx * 2 { return centroid.y > 0 ? "↑" : "↓" }
+        if adx > ady * 2 { return centroid.x > 0 ? "→" : "←" }
+        return (centroid.y > 0 ? "↑" : "↓") + (centroid.x > 0 ? "→" : "←")
+    }
+}
+
 // MARK: - SessionHeatMapView
 
 private struct SessionHeatMapView: View {
     let plots: [ArrowPlot]
+    var endArrows: [ArrowPlot] = []
+    /// When non-nil, heatmap + centroid render only this subset (pre-sorted in shot order).
+    /// Dots are drawn on top with sequence numbers (1-based index in this array).
+    var scrubArrows: [ArrowPlot]? = nil
+    /// Arrow id to render with a halo (the "current" arrow at the scrub position).
+    var highlightArrowId: String? = nil
 
-    var body: some View {
-        Image("target_face")
-            .resizable()
-            .scaledToFit()
-            .overlay {
-                Canvas { context, size in
-                    for (i, plot) in plots.enumerated() {
-                        let pt = position(for: plot, jitterIndex: i, in: size)
-                        let rect = CGRect(x: pt.x - 22, y: pt.y - 22, width: 44, height: 44)
-                        context.fill(Path(ellipseIn: rect), with: .color(Color.appAccent.opacity(0.72)))
-                    }
-                }
-                .drawingGroup()
-                .blur(radius: 10)
-            }
-            .overlay {
-                Canvas { context, size in
-                    guard let c = centroid(for: plots, in: size) else { return }
-                    let r: CGFloat = 12
-                    let bw: CGFloat = 2.5
-                    let fill = CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
-                    let ring = CGRect(x: c.x - r - bw, y: c.y - r - bw,
-                                      width: (r + bw) * 2, height: (r + bw) * 2)
-                    context.fill(Path(ellipseIn: fill), with: .color(Color.appAccent))
-                    context.stroke(Path(ellipseIn: ring), with: .color(.white.opacity(0.9)), lineWidth: bw)
-                }
-            }
-            .clipShape(Circle())
+    /// Arrows used for heatmap blob + centroid + spread calculations.
+    private var renderPlots: [ArrowPlot] {
+        scrubArrows ?? plots
     }
 
-    private func position(for plot: ArrowPlot, jitterIndex: Int, in size: CGSize) -> CGPoint {
-        let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        let halfW  = size.width / 2
-        let nr: Double
-        switch plot.ring {
-        case 11: nr = 0.08
-        case 10: nr = 0.245
-        case 9:  nr = 0.494
-        default: nr = 0.83
-        }
-        let baseAngle: Double
-        switch plot.zone {
-        case .center: baseAngle = Double(jitterIndex % 6) * .pi / 3
-        case .n:      baseAngle =  .pi / 2
-        case .ne:     baseAngle =  .pi / 4
-        case .e:      baseAngle =  0
-        case .se:     baseAngle = -.pi / 4
-        case .s:      baseAngle = -.pi / 2
-        case .sw:     baseAngle = -.pi * 3 / 4
-        case .w:      baseAngle =  .pi
-        case .nw:     baseAngle =  .pi * 3 / 4
-        }
-        let jitter = Double(jitterIndex % 5) * 0.12 - 0.24
-        let r = nr * halfW * 0.92
-        return CGPoint(x: center.x + r * cos(baseAngle + jitter),
-                       y: center.y - r * sin(baseAngle + jitter))
-    }
-
-    private func centroid(for plots: [ArrowPlot], in size: CGSize) -> CGPoint? {
-        guard !plots.isEmpty else { return nil }
-        let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        let halfW  = size.width / 2
-        var sumX: Double = 0, sumY: Double = 0
-        for plot in plots {
+    private func centroidNorm() -> (x: Double, y: Double)? {
+        guard !renderPlots.isEmpty else { return nil }
+        if let s = PrecisionStats.compute(renderPlots) { return s.centroid }
+        // Ring/zone fallback
+        var sumX = 0.0, sumY = 0.0
+        for plot in renderPlots {
             let nr: Double
             switch plot.ring {
             case 11: nr = 0.0
@@ -447,12 +549,294 @@ private struct SessionHeatMapView: View {
             case .w:  angle =  .pi
             case .nw: angle =  .pi * 3 / 4
             }
-            let r = nr * halfW * 0.92
-            sumX += center.x + r * cos(angle)
-            sumY += center.y - r * sin(angle)
+            sumX += nr * cos(angle)
+            sumY += nr * sin(angle)
         }
-        let n = Double(plots.count)
-        return CGPoint(x: sumX / n, y: sumY / n)
+        let n = Double(renderPlots.count)
+        return (x: sumX / n, y: sumY / n)
+    }
+
+    private func groupSpread() -> Double? {
+        let pts = renderPlots.compactMap { p -> (Double, Double)? in
+            guard let x = p.plotX, let y = p.plotY else { return nil }
+            return (x, y)
+        }
+        guard !pts.isEmpty else { return nil }
+        let cx = pts.map(\.0).reduce(0, +) / Double(pts.count)
+        let cy = pts.map(\.1).reduce(0, +) / Double(pts.count)
+        return sqrt(pts.map { pow($0.0 - cx, 2) + pow($0.1 - cy, 2) }.reduce(0, +) / Double(pts.count))
+    }
+
+    private var blurRadius: CGFloat {
+        guard let spread = groupSpread() else { return 10 }
+        if spread < 0.08 { return 5 }
+        if spread < 0.18 { return 8 }
+        return 12
+    }
+
+    var body: some View {
+        Image("target_face")
+            .resizable()
+            .scaledToFit()
+            .overlay {
+                Canvas { context, size in
+                    for (i, plot) in renderPlots.enumerated() {
+                        let pt = blobPosition(for: plot, index: i, in: size)
+                        let rect = CGRect(x: pt.x - 22, y: pt.y - 22, width: 44, height: 44)
+                        context.fill(Path(ellipseIn: rect), with: .color(Color.appAccent.opacity(0.72)))
+                    }
+                }
+                .drawingGroup()
+                .blur(radius: blurRadius)
+            }
+            .overlay {
+                Canvas { context, size in
+                    let halfW = size.width / 2
+                    guard let cn = centroidNorm() else { return }
+                    let cs = normToScreen(cn, in: size)
+                    // σ spread circle (dashed ring showing group radius)
+                    if let spread = groupSpread() {
+                        let spreadPx = CGFloat(spread * halfW)
+                        let sr = CGRect(x: cs.x - spreadPx, y: cs.y - spreadPx, width: spreadPx * 2, height: spreadPx * 2)
+                        context.stroke(Path(ellipseIn: sr), with: .color(Color.appAccent.opacity(0.45)), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    }
+                    // Centroid dot
+                    let r: CGFloat = 12, bw: CGFloat = 2.5
+                    context.fill(Path(ellipseIn: CGRect(x: cs.x - r, y: cs.y - r, width: r * 2, height: r * 2)), with: .color(Color.appAccent))
+                    context.stroke(Path(ellipseIn: CGRect(x: cs.x - r - bw, y: cs.y - r - bw, width: (r + bw) * 2, height: (r + bw) * 2)), with: .color(.white.opacity(0.9)), lineWidth: bw)
+                }
+            }
+            .overlay {
+                if !endArrows.isEmpty {
+                    GeometryReader { geo in
+                        let radius = min(geo.size.width, geo.size.height) / 2
+                        let dotSize = max(CGFloat(5.0) * (radius * 2) / 160.0, 10)
+                        ForEach(Array(endArrows.enumerated()), id: \.element.id) { idx, arrow in
+                            EndArrowDot(number: idx + 1, ring: arrow.ring, size: dotSize)
+                                .position(blobPosition(for: arrow, index: idx, in: geo.size))
+                        }
+                    }
+                }
+            }
+            .overlay {
+                if let scrub = scrubArrows, !scrub.isEmpty {
+                    GeometryReader { geo in
+                        let radius = min(geo.size.width, geo.size.height) / 2
+                        let dotSize = max(CGFloat(5.0) * (radius * 2) / 160.0, 10)
+                        ForEach(Array(scrub.enumerated()), id: \.element.id) { idx, arrow in
+                            EndArrowDot(
+                                number: idx + 1,
+                                ring: arrow.ring,
+                                size: dotSize,
+                                highlighted: arrow.id == highlightArrowId
+                            )
+                            .position(blobPosition(for: arrow, index: idx, in: geo.size))
+                            .transition(.scale.combined(with: .opacity))
+                        }
+                    }
+                }
+            }
+            .clipShape(Circle())
+    }
+
+    private func normToScreen(_ norm: (x: Double, y: Double), in size: CGSize) -> CGPoint {
+        CGPoint(x: size.width / 2 + CGFloat(norm.x) * size.width / 2,
+                y: size.height / 2 - CGFloat(norm.y) * size.height / 2)
+    }
+
+    private func blobPosition(for plot: ArrowPlot, index: Int, in size: CGSize) -> CGPoint {
+        if let px = plot.plotX, let py = plot.plotY {
+            return normToScreen((px, py), in: size)
+        }
+        return ringZonePosition(for: plot, index: index, in: size)
+    }
+
+    private func ringZonePosition(for plot: ArrowPlot, index: Int, in size: CGSize) -> CGPoint {
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let halfW  = size.width / 2
+        let nr: Double
+        switch plot.ring {
+        case 11: nr = 0.08
+        case 10: nr = 0.245
+        case 9:  nr = 0.494
+        default: nr = 0.83
+        }
+        let baseAngle: Double
+        switch plot.zone {
+        case .center: baseAngle = Double(index % 6) * .pi / 3
+        case .n:      baseAngle =  .pi / 2
+        case .ne:     baseAngle =  .pi / 4
+        case .e:      baseAngle =  0
+        case .se:     baseAngle = -.pi / 4
+        case .s:      baseAngle = -.pi / 2
+        case .sw:     baseAngle = -.pi * 3 / 4
+        case .w:      baseAngle =  .pi
+        case .nw:     baseAngle =  .pi * 3 / 4
+        }
+        let jitter = Double(index % 5) * 0.12 - 0.24
+        let r = nr * halfW * 0.92
+        return CGPoint(x: center.x + r * cos(baseAngle + jitter),
+                       y: center.y - r * sin(baseAngle + jitter))
+    }
+}
+
+// MARK: - PrecisionStatsRow
+
+private struct PrecisionStatsRow: View {
+    let stats: PrecisionStats?
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let stats {
+                StatChip(label: "\(stats.directionArrow) \(String(format: "%.1f", stats.meanDistMM))mm from center")
+                StatChip(label: "± \(String(format: "%.1f", stats.groupSigmaMM))mm group σ")
+            } else {
+                StatChip(label: "— mm from center")
+                StatChip(label: "± — mm group σ")
+            }
+            Spacer()
+        }
+    }
+}
+
+private struct StatChip: View {
+    let label: String
+
+    var body: some View {
+        Text(label)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Color.appAccent)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Color.appAccent.opacity(0.1), in: Capsule())
+    }
+}
+
+// MARK: - PrecisionScatterView
+
+private struct PrecisionScatterView: View {
+    let plots: [ArrowPlot]
+    let stats: PrecisionStats?
+
+    // Zoom: ring 10 outer edge displayed at 88% of half-width
+    private let zoomFactor: Double = 0.88 / (119.0 / 735.0)  // ≈ 5.45×
+    private let xNorm: Double = 60.0 / 735.0    // X ring outer ≈ 0.082
+    private let r10Norm: Double = 119.0 / 735.0  // Ring 10 outer ≈ 0.162
+
+    private var realShots: [(ring: Int, x: Double, y: Double)] {
+        plots.compactMap { p in
+            guard let x = p.plotX, let y = p.plotY else { return nil }
+            return (p.ring, x, y)
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text("X · 10 Ring Detail")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Canvas { context, size in
+                let halfW = size.width / 2
+                let center = CGPoint(x: halfW, y: size.height / 2)
+                let scale = CGFloat(zoomFactor) * halfW
+
+                // Ring 10 boundary circle
+                let r10px = CGFloat(r10Norm * zoomFactor) * halfW
+                context.stroke(Path(ellipseIn: CGRect(x: center.x - r10px, y: center.y - r10px, width: r10px * 2, height: r10px * 2)), with: .color(.secondary.opacity(0.2)), lineWidth: 1)
+
+                // X ring boundary circle
+                let xpx = CGFloat(xNorm * zoomFactor) * halfW
+                context.stroke(Path(ellipseIn: CGRect(x: center.x - xpx, y: center.y - xpx, width: xpx * 2, height: xpx * 2)), with: .color(.primary.opacity(0.25)), lineWidth: 1.5)
+
+                // Axis lines
+                var axisPath = Path()
+                let axisLen = r10px * 1.1
+                axisPath.move(to: CGPoint(x: center.x, y: center.y - axisLen))
+                axisPath.addLine(to: CGPoint(x: center.x, y: center.y + axisLen))
+                axisPath.move(to: CGPoint(x: center.x - axisLen, y: center.y))
+                axisPath.addLine(to: CGPoint(x: center.x + axisLen, y: center.y))
+                context.stroke(axisPath, with: .color(.secondary.opacity(0.12)), lineWidth: 0.75)
+
+                // Cardinal labels
+                let labelOffset = axisLen + 10
+                context.draw(Text("N").font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.secondary), at: CGPoint(x: center.x, y: center.y - labelOffset))
+                context.draw(Text("S").font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.secondary), at: CGPoint(x: center.x, y: center.y + labelOffset))
+                context.draw(Text("E").font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.secondary), at: CGPoint(x: center.x + labelOffset, y: center.y))
+                context.draw(Text("W").font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.secondary), at: CGPoint(x: center.x - labelOffset, y: center.y))
+
+                // Shot dots
+                for shot in realShots {
+                    let sx = center.x + CGFloat(shot.x) * scale
+                    let sy = center.y - CGFloat(shot.y) * scale
+                    let dotR: CGFloat = 5
+                    let dotColor: Color
+                    switch shot.ring {
+                    case 11: dotColor = Color(red: 1.0, green: 0.85, blue: 0.0)
+                    case 10: dotColor = Color(red: 1.0, green: 0.95, blue: 0.25)
+                    case 9:  dotColor = .orange
+                    default: dotColor = .red
+                    }
+                    context.fill(Path(ellipseIn: CGRect(x: sx - dotR, y: sy - dotR, width: dotR * 2, height: dotR * 2)), with: .color(dotColor.opacity(0.9)))
+                    context.stroke(Path(ellipseIn: CGRect(x: sx - dotR, y: sy - dotR, width: dotR * 2, height: dotR * 2)), with: .color(.black.opacity(0.25)), lineWidth: 0.75)
+                }
+
+                // Centroid crosshair (only when we have enough data for a centroid)
+                if let stats {
+                    let cx = center.x + CGFloat(stats.centroid.x) * scale
+                    let cy = center.y - CGFloat(stats.centroid.y) * scale
+                    let arm: CGFloat = 9
+                    var cross = Path()
+                    cross.move(to: CGPoint(x: cx - arm, y: cy))
+                    cross.addLine(to: CGPoint(x: cx + arm, y: cy))
+                    cross.move(to: CGPoint(x: cx, y: cy - arm))
+                    cross.addLine(to: CGPoint(x: cx, y: cy + arm))
+                    context.stroke(cross, with: .color(Color.appAccent), style: StrokeStyle(lineWidth: 2))
+                    context.fill(Path(ellipseIn: CGRect(x: cx - 3, y: cy - 3, width: 6, height: 6)), with: .color(Color.appAccent))
+                }
+            }
+            .aspectRatio(1, contentMode: .fit)
+            .background(Color.appSurface)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Color.appBorder.opacity(0.5), lineWidth: 1))
+        }
+    }
+}
+
+// MARK: - EndArrowDot
+
+private struct EndArrowDot: View {
+    let number: Int
+    let ring: Int
+    let size: CGFloat
+    var highlighted: Bool = false
+
+    var body: some View {
+        ZStack {
+            if highlighted {
+                Circle()
+                    .strokeBorder(Color.white, lineWidth: 2.5)
+                    .frame(width: size + 8, height: size + 8)
+                    .shadow(color: Color.appAccent.opacity(0.9), radius: 6)
+            }
+            Circle()
+                .fill(dotColor)
+                .frame(width: size, height: size)
+                .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+            Text("\(number)")
+                .font(.system(size: max(size * 0.42, 7), weight: .bold, design: .rounded))
+                .foregroundStyle(ring >= 9 ? Color.black : Color.white)
+        }
+    }
+
+    private var dotColor: Color {
+        switch ring {
+        case 11: return Color(red: 1.0,  green: 0.85, blue: 0.0)
+        case 10, 9: return Color(red: 1.0, green: 0.95, blue: 0.2)
+        case 8, 7: return Color(red: 0.88, green: 0.28, blue: 0.22)
+        case 6: return Color(red: 0.0, green: 0.73, blue: 0.89)
+        default: return .gray
+        }
     }
 }
 
@@ -515,49 +899,41 @@ extension ShootingSession {
                 startedAt: daysAgo(1), endedAt: daysAgo(1).addingTimeInterval(3_600),
                 notes: "Best session yet. Felt really locked in at 20 yards.",
                 feelTags: ["locked-in", "relaxed", "strong-back"],
-                conditions: SessionConditions(windSpeed: 5, tempF: 68, lighting: "Sunny"),
                 arrowCount: 36, ends: e1, arrows: a1),
             ShootingSession(id: "ss2", bowId: "b1", bowConfigId: "c5", arrowConfigId: "a1",
                 startedAt: daysAgo(3), endedAt: daysAgo(3).addingTimeInterval(2_700),
                 notes: "Working on form breakdown at distance.",
                 feelTags: ["tense", "inconsistent-grip"],
-                conditions: SessionConditions(windSpeed: 12, tempF: 62, lighting: "Overcast"),
                 arrowCount: 24, ends: e2, arrows: a2),
             ShootingSession(id: "ss3", bowId: "b1", bowConfigId: "c4", arrowConfigId: "a1",
                 startedAt: daysAgo(5), endedAt: daysAgo(5).addingTimeInterval(4_200),
                 notes: "Tried adjusting nocking height mid-session.",
                 feelTags: ["experimenting", "learning"],
-                conditions: nil,
                 arrowCount: 48, ends: e3, arrows: a3),
             ShootingSession(id: "ss4", bowId: "b1", bowConfigId: "c4", arrowConfigId: "a1",
                 startedAt: daysAgo(8), endedAt: daysAgo(8).addingTimeInterval(3_000),
                 notes: "Short practice. Focus on back tension.",
                 feelTags: ["relaxed", "back-tension"],
-                conditions: SessionConditions(windSpeed: 3, tempF: 72, lighting: "Sunny"),
                 arrowCount: 18, ends: e4, arrows: a4),
             ShootingSession(id: "ss5", bowId: "b1", bowConfigId: "c3", arrowConfigId: "a1",
                 startedAt: daysAgo(10), endedAt: daysAgo(10).addingTimeInterval(3_600),
                 notes: "",
                 feelTags: ["tired", "rushed"],
-                conditions: nil,
                 arrowCount: 30, ends: e5, arrows: a5),
             ShootingSession(id: "ss6", bowId: "b1", bowConfigId: "c3", arrowConfigId: "a1",
                 startedAt: daysAgo(14), endedAt: daysAgo(14).addingTimeInterval(5_400),
                 notes: "Paper tuning session. Got a clean bullet hole.",
                 feelTags: ["focused", "technical"],
-                conditions: SessionConditions(windSpeed: 0, tempF: 65, lighting: "Indoor"),
                 arrowCount: 60, ends: e6, arrows: a6),
             ShootingSession(id: "ss7", bowId: "b1", bowConfigId: "c2", arrowConfigId: "a1",
                 startedAt: daysAgo(18), endedAt: daysAgo(18).addingTimeInterval(2_400),
                 notes: "Early morning. Cold fingers affected grip.",
                 feelTags: ["cold", "stiff"],
-                conditions: SessionConditions(windSpeed: 8, tempF: 42, lighting: "Dawn"),
                 arrowCount: 24, ends: e7, arrows: a7),
             ShootingSession(id: "ss8", bowId: "b1", bowConfigId: "c1", arrowConfigId: "a1",
                 startedAt: daysAgo(24), endedAt: daysAgo(24).addingTimeInterval(3_600),
                 notes: "First session with this config. Getting baseline numbers.",
                 feelTags: ["baseline", "learning"],
-                conditions: SessionConditions(windSpeed: 6, tempF: 70, lighting: "Sunny"),
                 arrowCount: 36, ends: e8, arrows: a8),
         ]
     }()
