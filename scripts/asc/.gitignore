@@ -1,0 +1,8 @@
+.env
+.venv/
+certs/
+profiles/
+*.p8
+*.p12
+*.mobileprovision
+*.cer
