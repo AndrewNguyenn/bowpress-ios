@@ -68,7 +68,7 @@ struct HydrationSplashView: View {
                     Text("BowPress")
                         .font(.system(size: 36, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.appAccent)
-                    Text("Plotting your practice…")
+                    Text("Analyzing your data…")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
