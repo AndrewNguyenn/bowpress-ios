@@ -107,43 +107,9 @@ struct SuggestionDetailView: View {
 
 // MARK: - Supporting views
 
-private struct DetailSection<Content: View>: View {
-    let title: String
-    let systemImage: String
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(title, systemImage: systemImage)
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            content()
-        }
-    }
-}
-
-private struct ValuePill: View {
-    let label: String
-    let value: String
-    let color: Color
-
-    var body: some View {
-        VStack(spacing: 4) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(color)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(color.opacity(0.1))
-                )
-        }
-    }
-}
+// `DetailSection` and `ValuePill` now live in
+// `Analytics/SuggestionDetailComponents.swift` and are shared with the
+// new analytics-tab detail view.
 
 // MARK: - Preview
 

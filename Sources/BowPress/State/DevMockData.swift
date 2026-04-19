@@ -583,7 +583,20 @@ enum DevMockData {
             confidence: 0.82,
             qualifier: nil,
             wasRead: false,
-            deliveryType: .push
+            deliveryType: .push,
+            evidence: SuggestionEvidence(
+                sampleSize: 47,
+                sessionIds: ["dev_s1_6", "dev_s1_7", "dev_s1_8"],
+                windowStart: daysAgo(14),
+                windowEnd: daysAgo(2),
+                metrics: [
+                    .init(label: "Average score", value: "10.5", deltaFromBaseline: "+0.4"),
+                    .init(label: "Vertical drift", value: "0.09 in", deltaFromBaseline: "+0.06 in"),
+                    .init(label: "Sessions analyzed", value: "3", deltaFromBaseline: nil),
+                ],
+                relatedConfigChangeIds: nil,
+                patternType: "directional_drift"
+            )
         ),
         AnalyticsSuggestion(
             id: "dev_sug1b",
@@ -622,7 +635,12 @@ enum DevMockData {
             confidence: 0.58,
             qualifier: nil,
             wasRead: true,
-            deliveryType: .reinforcement
+            deliveryType: .reinforcement,
+            // Demo of the applied state — sorts to bottom in the analytics
+            // list and renders the green "Applied" capsule + disabled CTA.
+            wasApplied: true,
+            appliedAt: daysAgo(7),
+            appliedConfigId: "dev_bc1c"
         ),
         AnalyticsSuggestion(
             id: "dev_sug1e",

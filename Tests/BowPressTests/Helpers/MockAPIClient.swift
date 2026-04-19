@@ -104,4 +104,19 @@ final class MockAPIClient: BowPressAPIClient {
         if let err = verifyAppleError { throw err }
         return verifyAppleEntitlementToReturn
     }
+
+    // MARK: - Suggestion stubs (overridable per-test via the closures)
+
+    var fetchSuggestionImpl: ((String, String) async throws -> AnalyticsSuggestion)?
+    var applySuggestionImpl: ((String, String) async throws -> ApplyResult)?
+
+    func fetchSuggestion(bowId: String, id: String) async throws -> AnalyticsSuggestion {
+        if let impl = fetchSuggestionImpl { return try await impl(bowId, id) }
+        throw URLError(.fileDoesNotExist)
+    }
+
+    func applySuggestion(bowId: String, id: String) async throws -> ApplyResult {
+        if let impl = applySuggestionImpl { return try await impl(bowId, id) }
+        throw URLError(.fileDoesNotExist)
+    }
 }

@@ -32,6 +32,10 @@ final class AppState {
 
     // TODO: real implementation lands in follow-up
     var analyticsRefreshNonce: Int = 0
+    /// Bumped after a write that changes a bow's config list (e.g. apply a
+    /// suggestion). Equipment-side surfaces (`BowDetailView`,
+    /// `ConfigurationView`) `.onChange` of this nonce to refetch.
+    var bowConfigsRefreshNonce: Int = 0
     var pendingAnalyticsNavigation: SuggestionNavigationIntent?
     var selectedTab: Int = 0
     var deviceToken: String?

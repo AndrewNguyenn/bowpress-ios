@@ -169,7 +169,8 @@ struct AnalyticsView: View {
             },
             onDismiss: { suggestion in
                 await viewModel.dismiss(suggestion)
-            }
+            },
+            viewModel: viewModel
         )
         .padding(.horizontal, 16)
     }

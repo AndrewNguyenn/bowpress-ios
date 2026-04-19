@@ -16,6 +16,9 @@ Pods/
 .build/
 .swiftpm/
 
+# xcodebuild local output (xcodegen + xcodebuild puts intermediates here)
+build/
+
 # Generated Xcode project (regenerate with: xcodegen generate)
 BowPress.xcodeproj/
 
