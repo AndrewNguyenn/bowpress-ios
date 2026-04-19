@@ -1,5 +1,8 @@
 import SwiftUI
 import StoreKit
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct PaywallView: View {
     @Environment(AppState.self) private var appState
@@ -12,6 +15,7 @@ struct PaywallView: View {
             VStack(spacing: AppTheme.Spacing.lg) {
                 hero
                 productList
+                redeemCodeButton
                 restoreButton
                 legalFooter
             }
@@ -103,6 +107,35 @@ struct PaywallView: View {
         .padding(AppTheme.Spacing.lg)
         .appCardStyle()
     }
+
+    #if canImport(UIKit)
+    private var redeemCodeButton: some View {
+        Button {
+            Task {
+                guard let scene = activeScene() else { return }
+                do {
+                    try await AppStore.presentOfferCodeRedeemSheet(in: scene)
+                } catch {
+                    manager.lastError = error.localizedDescription
+                }
+            }
+        } label: {
+            Text("Redeem Code")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Color.appAccent)
+        }
+        .padding(.top, AppTheme.Spacing.xs)
+    }
+
+    private func activeScene() -> UIWindowScene? {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }
+            ?? UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+    }
+    #else
+    private var redeemCodeButton: some View { EmptyView() }
+    #endif
 
     private var restoreButton: some View {
         Button {

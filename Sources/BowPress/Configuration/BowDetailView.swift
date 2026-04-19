@@ -17,6 +17,7 @@ struct BowDetailView: View {
 
     @Environment(LocalStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.isReadOnly) private var isReadOnly
 
     @State private var configurations: [BowConfiguration] = []
     @State private var isLoading = false
@@ -25,6 +26,7 @@ struct BowDetailView: View {
     @State private var selectedHistory: TuningHistoryEntry?
     @State private var showDeleteConfirm = false
     @State private var isUpdatingReference = false
+    @State private var showingPaywall = false
 
     // Bow info
     @State private var name = ""
@@ -154,7 +156,7 @@ struct BowDetailView: View {
 
                 Section {
                     Button(role: .destructive) {
-                        showDeleteConfirm = true
+                        if isReadOnly { showingPaywall = true } else { showDeleteConfirm = true }
                     } label: {
                         HStack {
                             Spacer()
@@ -172,8 +174,10 @@ struct BowDetailView: View {
                 if isSaving {
                     ProgressView()
                 } else {
-                    Button("Save") { Task { await saveCurrentState() } }
-                        .fontWeight(.semibold)
+                    Button("Save") {
+                        if isReadOnly { showingPaywall = true } else { Task { await saveCurrentState() } }
+                    }
+                    .fontWeight(.semibold)
                 }
             }
         }
@@ -201,6 +205,9 @@ struct BowDetailView: View {
             }
         } message: {
             Text("This permanently removes this bow along with its tuning history and shooting sessions. This cannot be undone.")
+        }
+        .sheet(isPresented: $showingPaywall) {
+            NavigationStack { PaywallView() }
         }
         .task { await loadConfigurations() }
     }
@@ -230,7 +237,7 @@ struct BowDetailView: View {
                     Spacer()
                     if ref.referenceManuallyPinned == true {
                         Button("Unpin", role: .destructive) {
-                            Task { await updateReferencePin(configId: ref.id, pinned: false) }
+                            if isReadOnly { showingPaywall = true } else { Task { await updateReferencePin(configId: ref.id, pinned: false) } }
                         }
                         .disabled(isUpdatingReference)
                     }
@@ -246,7 +253,7 @@ struct BowDetailView: View {
            (cur.scoreable == true || !configurations.contains(where: { $0.isReference == true })) {
             Section {
                 Button {
-                    Task { await updateReferencePin(configId: cur.id, pinned: true) }
+                    if isReadOnly { showingPaywall = true } else { Task { await updateReferencePin(configId: cur.id, pinned: true) } }
                 } label: {
                     HStack {
                         Image(systemName: "star")

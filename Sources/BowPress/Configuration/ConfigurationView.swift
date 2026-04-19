@@ -3,12 +3,14 @@ import SwiftUI
 struct ConfigurationView: View {
     var appState: AppState
     @Environment(LocalStore.self) private var store
+    @Environment(\.isReadOnly) private var isReadOnly
 
     @State private var isLoadingBows = false
     @State private var isLoadingArrows = false
     @State private var errorMessage: String?
     @State private var showAddBow = false
     @State private var showAddArrow = false
+    @State private var showingPaywall = false
     @State private var pendingDeleteBow: Bow?
     @State private var pendingDeleteArrow: ArrowConfiguration?
 
@@ -18,7 +20,8 @@ struct ConfigurationView: View {
                 // MARK: Bows (top half)
                 VStack(spacing: 0) {
                     sectionHeader(title: "Bows", systemImage: "scope") {
-                        showAddBow = true
+                        if isReadOnly { showingPaywall = true }
+                        else { showAddBow = true }
                     }
                     Divider()
                     if isLoadingBows && appState.bows.isEmpty {
@@ -37,7 +40,8 @@ struct ConfigurationView: View {
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
-                                        pendingDeleteBow = bow
+                                        if isReadOnly { showingPaywall = true }
+                                        else { pendingDeleteBow = bow }
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
@@ -54,7 +58,8 @@ struct ConfigurationView: View {
                 // MARK: Arrows (bottom half)
                 VStack(spacing: 0) {
                     sectionHeader(title: "Arrows", systemImage: "arrow.right") {
-                        showAddArrow = true
+                        if isReadOnly { showingPaywall = true }
+                        else { showAddArrow = true }
                     }
                     Divider()
                     if isLoadingArrows && appState.arrowConfigs.isEmpty {
@@ -74,7 +79,8 @@ struct ConfigurationView: View {
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
-                                        pendingDeleteArrow = arrow
+                                        if isReadOnly { showingPaywall = true }
+                                        else { pendingDeleteArrow = arrow }
                                     } label: {
                                         Label("Delete", systemImage: "trash")
                                     }
@@ -91,6 +97,7 @@ struct ConfigurationView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showAddBow) { AddBowView(appState: appState) }
         .sheet(isPresented: $showAddArrow) { AddArrowView(appState: appState) }
+        .sheet(isPresented: $showingPaywall) { NavigationStack { PaywallView() } }
         .alert("Error", isPresented: Binding(
             get: { errorMessage != nil },
             set: { if !$0 { errorMessage = nil } }

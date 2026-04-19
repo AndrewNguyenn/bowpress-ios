@@ -4,6 +4,7 @@ struct SessionView: View {
     var appState: AppState
     @Bindable var viewModel: SessionViewModel
     @Environment(LocalStore.self) private var store
+    @Environment(\.isReadOnly) private var isReadOnly
 
     @State private var showConfigSheet = false
     @State private var showEndConfirmation = false
@@ -11,6 +12,7 @@ struct SessionView: View {
     @State private var isEnding = false
     @State private var isDiscarding = false
     @State private var isStarting = false
+    @State private var showingPaywall = false
     @State private var selectedBow: Bow? = nil
     @State private var selectedArrow: ArrowConfiguration? = nil
 
@@ -48,6 +50,9 @@ struct SessionView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(viewModel.error ?? "")
+        }
+        .sheet(isPresented: $showingPaywall) {
+            NavigationStack { PaywallView() }
         }
     }
 
@@ -96,7 +101,8 @@ struct SessionView: View {
 
             Section {
                 Button {
-                    Task { await startNewSession() }
+                    if isReadOnly { showingPaywall = true }
+                    else { Task { await startNewSession() } }
                 } label: {
                     HStack {
                         Spacer()
@@ -177,7 +183,8 @@ struct SessionView: View {
                 TargetPlotView(
                     arrows: viewModel.currentEndArrows,
                     onArrowPlotted: { ring, zone, plotX, plotY in
-                        Task { await viewModel.plotArrow(ring: ring, zone: zone, plotX: plotX, plotY: plotY) }
+                        if isReadOnly { showingPaywall = true }
+                        else { Task { await viewModel.plotArrow(ring: ring, zone: zone, plotX: plotX, plotY: plotY) } }
                     },
                     isEnabled: !viewModel.isLoading,
                     arrowDiameterMm: {
@@ -210,7 +217,8 @@ struct SessionView: View {
 
                 // MARK: Complete End button
                 Button {
-                    Task { await viewModel.completeEnd(notes: nil) }
+                    if isReadOnly { showingPaywall = true }
+                    else { Task { await viewModel.completeEnd(notes: nil) } }
                 } label: {
                     Label("Complete End \(viewModel.currentEndNumber)", systemImage: "checkmark.circle")
                         .fontWeight(.semibold)
@@ -265,7 +273,8 @@ struct SessionView: View {
 
                 // MARK: End Session
                 Button(role: .destructive) {
-                    showEndConfirmation = true
+                    if isReadOnly { showingPaywall = true }
+                    else { showEndConfirmation = true }
                 } label: {
                     HStack {
                         if isEnding {
@@ -291,7 +300,8 @@ struct SessionView: View {
 
                 // MARK: Discard Session
                 Button(role: .destructive) {
-                    showDiscardConfirmation = true
+                    if isReadOnly { showingPaywall = true }
+                    else { showDiscardConfirmation = true }
                 } label: {
                     HStack {
                         if isDiscarding {
