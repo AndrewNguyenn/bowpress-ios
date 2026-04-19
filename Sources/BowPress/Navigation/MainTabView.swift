@@ -76,6 +76,10 @@ struct MainTabView: View {
             appState.bows = (try? store.fetchBows()) ?? appState.bows
             appState.arrowConfigs = (try? store.fetchArrowConfigs()) ?? appState.arrowConfigs
             appState.completedSessions = (try? store.fetchSessions()) ?? appState.completedSessions
+            // Hydration ran in parallel with AnalyticsView.task's initial load,
+            // so the first overview query against the store was empty. Bump the
+            // refresh nonce — AnalyticsView listens for this and re-loads.
+            appState.analyticsRefreshNonce += 1
         }
     }
 
