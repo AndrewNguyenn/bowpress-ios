@@ -49,6 +49,28 @@ protocol BowPressAPIClient: AnyObject {
     func signIn(email: String, password: String) async throws -> User
     func verifyEmail(email: String, code: String) async throws -> User
     func resendVerification(email: String) async throws
+
+    // Bows
+    func fetchBows() async throws -> [Bow]
+    func createBow(_ bow: Bow) async throws -> Bow
+    func deleteBow(id: String) async throws
+
+    // Bow Configurations
+    func fetchConfigurations(bowId: String) async throws -> [BowConfiguration]
+    func createConfiguration(_ config: BowConfiguration) async throws -> BowConfiguration
+
+    // Arrow Configurations
+    func fetchArrowConfigs() async throws -> [ArrowConfiguration]
+    func createArrowConfig(_ config: ArrowConfiguration) async throws -> ArrowConfiguration
+    func deleteArrowConfig(id: String) async throws
+
+    // Sessions
+    func fetchSessions() async throws -> [ShootingSession]
+    func createSession(_ session: ShootingSession) async throws -> ShootingSession
+    func endSession(id: String, notes: String) async throws
+    func fetchPlots(sessionId: String) async throws -> [ArrowPlot]
+    func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot
+    func completeEnd(_ end: SessionEnd) async throws -> SessionEnd
 }
 
 // MARK: - APIClient
@@ -68,6 +90,7 @@ final class APIClient: BowPressAPIClient {
     }
 
     func setToken(_ token: String) { self.authToken = token }
+    var hasToken: Bool { authToken != nil }
 
     // MARK: - Auth
     func signInWithApple(identityToken: String) async throws -> User { fatalError("stub") }
@@ -196,8 +219,16 @@ final class APIClient: BowPressAPIClient {
     func deleteArrowConfig(id: String) async throws {}
 
     // MARK: - Sessions
+    func fetchSessions() async throws -> [ShootingSession] {
+        #if DEBUG
+        return DevMockData.bows.flatMap { DevMockData.sessions(for: $0.id) }
+        #else
+        return []
+        #endif
+    }
     func createSession(_ session: ShootingSession) async throws -> ShootingSession { session }
     func endSession(id: String, notes: String) async throws {}
+    func fetchPlots(sessionId: String) async throws -> [ArrowPlot] { [] }
     func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot { plot }
     func completeEnd(_ end: SessionEnd) async throws -> SessionEnd { end }
 

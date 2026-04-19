@@ -2,8 +2,10 @@ import SwiftUI
 
 struct MainTabView: View {
     @Environment(AppState.self) private var appState
+    @Environment(LocalStore.self) private var store
     @State private var sessionViewModel = SessionViewModel()
     @State private var selectedTab = 0
+    @State private var syncService = BackgroundSyncService()
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -28,6 +30,16 @@ struct MainTabView: View {
             .tag(2)
         }
         .tint(.appAccent)
+        .task {
+            syncService.configure(store: store)
+            syncService.triggerSync()
+            #if DEBUG
+            await DevAutoSignIn.ensureSignedIn()
+            #endif
+            await LocalHydration.hydrateFromAPI(store: store, api: APIClient.shared)
+            appState.bows = (try? store.fetchBows()) ?? appState.bows
+            appState.arrowConfigs = (try? store.fetchArrowConfigs()) ?? appState.arrowConfigs
+        }
     }
 
     @ViewBuilder

@@ -62,4 +62,21 @@ final class MockAPIClient: BowPressAPIClient {
         lastResendVerificationEmail = email
         if let err = resendError { throw err }
     }
+
+    // MARK: - Persistence-related stubs (unused by auth tests)
+
+    func fetchBows() async throws -> [Bow] { [] }
+    func createBow(_ bow: Bow) async throws -> Bow { bow }
+    func deleteBow(id: String) async throws {}
+    func fetchConfigurations(bowId: String) async throws -> [BowConfiguration] { [] }
+    func createConfiguration(_ config: BowConfiguration) async throws -> BowConfiguration { config }
+    func fetchArrowConfigs() async throws -> [ArrowConfiguration] { [] }
+    func createArrowConfig(_ config: ArrowConfiguration) async throws -> ArrowConfiguration { config }
+    func deleteArrowConfig(id: String) async throws {}
+    func fetchSessions() async throws -> [ShootingSession] { [] }
+    func createSession(_ session: ShootingSession) async throws -> ShootingSession { session }
+    func endSession(id: String, notes: String) async throws {}
+    func fetchPlots(sessionId: String) async throws -> [ArrowPlot] { [] }
+    func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot { plot }
+    func completeEnd(_ end: SessionEnd) async throws -> SessionEnd { end }
 }
