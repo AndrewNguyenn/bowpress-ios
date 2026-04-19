@@ -150,6 +150,16 @@ struct AnalyticsView: View {
             .padding(.horizontal, 16)
         }
 
+        // Spec §Analysis Outputs #3 and #4 — Change Impact Cards + Subjective-Objective
+        // Correlation. Both are per-bow; we show them for the user's primary (first) bow.
+        // When no bow exists, sections hide themselves via empty-state copy.
+        if let bowId = appState.bows.first?.id {
+            ChangeImpactCardsSection(bowId: bowId)
+                .padding(.horizontal, 16)
+            TagCorrelationsSection(bowId: bowId)
+                .padding(.horizontal, 16)
+        }
+
         // Bow tuning suggestions
         AnalyticsSuggestionsSection(
             suggestions: viewModel.suggestions,
@@ -162,16 +172,6 @@ struct AnalyticsView: View {
             }
         )
         .padding(.horizontal, 16)
-
-        // Spec §Analysis Outputs #3 and #4 — Change Impact Cards + Subjective-Objective
-        // Correlation. Both are per-bow; we show them for the user's primary (first) bow.
-        // When no bow exists, sections hide themselves via empty-state copy.
-        if let bowId = appState.bows.first?.id {
-            ChangeImpactCardsSection(bowId: bowId)
-                .padding(.horizontal, 16)
-            TagCorrelationsSection(bowId: bowId)
-                .padding(.horizontal, 16)
-        }
     }
 
     // MARK: - Empty state

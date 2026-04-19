@@ -44,7 +44,13 @@ final class AnalyticsViewModel {
             } else {
                 all = (try? await APIClient.shared.fetchSuggestions()) ?? []
             }
-            suggestions = all.map { s in
+            // Dedupe by id — the per-bow API is currently a stub that returns the full
+            // list regardless of bowId, so iterating over N bows yields N copies of
+            // every suggestion. Keep this even after the API is properly scoped, since
+            // a suggestion id should always be unique across the visible set.
+            var seen = Set<String>()
+            suggestions = all.compactMap { s in
+                guard seen.insert(s.id).inserted else { return nil }
                 var copy = s
                 if readIds.contains(s.id) { copy.wasRead = true }
                 return copy

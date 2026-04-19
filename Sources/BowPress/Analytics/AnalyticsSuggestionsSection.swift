@@ -41,31 +41,24 @@ struct AnalyticsSuggestionsSection: View {
             } else {
                 VStack(spacing: 10) {
                     ForEach(visibleSuggestions) { suggestion in
-                        SuggestionRow(suggestion: suggestion, onMarkRead: onMarkRead)
-                            .id(suggestion.id)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .strokeBorder(Color.appAccent, lineWidth: 3)
-                                    .opacity(suggestion.id == highlightedId ? 1 : 0)
-                                    .animation(.easeInOut(duration: 0.4), value: highlightedId)
-                            )
-                            .onAppear {
-                                if !suggestion.wasRead {
-                                    Task { await onMarkRead?(suggestion) }
-                                }
+                        SwipeableSuggestionRow(
+                            suggestion: suggestion,
+                            canDismiss: onDismiss != nil,
+                            onMarkRead: onMarkRead,
+                            onRequestDismiss: { pendingDismiss = $0 }
+                        )
+                        .id(suggestion.id)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .strokeBorder(Color.appAccent, lineWidth: 3)
+                                .opacity(suggestion.id == highlightedId ? 1 : 0)
+                                .animation(.easeInOut(duration: 0.4), value: highlightedId)
+                        )
+                        .onAppear {
+                            if !suggestion.wasRead {
+                                Task { await onMarkRead?(suggestion) }
                             }
-                            // Swipe-left trash reveals dismiss. allowsFullSwipe so a
-                            // long drag triggers the confirmation directly. Mirrors
-                            // the Equipment list bow/arrow delete UX.
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                if onDismiss != nil {
-                                    Button(role: .destructive) {
-                                        pendingDismiss = suggestion
-                                    } label: {
-                                        Label("Dismiss", systemImage: "trash")
-                                    }
-                                }
-                            }
+                        }
                     }
                 }
 
@@ -126,6 +119,86 @@ struct AnalyticsSuggestionsSection: View {
             .padding(.vertical, 24)
             Spacer()
         }
+    }
+}
+
+// MARK: - SwipeableSuggestionRow
+
+/// Wraps `SuggestionRow` with a left-swipe-to-reveal trash action. We can't use
+/// the system `.swipeActions` modifier here because the suggestions list lives in
+/// a `VStack` inside a `ScrollView`, not a `List`. A full swipe past the threshold
+/// triggers the dismiss confirmation directly, mirroring iOS Mail behavior.
+private struct SwipeableSuggestionRow: View {
+    let suggestion: AnalyticsSuggestion
+    let canDismiss: Bool
+    var onMarkRead: ((AnalyticsSuggestion) async -> Void)?
+    let onRequestDismiss: (AnalyticsSuggestion) -> Void
+
+    @State private var offset: CGFloat = 0
+    @State private var restingOffset: CGFloat = 0
+
+    private let actionWidth: CGFloat = 80
+    private let fullSwipeThreshold: CGFloat = 140
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            if canDismiss {
+                trashAction
+                    .opacity(offset < -1 ? 1 : 0)
+            }
+
+            SuggestionRow(suggestion: suggestion, onMarkRead: onMarkRead)
+                .offset(x: offset)
+                .gesture(canDismiss ? swipeGesture : nil)
+        }
+    }
+
+    private var trashAction: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                offset = 0
+                restingOffset = 0
+            }
+            onRequestDismiss(suggestion)
+        } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.red)
+                Image(systemName: "trash.fill")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: actionWidth)
+            .frame(maxHeight: .infinity)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Dismiss suggestion")
+    }
+
+    private var swipeGesture: some Gesture {
+        DragGesture(minimumDistance: 18)
+            .onChanged { value in
+                // Ignore predominantly-vertical drags so the parent ScrollView wins.
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                let proposed = restingOffset + value.translation.width
+                offset = proposed < 0 ? proposed : proposed / 5  // rubberband when pulled right
+            }
+            .onEnded { value in
+                let velocity = value.predictedEndTranslation.width - value.translation.width
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    if offset < -fullSwipeThreshold || (velocity < -300 && offset < -actionWidth / 2) {
+                        offset = 0
+                        restingOffset = 0
+                        onRequestDismiss(suggestion)
+                    } else if offset < -actionWidth / 2 {
+                        offset = -actionWidth
+                        restingOffset = -actionWidth
+                    } else {
+                        offset = 0
+                        restingOffset = 0
+                    }
+                }
+            }
     }
 }
 
