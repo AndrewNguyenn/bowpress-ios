@@ -60,6 +60,27 @@ xcodegen generate
 
 ---
 
+## Running against local API
+
+By default the `BowPress` scheme uses in-memory SwiftData seeded from
+`DevMockData` — fast, deterministic, no network. When you need to exercise
+real HTTP against the Hono API:
+
+1. In `bowpress-api/`, run `npm run dev` (wrangler dev on 8787).
+2. In `bowpress-ios/`, switch scheme to `BowPress-LocalAPI`.
+3. Run. APIClient now calls `http://localhost:8787` for all read paths.
+
+Known limitations of LocalAPI mode:
+- Write methods (createSession, plotArrow, completeEnd, etc.) are still
+  echo stubs in APIClient — this mode is primarily for read-path and
+  auth/profile/subscription integration work.
+- `fetchSuggestions()` (no bowId) has no matching Hono endpoint — the API
+  only exposes `GET /bows/:bowId/suggestions`. LocalAPI mode returns an
+  empty list from the no-arg overload; use `fetchSuggestions(bowId:)` via
+  analytics screens instead.
+- Session Log starts empty; run `npm run seed:e2e:local` in the API repo
+  if you want fixture data in the local D1.
+
 ## Tech
 
 - iOS 17+ · SwiftUI

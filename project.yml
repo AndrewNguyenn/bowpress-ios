@@ -7,6 +7,23 @@ options:
   xcodeVersion: "15"
   createIntermediateGroups: true
 
+schemes:
+  BowPress:
+    build:
+      targets:
+        BowPress: all
+    run:
+      config: Debug
+  BowPress-LocalAPI:
+    build:
+      targets:
+        BowPress: all
+    run:
+      config: Debug
+      environmentVariables:
+        USE_LOCAL_API: "1"
+        API_BASE_URL: "http://localhost:8787"
+
 packages:
   GoogleSignIn-iOS:
     url: https://github.com/google/GoogleSignIn-iOS

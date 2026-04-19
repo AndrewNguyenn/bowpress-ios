@@ -80,6 +80,16 @@ protocol BowPressAPIClient: AnyObject {
 final class APIClient: BowPressAPIClient {
     static let shared = APIClient()
     private let baseURL = ProcessInfo.processInfo.environment["API_BASE_URL"] ?? "http://localhost:8787"
+
+    #if DEBUG
+    /// DEBUG builds default to DevMockData short-circuits. Set `USE_LOCAL_API=1`
+    /// in the scheme's run env vars (see `BowPress-LocalAPI`) to fall through to
+    /// real HTTP calls against `API_BASE_URL` (defaults to `http://localhost:8787`).
+    static var useMocks: Bool {
+        ProcessInfo.processInfo.environment["USE_LOCAL_API"] == nil
+    }
+    #endif
+
     private var authToken: String?
     private let session: URLSession
     private let decoder: JSONDecoder
@@ -191,10 +201,11 @@ final class APIClient: BowPressAPIClient {
     // MARK: - Bows
     func fetchBows() async throws -> [Bow] {
         #if DEBUG
-        return DevMockData.bows
-        #else
-        return []
+        if APIClient.useMocks { return DevMockData.bows }
         #endif
+        let (data, response) = try await request(method: "GET", path: "/bows", body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode([Bow].self, from: data)
     }
     func createBow(_ bow: Bow) async throws -> Bow { bow }
     func deleteBow(id: String) async throws {}
@@ -202,20 +213,31 @@ final class APIClient: BowPressAPIClient {
     // MARK: - Bow Configurations
     func fetchConfigurations(bowId: String) async throws -> [BowConfiguration] {
         #if DEBUG
-        return DevMockData.bowConfigs(for: bowId)
-        #else
-        return []
+        if APIClient.useMocks { return DevMockData.bowConfigs(for: bowId) }
         #endif
+        // Hono mounts this at top-level `/bow-configurations` and expects `bowId` as a query param.
+        // See bowpress-api/src/routes/bowConfigRoutes.ts + bowConfigController.listBowConfigs.
+        guard let encoded = bowId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(
+            method: "GET",
+            path: "/bow-configurations?bowId=\(encoded)",
+            body: Optional<[String: String]>.none
+        )
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode([BowConfiguration].self, from: data)
     }
     func createConfiguration(_ config: BowConfiguration) async throws -> BowConfiguration { config }
 
     // MARK: - Arrow Configurations
     func fetchArrowConfigs() async throws -> [ArrowConfiguration] {
         #if DEBUG
-        return DevMockData.arrowConfigs
-        #else
-        return []
+        if APIClient.useMocks { return DevMockData.arrowConfigs }
         #endif
+        let (data, response) = try await request(method: "GET", path: "/arrow-configs", body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode([ArrowConfiguration].self, from: data)
     }
     func createArrowConfig(_ config: ArrowConfiguration) async throws -> ArrowConfiguration { config }
     func deleteArrowConfig(id: String) async throws {}
@@ -223,19 +245,29 @@ final class APIClient: BowPressAPIClient {
     // MARK: - Sessions
     func fetchSessions() async throws -> [ShootingSession] {
         #if DEBUG
-        return DevMockData.bows.flatMap { DevMockData.sessions(for: $0.id) }
-        #else
-        return []
+        if APIClient.useMocks { return DevMockData.bows.flatMap { DevMockData.sessions(for: $0.id) } }
         #endif
+        let (data, response) = try await request(method: "GET", path: "/sessions", body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode([ShootingSession].self, from: data)
     }
     func createSession(_ session: ShootingSession) async throws -> ShootingSession { session }
     func endSession(id: String, notes: String) async throws {}
     func fetchPlots(sessionId: String) async throws -> [ArrowPlot] {
         #if DEBUG
-        return DevMockData.arrowPlots(for: sessionId)
-        #else
-        return []
+        if APIClient.useMocks { return DevMockData.arrowPlots(for: sessionId) }
         #endif
+        // Nested under session routes: GET /sessions/:sessionId/plots
+        guard let encoded = sessionId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(
+            method: "GET",
+            path: "/sessions/\(encoded)/plots",
+            body: Optional<[String: String]>.none
+        )
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode([ArrowPlot].self, from: data)
     }
     func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot { plot }
     func completeEnd(_ end: SessionEnd) async throws -> SessionEnd { end }
@@ -243,27 +275,46 @@ final class APIClient: BowPressAPIClient {
     // MARK: - Analytics
     func fetchSuggestions() async throws -> [AnalyticsSuggestion] {
         #if DEBUG
-        return DevMockData.suggestions()
-        #else
-        return []
+        if APIClient.useMocks { return DevMockData.suggestions() }
         #endif
+        // The Hono API exposes suggestions only under `GET /bows/:bowId/suggestions`
+        // (see bowpress-api/src/routes/analyticsRoutes.ts). The iOS no-arg
+        // `fetchSuggestions()` has no bowId to dispatch on, so there's no single
+        // endpoint that matches. LocalAPI callers should go through the bowId
+        // overload below. Documented as a known gap in README.
+        return []
     }
     func markSuggestionRead(id: String) async throws {}
     func fetchAnalyticsOverview(period: AnalyticsPeriod) async throws -> AnalyticsOverview {
         #if DEBUG
-        return DevMockData.overview(period: period)
-        #else
-        return AnalyticsOverview(period: period, sessionCount: 0, avgArrowScore: 0, xPercentage: 0, suggestions: [])
+        if APIClient.useMocks { return DevMockData.overview(period: period) }
         #endif
+        guard let encoded = period.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(
+            method: "GET",
+            path: "/analytics/overview?period=\(encoded)",
+            body: Optional<[String: String]>.none
+        )
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(AnalyticsOverview.self, from: data)
     }
 
     func fetchComparison(period: AnalyticsPeriod) async throws -> PeriodComparison {
         #if DEBUG
-        return DevMockData.comparison(period: period)
-        #else
-        // TODO: real API call
-        throw URLError(.unsupportedURL)
+        if APIClient.useMocks { return DevMockData.comparison(period: period) }
         #endif
+        guard let encoded = period.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(
+            method: "GET",
+            path: "/analytics/comparison?period=\(encoded)",
+            body: Optional<[String: String]>.none
+        )
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(PeriodComparison.self, from: data)
     }
 
     // MARK: - Account
@@ -328,36 +379,38 @@ final class APIClient: BowPressAPIClient {
 
     func fetchEntitlement() async throws -> Entitlement {
         #if DEBUG
-        return Entitlement(
-            isActive: true,
-            inTrial: true,
-            provider: "apple",
-            productId: "com.andrewnguyen.bowpress.monthly",
-            expiresAt: Date().addingTimeInterval(60 * 60 * 24 * 7),
-            autoRenew: true
-        )
-        #else
+        if APIClient.useMocks {
+            return Entitlement(
+                isActive: true,
+                inTrial: true,
+                provider: "apple",
+                productId: "com.andrewnguyen.bowpress.monthly",
+                expiresAt: Date().addingTimeInterval(60 * 60 * 24 * 7),
+                autoRenew: true
+            )
+        }
+        #endif
         let (data, response) = try await request(method: "GET", path: "/subscription", body: Optional<[String: String]>.none)
         try ensureSuccess(response: response, data: data)
         return try decoder.decode(Entitlement.self, from: data)
-        #endif
     }
 
     func verifyAppleTransaction(jws: String) async throws -> Entitlement {
         #if DEBUG
-        return Entitlement(
-            isActive: true,
-            inTrial: false,
-            provider: "apple",
-            productId: "com.andrewnguyen.bowpress.monthly",
-            expiresAt: Date().addingTimeInterval(60 * 60 * 24 * 30),
-            autoRenew: true
-        )
-        #else
+        if APIClient.useMocks {
+            return Entitlement(
+                isActive: true,
+                inTrial: false,
+                provider: "apple",
+                productId: "com.andrewnguyen.bowpress.monthly",
+                expiresAt: Date().addingTimeInterval(60 * 60 * 24 * 30),
+                autoRenew: true
+            )
+        }
+        #endif
         let (data, response) = try await request(method: "POST", path: "/subscription/verify", body: ["jws": jws])
         try ensureSuccess(response: response, data: data)
         return try decoder.decode(Entitlement.self, from: data)
-        #endif
     }
 }
 
