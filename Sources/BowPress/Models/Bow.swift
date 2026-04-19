@@ -6,7 +6,7 @@ enum BowType: String, Codable, CaseIterable {
     var label: String { rawValue.capitalized }
 }
 
-struct Bow: Identifiable, Codable, Equatable {
+struct Bow: Identifiable, Codable, Equatable, Hashable {
     var id: String
     var userId: String
     var name: String
