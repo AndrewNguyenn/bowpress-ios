@@ -117,13 +117,13 @@ struct BowDetailView: View {
                     ProgressView().frame(maxWidth: .infinity).listRowBackground(Color.clear)
                 }
             } else {
+                referenceSection
+
                 switch bow.bowType {
                 case .compound: compoundSections
                 case .recurve:  recurveSections
                 case .barebow:  barebowSections
                 }
-
-                referenceSection
 
                 if !historyEntries.isEmpty {
                     Section("History") {
