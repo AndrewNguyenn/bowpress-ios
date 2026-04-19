@@ -69,10 +69,21 @@ struct MainTabView: View {
             }
             syncService.configure(store: store)
             syncService.triggerSync()
-            #if DEBUG
-            await DevAutoSignIn.ensureSignedIn()
-            #endif
-            await LocalHydration.hydrateFromAPI(store: store, api: APIClient.shared)
+
+            // Run hydration and a minimum splash-display timer in parallel so
+            // the animation never flashes away instantly — even when the
+            // in-memory DEBUG seed is basically free.
+            async let minDisplay: Void = {
+                try? await Task.sleep(for: .milliseconds(1600))
+            }()
+            async let hydration: Void = {
+                #if DEBUG
+                await DevAutoSignIn.ensureSignedIn()
+                #endif
+                await LocalHydration.hydrateFromAPI(store: store, api: APIClient.shared)
+            }()
+            _ = await (minDisplay, hydration)
+
             appState.bows = (try? store.fetchBows()) ?? appState.bows
             appState.arrowConfigs = (try? store.fetchArrowConfigs()) ?? appState.arrowConfigs
             appState.completedSessions = (try? store.fetchSessions()) ?? appState.completedSessions
@@ -80,6 +91,10 @@ struct MainTabView: View {
             // so the first overview query against the store was empty. Bump the
             // refresh nonce — AnalyticsView listens for this and re-loads.
             appState.analyticsRefreshNonce += 1
+
+            withAnimation(.easeInOut(duration: 0.45)) {
+                appState.isHydrating = false
+            }
         }
     }
 

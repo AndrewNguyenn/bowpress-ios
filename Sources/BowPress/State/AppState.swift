@@ -36,6 +36,10 @@ final class AppState {
     var selectedTab: Int = 0
     var deviceToken: String?
 
+    /// True while `LocalHydration` is seeding the store on launch. Drives the
+    /// animated splash overlay in ContentView so we don't flash an empty app.
+    var isHydrating: Bool = true
+
     /// Whether the user has access to paid features.
     ///
     /// In DEBUG this is always `true` so the auto-signed-in dev user can exercise gated

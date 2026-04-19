@@ -7,12 +7,19 @@ struct ContentView: View {
         if !appState.isAuthenticated {
             AuthView()
         } else {
-            MainTabView()
-                .readOnlyGate(!appState.isSubscribed)
-                .task {
-                    await SubscriptionManager.shared.refreshEntitlement()
-                    appState.entitlement = SubscriptionManager.shared.entitlement
+            ZStack {
+                MainTabView()
+                    .readOnlyGate(!appState.isSubscribed)
+                    .task {
+                        await SubscriptionManager.shared.refreshEntitlement()
+                        appState.entitlement = SubscriptionManager.shared.entitlement
+                    }
+                if appState.isHydrating {
+                    HydrationSplashView()
+                        .transition(.opacity)
+                        .zIndex(1)
                 }
+            }
         }
     }
 }
