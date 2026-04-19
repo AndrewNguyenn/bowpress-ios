@@ -39,6 +39,24 @@ private struct ErrorBody: Decodable {
     let attemptsRemaining: Int?
 }
 
+// MARK: - API error + subscription-lapsed notification
+
+enum APIError: Error, LocalizedError {
+    case subscriptionRequired
+    case http(status: Int, body: String?)
+
+    var errorDescription: String? {
+        switch self {
+        case .subscriptionRequired: return "An active subscription is required."
+        case .http(let status, let body): return "Request failed (\(status)). \(body ?? "")"
+        }
+    }
+}
+
+extension Notification.Name {
+    static let subscriptionLapsed = Notification.Name("BowPress.subscriptionLapsed")
+}
+
 // MARK: - Protocol
 
 protocol BowPressAPIClient: AnyObject {
@@ -224,6 +242,100 @@ final class APIClient: BowPressAPIClient {
         #else
         // TODO: real API call
         throw URLError(.unsupportedURL)
+        #endif
+    }
+
+    // MARK: - Account
+
+    func fetchProfile() async throws -> User {
+        let (data, response) = try await request(method: "GET", path: "/me", body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(User.self, from: data)
+    }
+
+    func updateProfile(name: String) async throws -> User {
+        let (data, response) = try await request(method: "PATCH", path: "/me", body: ["name": name])
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(User.self, from: data)
+    }
+
+    func changePassword(current: String, new: String) async throws {
+        let (data, response) = try await request(
+            method: "POST",
+            path: "/auth/change-password",
+            body: ["currentPassword": current, "newPassword": new]
+        )
+        try ensureSuccess(response: response, data: data)
+    }
+
+    func deleteAccount(password: String) async throws {
+        let (data, response) = try await request(method: "DELETE", path: "/me", body: ["password": password])
+        try ensureSuccess(response: response, data: data)
+    }
+
+    private func request<Body: Encodable>(
+        method: String,
+        path: String,
+        body: Body?
+    ) async throws -> (Data, URLResponse) {
+        guard let url = URL(string: baseURL + path) else { throw URLError(.badURL) }
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = authToken {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        if let body {
+            req.httpBody = try JSONEncoder().encode(body)
+        }
+        return try await session.data(for: req)
+    }
+
+    private func ensureSuccess(response: URLResponse, data: Data) throws {
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        if (200..<300).contains(http.statusCode) { return }
+        if http.statusCode == 402 {
+            NotificationCenter.default.post(name: .subscriptionLapsed, object: nil)
+            throw APIError.subscriptionRequired
+        }
+        throw try authError(from: data, status: http.statusCode)
+    }
+
+    // MARK: - Subscription
+
+    func fetchEntitlement() async throws -> Entitlement {
+        #if DEBUG
+        return Entitlement(
+            isActive: true,
+            inTrial: true,
+            provider: "apple",
+            productId: "com.andrewnguyen.bowpress.monthly",
+            expiresAt: Date().addingTimeInterval(60 * 60 * 24 * 7),
+            autoRenew: true
+        )
+        #else
+        let (data, response) = try await request(method: "GET", path: "/subscription", body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(Entitlement.self, from: data)
+        #endif
+    }
+
+    func verifyAppleTransaction(jws: String) async throws -> Entitlement {
+        #if DEBUG
+        return Entitlement(
+            isActive: true,
+            inTrial: false,
+            provider: "apple",
+            productId: "com.andrewnguyen.bowpress.monthly",
+            expiresAt: Date().addingTimeInterval(60 * 60 * 24 * 30),
+            autoRenew: true
+        )
+        #else
+        let (data, response) = try await request(method: "POST", path: "/subscription/verify", body: ["jws": jws])
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(Entitlement.self, from: data)
         #endif
     }
 }

@@ -26,6 +26,13 @@ struct MainTabView: View {
             }
             .tabItem { Label("Equipment", systemImage: "slider.horizontal.3") }
             .tag(2)
+
+            NavigationStack {
+                SettingsView()
+                    .safeAreaInset(edge: .top, spacing: 0) { sessionBanner }
+            }
+            .tabItem { Label("Settings", systemImage: "person.crop.circle") }
+            .tag(3)
         }
         .tint(.appAccent)
     }

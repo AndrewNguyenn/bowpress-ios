@@ -1,0 +1,82 @@
+{
+  "identifier" : "BowPressProducts",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_applicationInternalID" : "",
+    "_developerTeamID" : "",
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "bowpress_pro",
+      "localizations" : [
+        {
+          "description" : "BowPress Pro subscription plans.",
+          "displayName" : "BowPress Pro",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "BowPress Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "BP_MONTHLY",
+          "introductoryOffer" : {
+            "internalID" : "BP_MONTHLY_TRIAL",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P7D"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlock the full tuning engine with monthly billing.",
+              "displayName" : "BowPress Pro — Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.andrewnguyen.bowpress.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "BowPress Pro Monthly",
+          "subscriptionGroupID" : "bowpress_pro",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "39.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "BP_ANNUAL",
+          "introductoryOffer" : {
+            "internalID" : "BP_ANNUAL_TRIAL",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P7D"
+          },
+          "localizations" : [
+            {
+              "description" : "BowPress Pro with annual billing — save 33%.",
+              "displayName" : "BowPress Pro — Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.andrewnguyen.bowpress.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "BowPress Pro Annual",
+          "subscriptionGroupID" : "bowpress_pro",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

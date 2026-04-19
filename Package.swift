@@ -7,7 +7,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/google/GoogleSignIn-iOS", from: "7.0.0"),
         .package(url: "https://github.com/airbnb/lottie-ios", from: "4.5.0"),
-        .package(url: "https://github.com/willdale/SwiftUICharts", from: "2.0.0")
+        .package(url: "https://github.com/willdale/SwiftUICharts", from: "2.0.0"),
+        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.15.0")
     ],
     targets: [
         .target(
@@ -20,6 +21,14 @@ let package = Package(
             ],
             path: "Sources/BowPress",
             resources: [.process("Resources")]
+        ),
+        .testTarget(
+            name: "BowPressTests",
+            dependencies: [
+                "BowPress",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing")
+            ],
+            path: "Tests/BowPressTests"
         )
     ]
 )
