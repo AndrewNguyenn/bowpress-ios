@@ -35,6 +35,14 @@ schemes:
         BowPress: all
     run:
       config: Debug
+      # storeKitConfiguration: Sources/BowPress/Subscriptions/Products.storekit
+      # ^ xcodegen emits this as identifier="../../Sources/..." which Xcode
+      # resolves RELATIVE TO THE .XCSCHEME FILE, landing one directory short
+      # of the project root. Attempts to fix via the yaml pathing were not
+      # successful. Paywall purchase flows (03, 06) depend on StoreKit test
+      # products loading; until this is resolved with a manual post-step on
+      # the generated scheme (or by wiring SKTestSession in DEBUG), those
+      # flows fail on "paywall_monthly_button not found".
       environmentVariables:
         USE_LOCAL_API: "1"
   BowPressTests:

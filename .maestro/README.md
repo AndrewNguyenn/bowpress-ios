@@ -4,6 +4,18 @@ Black-box UI suite that drives the iOS app and asserts server-side state
 for the seven critical paths. Lives alongside the app so flows and app code
 evolve together.
 
+## Status
+
+| Flow | Status | Notes |
+|---|---|---|
+| `01-session-write-path` | ✅ passing | verified end-to-end with server assertions |
+| `02-paywall-gates-write` | ✅ passing | |
+| `03-paywall-purchase` | ⚠️ blocked | StoreKit config not attached to `BowPress-RemoteAPI` scheme; products list stays on "Loading plans…". Fix requires either manually adding the storeKit config to the scheme in Xcode and checkpointing, or wiring `SKTestSession` in a DEBUG hook. |
+| `04-suggestion-response-shape` | ✅ passing | |
+| `05-delete-bow` | ✅ passing | verified end-to-end |
+| `06-lapsed-subscription` | ⚠️ blocked | same StoreKit issue as #03 |
+| `07-analytics-navigation` | ✅ passing | |
+
 ## Prerequisites
 
 - macOS + Xcode 15+ with an iOS 17 Simulator (iPhone 16 recommended).

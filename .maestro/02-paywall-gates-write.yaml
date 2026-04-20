@@ -12,6 +12,8 @@ tags:
     arguments:
       AutoSignInEmail: "e2e-free@bowpress.dev"
       AutoSignInPassword: "bowpress-e2e-pw-1234"
+      # DEBUG "always subscribed" shortcut is opted out via the
+      # REAL_ENTITLEMENT env var set by scripts/e2e.sh for this flow.
 
 - extendedWaitUntil:
     notVisible: "Analyzing your data"

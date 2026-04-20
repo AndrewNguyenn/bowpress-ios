@@ -175,6 +175,18 @@ for FLOW in "${FLOWS[@]}"; do
   xcrun simctl uninstall "$UDID" "$BUNDLE_ID" 2>/dev/null || true
   xcrun simctl install "$UDID" "$APP_PATH"
 
+  # Paywall flows opt out of the DEBUG "always subscribed" shortcut so
+  # ReadOnlyGate actually renders the upgrade banner. The iOS side reads
+  # ProcessInfo.processInfo.environment["REAL_ENTITLEMENT"] in AppState.
+  case "$FLOW" in
+    02-*|03-*|06-*)
+      export SIMCTL_CHILD_REAL_ENTITLEMENT=1
+      ;;
+    *)
+      unset SIMCTL_CHILD_REAL_ENTITLEMENT
+      ;;
+  esac
+
   # Flow #6 precondition: mark the e2e-free user's entitlement inactive.
   if [[ "$FLOW" == "06-"* && "$TARGET" != "production" ]]; then
     echo "==> Marking e2e-free entitlement inactive"

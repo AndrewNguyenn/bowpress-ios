@@ -48,8 +48,17 @@ final class AppState {
     ///
     /// In DEBUG this is always `true` so the auto-signed-in dev user can exercise gated
     /// flows without hitting StoreKit. Production gates on the server-issued entitlement.
+    /// Pass the `-RealEntitlement` launch arg (Maestro paywall flows do this) to force
+    /// the DEBUG build to honor the backend's real entitlement value.
     var isSubscribed: Bool {
         #if DEBUG
+        // Honor backend entitlement when REAL_ENTITLEMENT=1 is in the env.
+        // Paywall E2E flows set this via SIMCTL_CHILD_REAL_ENTITLEMENT=1 before
+        // launching the app. Normal dev runs still get the "always subscribed"
+        // shortcut so manual testing isn't gated on StoreKit.
+        if ProcessInfo.processInfo.environment["REAL_ENTITLEMENT"] == "1" {
+            return entitlement?.isActive == true
+        }
         return true
         #else
         return entitlement?.isActive == true
