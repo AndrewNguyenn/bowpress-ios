@@ -118,15 +118,32 @@ final class APIClient: BowPressAPIClient {
     init(session: URLSession = .shared) {
         self.session = session
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        // Backend emits ISO8601 with fractional seconds (e.g. "2026-04-18T12:00:00.000Z").
+        // Swift's default .iso8601 strategy rejects fractional seconds; accept both.
+        let fracFormatter = ISO8601DateFormatter()
+        fracFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plainFormatter = ISO8601DateFormatter()
+        plainFormatter.formatOptions = [.withInternetDateTime]
+        decoder.dateDecodingStrategy = .custom { dec in
+            let str = try dec.singleValueContainer().decode(String.self)
+            if let d = fracFormatter.date(from: str) { return d }
+            if let d = plainFormatter.date(from: str) { return d }
+            throw DecodingError.dataCorruptedError(
+                in: try dec.singleValueContainer(),
+                debugDescription: "Not ISO8601: \(str)"
+            )
+        }
         self.decoder = decoder
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
+        encoder.dateEncodingStrategy = .custom { date, enc in
+            var container = enc.singleValueContainer()
+            try container.encode(fracFormatter.string(from: date))
+        }
         self.encoder = encoder
     }
 
-    func setToken(_ token: String) { self.authToken = token }
-    var hasToken: Bool { authToken != nil }
+    func setToken(_ token: String) { self.authToken = token.isEmpty ? nil : token }
+    var hasToken: Bool { authToken?.isEmpty == false }
 
     // MARK: - Auth
     func signInWithApple(identityToken: String) async throws -> User { fatalError("stub") }
@@ -533,7 +550,7 @@ final class APIClient: BowPressAPIClient {
         var req = URLRequest(url: url)
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if let token = authToken {
+        if let token = authToken, !token.isEmpty {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         if let body {

@@ -23,7 +23,6 @@ enum DevAutoSignIn {
         do {
             _ = try await api.signIn(email: email, password: password)
         } catch {
-            // Non-fatal: app falls back to whatever is in LocalStore.
             print("[DevAutoSignIn] sign-in failed: \(error.localizedDescription)")
         }
     }

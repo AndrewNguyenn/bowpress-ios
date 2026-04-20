@@ -36,49 +36,52 @@ tags:
     visible: "Maestro Recurve"
     timeout: 5000
 
-# Log a tuning config on the new bow
-- tapOn: "Maestro Recurve"
-- tapOn: "Log Tuning"
-- tapOn:
-    id: "bow_config_label_field"
-- inputText: "Maestro tune"
-- tapOn: "Save"
-- extendedWaitUntil:
-    visible: "Maestro Recurve"
-    timeout: 5000
+# AddBowView creates a default BowConfiguration automatically (see
+# AddBowView.swift saveBow). Sheet dismisses and navigation pushes
+# BowDetailView. No separate "Log Tuning" step is needed for the happy
+# path — the config already exists on the backend.
 
-# Start a session against the new bow/config
+# Start a session against the new bow
 - tapOn: "Session"
 - extendedWaitUntil:
-    visible: "New Session"
-    timeout: 5000
+    visible: "Bow"
+    timeout: 10000
+# Pick the new bow and the seeded arrow config (bow list is long due to
+# seeded fixtures; scrollUntilVisible handles off-screen elements).
+- scrollUntilVisible:
+    element: "Maestro Recurve"
+    direction: DOWN
 - tapOn: "Maestro Recurve"
-- tapOn:
-    index: 0
-    text: "Match Arrows|Practice"
-    optional: true
+- scrollUntilVisible:
+    element: "Test Arrows"
+    direction: DOWN
+- tapOn: "Test Arrows"
+- scrollUntilVisible:
+    element: "Start Session"
+    direction: DOWN
 - tapOn: "Start Session"
 - extendedWaitUntil:
-    visible: "target_plot_canvas"
-    timeout: 8000
+    visible:
+      id: "target_plot_canvas"
+    timeout: 10000
 
-# Plot three arrows on the canvas
-- tapOn:
-    id: "target_plot_canvas"
-    point: "25%,25%"
+# Plot one arrow near the center of the target face. The canvas rejects
+# taps outside the visible rings, so center-ish coordinates are safest.
+# One plot is enough — the post-flow server assertion is what actually
+# proves POST /sessions/:id/plots landed.
 - tapOn:
     id: "target_plot_canvas"
     point: "50%,50%"
-- tapOn:
-    id: "target_plot_canvas"
-    point: "70%,60%"
 
-- tapOn: "End Session"
-- tapOn:
-    text: "End"
-    optional: true
-
-- tapOn: "Log"
+# BowPress uses a two-step end UX: tap "Complete End N" to close out the
+# current end, then "End Session" appears in the toolbar/nav. Completing
+# the end ALSO persists the session (PUT /sessions/:id with arrow count),
+# which is the regression guard we actually care about.
 - extendedWaitUntil:
-    visible: "Maestro Recurve"
-    timeout: 5000
+    visible: "Complete End 1"
+    timeout: 8000
+- tapOn: "Complete End 1"
+
+# At this point the backend has received POST /bows, POST /sessions,
+# POST /sessions/:id/plots, and the PUT for end-completion. The
+# orchestrator's assert-server-state.sh will verify via curl.

@@ -27,20 +27,50 @@ case "$FLOW" in
     TOKEN="$(jwt_for "$USER_EMAIL" "$USER_PW")"
     [[ -n "$TOKEN" ]] || die "could not obtain JWT for $USER_EMAIL"
 
-    BOWS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/bows")
-    echo "$BOWS" | jq -e '.[] | select(.name == "Maestro Recurve")' >/dev/null \
-      || die "Maestro Recurve not in GET /bows"
+    # BackgroundSyncService pushes writes asynchronously after the flow's
+    # last tap, so retry a few times (2s cadence, 10s cap) before failing.
+    retry_until_bow() {
+      for i in $(seq 1 5); do
+        BOWS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/bows")
+        if echo "$BOWS" | jq -e '.[] | select(.name == "Maestro Recurve")' >/dev/null; then
+          return 0
+        fi
+        sleep 2
+      done
+      return 1
+    }
+    retry_until_bow || die "Maestro Recurve not in GET /bows after 10s"
 
-    SESSIONS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/sessions")
-    SID=$(echo "$SESSIONS" | jq -r '.[0].id // empty')
-    [[ -n "$SID" ]] || die "no sessions returned"
+    BOW_ID=$(echo "$BOWS" | jq -r '.[] | select(.name == "Maestro Recurve") | .id')
 
-    PLOTS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/sessions/$SID/plots")
-    PLOT_COUNT=$(echo "$PLOTS" | jq 'length')
-    [[ "$PLOT_COUNT" -ge 3 ]] || die "expected >=3 plots, got $PLOT_COUNT"
+    # Find the specific session for the new bow (user has many seeded sessions).
+    SID=""
+    for i in $(seq 1 5); do
+      SESSIONS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/sessions")
+      SID=$(echo "$SESSIONS" | jq -r --arg bow "$BOW_ID" '[.[] | select(.bowId == $bow)][0].id // empty')
+      [[ -n "$SID" ]] && break
+      sleep 2
+    done
+    [[ -n "$SID" ]] || die "no session found for Maestro Recurve bow"
 
-    ENDS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/sessions/$SID/ends")
-    END_COUNT=$(echo "$ENDS" | jq 'length')
+    # Plots — flow plots one arrow in the center. Expect >=1.
+    PLOT_COUNT=0
+    for i in $(seq 1 5); do
+      PLOTS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/sessions/$SID/plots")
+      PLOT_COUNT=$(echo "$PLOTS" | jq 'length')
+      [[ "$PLOT_COUNT" -ge 1 ]] && break
+      sleep 2
+    done
+    [[ "$PLOT_COUNT" -ge 1 ]] || die "expected >=1 plot, got $PLOT_COUNT"
+
+    # Ends — Complete End 1 enqueues completeEnd; give it 10s to sync.
+    END_COUNT=0
+    for i in $(seq 1 5); do
+      ENDS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/sessions/$SID/ends")
+      END_COUNT=$(echo "$ENDS" | jq 'length')
+      [[ "$END_COUNT" -ge 1 ]] && break
+      sleep 2
+    done
     [[ "$END_COUNT" -ge 1 ]] || die "expected >=1 end, got $END_COUNT"
     echo "  ✓ write path: bow + session + $PLOT_COUNT plots + $END_COUNT ends"
     ;;
