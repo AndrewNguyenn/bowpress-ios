@@ -20,7 +20,7 @@ tags:
 - tapOn: "Equipment"
 - assertVisible: "Equipment"
 - tapOn:
-    point: "95%,18%"     # the "+" in the Bows section header
+    id: "add_bows_button"
 - assertVisible: "Add Bow"
 - tapOn: "Recurve"
 - tapOn:

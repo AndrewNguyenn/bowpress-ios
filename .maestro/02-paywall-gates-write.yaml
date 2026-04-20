@@ -23,7 +23,7 @@ tags:
 
 # Tap the add-bow "+" in the Bows header — gated because the user is read-only
 - tapOn:
-    point: "95%,18%"
+    id: "add_bows_button"
 
 - extendedWaitUntil:
     visible:

@@ -54,7 +54,7 @@ tags:
 
 # Prove writes are unlocked: Add Bow form should open (no paywall sheet)
 - tapOn:
-    point: "95%,18%"
+    id: "add_bows_button"
 - assertVisible: "Add Bow"
 - tapOn:
     id: "bow_name_field"

@@ -11,9 +11,15 @@ enum DevAutoSignIn {
     static var email: String { launchArgValue(for: "-AutoSignInEmail") ?? defaultEmail }
     static var password: String { launchArgValue(for: "-AutoSignInPassword") ?? defaultPassword }
 
+    private static var hasExplicitLaunchArg: Bool { launchArgValue(for: "-AutoSignInEmail") != nil }
+
     static func ensureSignedIn() async {
         let api = APIClient.shared
-        if api.hasToken { return }
+        // If the launch arg explicitly picks a user, always (re-)sign in so a
+        // keychain-persisted token from a previous role can't leak across
+        // Maestro flows. Otherwise honor any existing token.
+        if api.hasToken && !hasExplicitLaunchArg { return }
+        if hasExplicitLaunchArg { api.clearToken() }
         do {
             _ = try await api.signIn(email: email, password: password)
         } catch {

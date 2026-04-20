@@ -61,8 +61,12 @@ if [[ "$TARGET" == "local" ]]; then
     echo "!! Expected backend at $API_ROOT" >&2
     exit 1
   fi
+  echo "==> Seeding local D1 with e2e fixtures"
+  (cd "$API_ROOT" && npm run seed:e2e:local --silent) || { echo "!! Seed failed"; exit 1; }
   echo "==> Starting wrangler dev in $API_ROOT"
-  (cd "$API_ROOT" && npx wrangler dev --local --port 8787) &
+  # ENVIRONMENT=test un-gates the /__test__ routes and the dev-bypass in
+  # requireEntitlement for the seeded e2e user. Production stays fail-closed.
+  (cd "$API_ROOT" && npx wrangler dev --local --port 8787 --var ENVIRONMENT:test) &
   WRANGLER_PID=$!
   # Wait for /health — up to 45s
   for i in $(seq 1 45); do
@@ -148,13 +152,14 @@ for FLOW in "${FLOWS[@]}"; do
   echo "  Flow: $FLOW"
   echo "================================================================="
 
-  # Reset StoreKit before any paywall flow so transaction history is clean.
-  case "$FLOW" in
-    02-*|03-*|06-*)
-      xcrun simctl privacy booted reset all "$BUNDLE_ID" 2>/dev/null || true
-      xcrun simctl storekit reset booted "$BUNDLE_ID" 2>/dev/null || true
-      ;;
-  esac
+  # Fresh install before every flow. This clears the app sandbox AND keychain,
+  # which solves two problems at once:
+  #   1. StoreKit test transaction history is wiped before paywall flows
+  #      (this Xcode has no `simctl storekit` subcommand).
+  #   2. The auth token persisted in the keychain by a previous flow's role
+  #      (e.g. e2e-test) can't leak into this flow's role (e.g. e2e-free).
+  xcrun simctl uninstall booted "$BUNDLE_ID" 2>/dev/null || true
+  xcrun simctl install booted "$APP_PATH"
 
   # Flow #6 precondition: mark the e2e-free user's entitlement inactive.
   if [[ "$FLOW" == "06-"* && "$TARGET" != "production" ]]; then
