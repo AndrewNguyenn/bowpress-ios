@@ -113,12 +113,16 @@ final class APIClient: BowPressAPIClient {
     private var authToken: String?
     private let session: URLSession
     private let decoder: JSONDecoder
+    private let encoder: JSONEncoder
 
     init(session: URLSession = .shared) {
         self.session = session
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         self.decoder = decoder
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        self.encoder = encoder
     }
 
     func setToken(_ token: String) { self.authToken = token }
@@ -227,8 +231,24 @@ final class APIClient: BowPressAPIClient {
         try ensureSuccess(response: response, data: data)
         return try decoder.decode([Bow].self, from: data)
     }
-    func createBow(_ bow: Bow) async throws -> Bow { bow }
-    func deleteBow(id: String) async throws {}
+    func createBow(_ bow: Bow) async throws -> Bow {
+        #if DEBUG
+        if APIClient.useMocks { return bow }
+        #endif
+        let (data, response) = try await request(method: "POST", path: "/bows", body: bow)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(Bow.self, from: data)
+    }
+    func deleteBow(id: String) async throws {
+        #if DEBUG
+        if APIClient.useMocks { return }
+        #endif
+        guard let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(method: "DELETE", path: "/bows/\(encoded)", body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
+    }
 
     // MARK: - Bow Configurations
     func fetchConfigurations(bowId: String) async throws -> [BowConfiguration] {
@@ -248,7 +268,14 @@ final class APIClient: BowPressAPIClient {
         try ensureSuccess(response: response, data: data)
         return try decoder.decode([BowConfiguration].self, from: data)
     }
-    func createConfiguration(_ config: BowConfiguration) async throws -> BowConfiguration { config }
+    func createConfiguration(_ config: BowConfiguration) async throws -> BowConfiguration {
+        #if DEBUG
+        if APIClient.useMocks { return config }
+        #endif
+        let (data, response) = try await request(method: "POST", path: "/bow-configurations", body: config)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(BowConfiguration.self, from: data)
+    }
 
     // MARK: - Arrow Configurations
     func fetchArrowConfigs() async throws -> [ArrowConfiguration] {
@@ -259,8 +286,24 @@ final class APIClient: BowPressAPIClient {
         try ensureSuccess(response: response, data: data)
         return try decoder.decode([ArrowConfiguration].self, from: data)
     }
-    func createArrowConfig(_ config: ArrowConfiguration) async throws -> ArrowConfiguration { config }
-    func deleteArrowConfig(id: String) async throws {}
+    func createArrowConfig(_ config: ArrowConfiguration) async throws -> ArrowConfiguration {
+        #if DEBUG
+        if APIClient.useMocks { return config }
+        #endif
+        let (data, response) = try await request(method: "POST", path: "/arrow-configs", body: config)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(ArrowConfiguration.self, from: data)
+    }
+    func deleteArrowConfig(id: String) async throws {
+        #if DEBUG
+        if APIClient.useMocks { return }
+        #endif
+        guard let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(method: "DELETE", path: "/arrow-configs/\(encoded)", body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
+    }
 
     // MARK: - Sessions
     func fetchSessions() async throws -> [ShootingSession] {
@@ -271,8 +314,29 @@ final class APIClient: BowPressAPIClient {
         try ensureSuccess(response: response, data: data)
         return try decoder.decode([ShootingSession].self, from: data)
     }
-    func createSession(_ session: ShootingSession) async throws -> ShootingSession { session }
-    func endSession(id: String, notes: String) async throws {}
+    func createSession(_ session: ShootingSession) async throws -> ShootingSession {
+        #if DEBUG
+        if APIClient.useMocks { return session }
+        #endif
+        let (data, response) = try await request(method: "POST", path: "/sessions", body: session)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(ShootingSession.self, from: data)
+    }
+    func endSession(id: String, notes: String) async throws {
+        #if DEBUG
+        if APIClient.useMocks { return }
+        #endif
+        guard let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        struct EndSessionBody: Encodable {
+            let endedAt: Date
+            let notes: String
+        }
+        let body = EndSessionBody(endedAt: Date(), notes: notes)
+        let (data, response) = try await request(method: "PUT", path: "/sessions/\(encoded)", body: body)
+        try ensureSuccess(response: response, data: data)
+    }
     func fetchPlots(sessionId: String) async throws -> [ArrowPlot] {
         #if DEBUG
         if APIClient.useMocks { return DevMockData.arrowPlots(for: sessionId) }
@@ -289,8 +353,28 @@ final class APIClient: BowPressAPIClient {
         try ensureSuccess(response: response, data: data)
         return try decoder.decode([ArrowPlot].self, from: data)
     }
-    func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot { plot }
-    func completeEnd(_ end: SessionEnd) async throws -> SessionEnd { end }
+    func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot {
+        #if DEBUG
+        if APIClient.useMocks { return plot }
+        #endif
+        guard let encoded = plot.sessionId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(method: "POST", path: "/sessions/\(encoded)/plots", body: plot)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(ArrowPlot.self, from: data)
+    }
+    func completeEnd(_ end: SessionEnd) async throws -> SessionEnd {
+        #if DEBUG
+        if APIClient.useMocks { return end }
+        #endif
+        guard let encoded = end.sessionId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(method: "POST", path: "/sessions/\(encoded)/ends", body: end)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(SessionEnd.self, from: data)
+    }
 
     // MARK: - Analytics
     func fetchSuggestions() async throws -> [AnalyticsSuggestion] {
@@ -453,7 +537,7 @@ final class APIClient: BowPressAPIClient {
             req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
         if let body {
-            req.httpBody = try JSONEncoder().encode(body)
+            req.httpBody = try encoder.encode(body)
         }
         return try await session.data(for: req)
     }
@@ -552,16 +636,37 @@ extension APIClient {
         throw URLError(.unsupportedURL)
     }
 
-    // TODO: real implementation lands in follow-up
     func fetchSuggestions(bowId: String) async throws -> [AnalyticsSuggestion] {
-        return try await fetchSuggestions()
+        #if DEBUG
+        if APIClient.useMocks {
+            return DevMockData.suggestions().filter { $0.bowId == bowId }
+        }
+        #endif
+        guard let encoded = bowId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(
+            method: "GET",
+            path: "/bows/\(encoded)/suggestions",
+            body: Optional<[String: String]>.none
+        )
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode([AnalyticsSuggestion].self, from: data)
     }
 
     // TODO: real implementation lands in follow-up
     func dismissSuggestion(id: String) async throws { }
 
-    // TODO: real implementation lands in follow-up
-    func deleteSession(id: String) async throws { }
+    func deleteSession(id: String) async throws {
+        #if DEBUG
+        if APIClient.useMocks { return }
+        #endif
+        guard let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(method: "DELETE", path: "/sessions/\(encoded)", body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
+    }
 
     // TODO: real implementation lands in follow-up
     func deleteDeviceToken(_ token: String) async throws { }
