@@ -58,6 +58,7 @@ struct BowConfigEditView: View {
             Form {
                 Section("Label") {
                     TextField("Optional label", text: $label)
+                        .accessibilityIdentifier("bow_config_label_field")
                 }
 
                 switch bow.bowType {

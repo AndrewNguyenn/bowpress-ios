@@ -25,6 +25,7 @@ struct PaywallView: View {
         .background(Color.appBackground.ignoresSafeArea())
         .navigationTitle("BowPress Pro")
         .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("paywall_sheet")
         .task {
             guard !didLoad else { return }
             didLoad = true
@@ -205,6 +206,15 @@ private struct ProductRow: View {
         .disabled(disabled)
         .opacity(disabled ? 0.6 : 1)
         .accessibilityLabel(Text("Subscribe to \(product.displayName) at \(product.displayPrice)"))
+        .accessibilityIdentifier(accessibilityId)
+    }
+
+    private var accessibilityId: String {
+        switch product.id {
+        case BowPressProduct.monthly: return "paywall_monthly_button"
+        case BowPressProduct.annual:  return "paywall_annual_button"
+        default: return "paywall_product_\(product.id)"
+        }
     }
 
     private var periodDescription: String {

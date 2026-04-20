@@ -1,0 +1,41 @@
+appId: com.andrewnguyen.bowpress
+name: 05-delete-bow
+tags:
+  - regression
+  - writes
+---
+# Exercises DELETE /bows/:id (previously stubbed). Depends on the bow
+# created by flow #1. Orchestrator follows up with a curl assertion that
+# GET /bows no longer contains "Maestro Recurve".
+
+- launchApp:
+    clearState: true
+    arguments:
+      - "-AutoSignInEmail"
+      - "e2e-test@bowpress.dev"
+      - "-AutoSignInPassword"
+      - "bowpress-e2e-pw-1234"
+
+- assertVisible: "Session"
+
+- tapOn: "Equipment"
+- extendedWaitUntil:
+    visible: "Maestro Recurve"
+    timeout: 8000
+
+- swipe:
+    direction: LEFT
+    from: "Maestro Recurve"
+
+- tapOn:
+    text: "Delete"
+    index: 0
+
+# Confirm dialog — "Delete" destructive action
+- tapOn:
+    text: "Delete"
+    index: 0
+
+- extendedWaitUntil:
+    notVisible: "Maestro Recurve"
+    timeout: 8000

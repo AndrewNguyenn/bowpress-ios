@@ -108,9 +108,11 @@ struct EmailAuthView: View {
                 .keyboardType(.emailAddress)
                 .autocorrectionDisabled()
                 .autocapitalization(.none)
+                .accessibilityIdentifier("auth_email_field")
 
             SecureField("Password", text: $password)
                 .textContentType(mode == .signIn ? .password : .newPassword)
+                .accessibilityIdentifier("auth_password_field")
 
             if mode == .createAccount {
                 SecureField("Confirm Password", text: $confirmPassword)

@@ -1,0 +1,41 @@
+appId: com.andrewnguyen.bowpress
+name: 02-paywall-gates-write
+tags:
+  - paywall
+---
+# Signs in as the unentitled e2e-free user and proves that tapping "Add Bow"
+# presents the PaywallView sheet. No server mutation expected — the 402 from
+# POST /bows is what flips isReadOnly.
+
+- launchApp:
+    clearState: true
+    arguments:
+      - "-AutoSignInEmail"
+      - "e2e-free@bowpress.dev"
+      - "-AutoSignInPassword"
+      - "bowpress-e2e-pw-1234"
+
+- assertVisible: "Session"
+
+- tapOn: "Equipment"
+- extendedWaitUntil:
+    visible:
+      id: "upgrade_banner"
+    timeout: 8000
+
+# Tap the add-bow "+" in the Bows header — gated because the user is read-only
+- tapOn:
+    point: "95%,18%"
+
+- extendedWaitUntil:
+    visible:
+      id: "paywall_sheet"
+    timeout: 5000
+
+# Dismiss paywall — back to Equipment
+- swipe:
+    from:
+      point: "50%,10%"
+    to:
+      point: "50%,90%"
+- assertVisible: "Equipment"

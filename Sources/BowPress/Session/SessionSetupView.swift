@@ -54,6 +54,7 @@ struct SessionSetupView: View {
                                         selectBow(bow)
                                     }
                                 }
+                                .accessibilityIdentifier("session_bow_row_\(bow.id)")
                                 if bow.id != appState.bows.last?.id {
                                     Divider().padding(.leading, 56)
                                 }
@@ -97,6 +98,7 @@ struct SessionSetupView: View {
                         .buttonStyle(.plain)
                         .disabled(availableConfigs.count <= 1)
                         .padding(.top, -16)
+                        .accessibilityIdentifier("session_config_row_\(config.id)")
                     }
                 }
 

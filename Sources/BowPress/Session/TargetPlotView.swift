@@ -140,6 +140,7 @@ struct TargetPlotView: View {
             )
         }
         .aspectRatio(1, contentMode: .fit)
+        .accessibilityIdentifier("target_plot_canvas")
     }
 
     // MARK: - Tap Handling

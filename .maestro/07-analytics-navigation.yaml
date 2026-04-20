@@ -1,0 +1,34 @@
+appId: com.andrewnguyen.bowpress
+name: 07-analytics-navigation
+tags:
+  - smoke
+  - read-only
+---
+# Broad navigation smoke. Walks all 5 tabs and asserts a known element on
+# each renders. Catches crash-on-navigate regressions cheaply.
+# Safe against production.
+
+- launchApp:
+    clearState: true
+    arguments:
+      - "-AutoSignInEmail"
+      - "e2e-test@bowpress.dev"
+      - "-AutoSignInPassword"
+      - "bowpress-e2e-pw-1234"
+
+- assertVisible: "Session"
+
+- tapOn: "Analytics"
+- assertVisible: "Analytics"
+
+- tapOn: "Log"
+- assertVisible: "Log"
+
+- tapOn: "Session"
+- assertVisible: "Session"
+
+- tapOn: "Equipment"
+- assertVisible: "Equipment"
+
+- tapOn: "Settings"
+- assertVisible: "Settings"
