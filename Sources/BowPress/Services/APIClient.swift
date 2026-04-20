@@ -95,7 +95,11 @@ protocol BowPressAPIClient: AnyObject {
 
 final class APIClient: BowPressAPIClient {
     static let shared = APIClient()
+    #if DEBUG
     private let baseURL = ProcessInfo.processInfo.environment["API_BASE_URL"] ?? "http://localhost:8787"
+    #else
+    private let baseURL = "https://bowpress-api.stageandrewnguyen.workers.dev"
+    #endif
 
     #if DEBUG
     /// DEBUG builds default to DevMockData short-circuits. Set `USE_LOCAL_API=1`

@@ -1,0 +1,1 @@
+Every tuning decision needs data. BowPress logs every configuration change and every arrow shot under it, so you know what's actually working.

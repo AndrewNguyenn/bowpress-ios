@@ -13,6 +13,7 @@ Credentials come from .env next to this script (see .env.example). Never commit 
 """
 import argparse
 import base64
+import hashlib
 import os
 import subprocess
 import sys
@@ -226,6 +227,207 @@ def cmd_create_app(args):
         raise
 
 
+# ---- metadata ----
+
+EDITABLE_VERSION_STATES = {
+    "PREPARE_FOR_SUBMISSION", "DEVELOPER_REJECTED", "REJECTED",
+    "METADATA_REJECTED", "INVALID_BINARY", "WAITING_FOR_REVIEW",
+    "DEVELOPER_REMOVED_FROM_SALE",
+}
+
+
+def find_app_id_by_bundle(bundle_id):
+    data = api("GET", f"/apps?filter[bundleId]={bundle_id}&limit=1")["data"]
+    if not data:
+        sys.exit(f"no App Store Connect record for bundle id {bundle_id}")
+    return data[0]["id"]
+
+
+def _resolve_app_id(args):
+    return args.app_id or find_app_id_by_bundle(args.bundle_id)
+
+
+def get_editable_version(app_id):
+    versions = api("GET", f"/apps/{app_id}/appStoreVersions?limit=10")["data"]
+    for v in versions:
+        if v["attributes"].get("appStoreState") in EDITABLE_VERSION_STATES:
+            return v
+    if versions:
+        return versions[0]
+    sys.exit(f"no versions found for app {app_id}")
+
+
+def get_or_create_localization(version_id, locale):
+    data = api("GET", f"/appStoreVersions/{version_id}/appStoreVersionLocalizations?limit=50")["data"]
+    for loc in data:
+        if loc["attributes"].get("locale") == locale:
+            return loc
+    body = {"data": {
+        "type": "appStoreVersionLocalizations",
+        "attributes": {"locale": locale},
+        "relationships": {"appStoreVersion": {"data": {"type": "appStoreVersions", "id": version_id}}},
+    }}
+    return api("POST", "/appStoreVersionLocalizations", json=body)["data"]
+
+
+def _read_maybe_file(value):
+    if value.startswith("@"):
+        return Path(value[1:]).expanduser().read_text()
+    return value
+
+
+METADATA_FIELDS = [
+    ("description", "description"),
+    ("keywords", "keywords"),
+    ("promo_text", "promotionalText"),
+    ("support_url", "supportUrl"),
+    ("marketing_url", "marketingUrl"),
+    ("whats_new", "whatsNew"),
+]
+
+
+def cmd_set_metadata(args):
+    app_id = _resolve_app_id(args)
+    version = get_editable_version(app_id)
+    loc = get_or_create_localization(version["id"], args.locale)
+
+    attrs = {}
+    for cli_name, api_name in METADATA_FIELDS:
+        val = getattr(args, cli_name, None)
+        if val is not None:
+            attrs[api_name] = _read_maybe_file(val) if api_name in ("description", "whatsNew") else val
+
+    if not attrs:
+        sys.exit("no fields to update — pass at least one of --description/--keywords/--promo-text/--support-url/--marketing-url/--whats-new")
+
+    body = {"data": {"type": "appStoreVersionLocalizations", "id": loc["id"], "attributes": attrs}}
+    api("PATCH", f"/appStoreVersionLocalizations/{loc['id']}", json=body)
+    print(f"updated {args.locale} metadata on version {version['attributes'].get('versionString')}:")
+    for k, v in attrs.items():
+        preview = v.replace("\n", " ")[:80]
+        print(f"  {k}: {preview}")
+
+
+def cmd_show_metadata(args):
+    app_id = _resolve_app_id(args)
+    version = get_editable_version(app_id)
+    vs = version["attributes"]
+    print(f"version {vs.get('versionString')} ({vs.get('appStoreState')})")
+    locs = api("GET", f"/appStoreVersions/{version['id']}/appStoreVersionLocalizations?limit=50")["data"]
+    for loc in locs:
+        a = loc["attributes"]
+        print(f"\n-- {a.get('locale')} --")
+        for _, api_name in METADATA_FIELDS:
+            val = a.get(api_name) or ""
+            preview = val.replace("\n", " ")[:80]
+            print(f"  {api_name}: {preview}")
+
+
+# ---- app info (subtitle, privacy policy URL) ----
+
+def get_editable_app_info(app_id):
+    data = api("GET", f"/apps/{app_id}/appInfos?limit=10")["data"]
+    for info in data:
+        if info["attributes"].get("state") in EDITABLE_VERSION_STATES:
+            return info
+    if data:
+        return data[0]
+    sys.exit(f"no app info records for app {app_id}")
+
+
+def get_or_create_info_localization(app_info_id, locale):
+    data = api("GET", f"/appInfos/{app_info_id}/appInfoLocalizations?limit=50")["data"]
+    for loc in data:
+        if loc["attributes"].get("locale") == locale:
+            return loc
+    body = {"data": {
+        "type": "appInfoLocalizations",
+        "attributes": {"locale": locale},
+        "relationships": {"appInfo": {"data": {"type": "appInfos", "id": app_info_id}}},
+    }}
+    return api("POST", "/appInfoLocalizations", json=body)["data"]
+
+
+INFO_FIELDS = [
+    ("subtitle", "subtitle"),
+    ("privacy_policy_url", "privacyPolicyUrl"),
+    ("privacy_policy_text", "privacyPolicyText"),
+]
+
+
+def cmd_set_info(args):
+    app_id = _resolve_app_id(args)
+    info = get_editable_app_info(app_id)
+    loc = get_or_create_info_localization(info["id"], args.locale)
+
+    attrs = {}
+    for cli_name, api_name in INFO_FIELDS:
+        val = getattr(args, cli_name, None)
+        if val is not None:
+            attrs[api_name] = val
+
+    if not attrs:
+        sys.exit("no fields to update — pass at least one of --subtitle/--privacy-policy-url/--privacy-policy-text")
+
+    body = {"data": {"type": "appInfoLocalizations", "id": loc["id"], "attributes": attrs}}
+    api("PATCH", f"/appInfoLocalizations/{loc['id']}", json=body)
+    print(f"updated {args.locale} app info:")
+    for k, v in attrs.items():
+        print(f"  {k}: {v}")
+
+
+# ---- screenshots ----
+
+def get_or_create_screenshot_set(loc_id, display_type):
+    data = api("GET", f"/appStoreVersionLocalizations/{loc_id}/appScreenshotSets?limit=50")["data"]
+    for s in data:
+        if s["attributes"].get("screenshotDisplayType") == display_type:
+            return s
+    body = {"data": {
+        "type": "appScreenshotSets",
+        "attributes": {"screenshotDisplayType": display_type},
+        "relationships": {"appStoreVersionLocalization": {"data": {
+            "type": "appStoreVersionLocalizations", "id": loc_id,
+        }}},
+    }}
+    return api("POST", "/appScreenshotSets", json=body)["data"]
+
+
+def upload_screenshot(set_id, path):
+    path = Path(path)
+    data = path.read_bytes()
+    body = {"data": {
+        "type": "appScreenshots",
+        "attributes": {"fileName": path.name, "fileSize": len(data)},
+        "relationships": {"appScreenshotSet": {"data": {"type": "appScreenshotSets", "id": set_id}}},
+    }}
+    ss = api("POST", "/appScreenshots", json=body)["data"]
+    for op in ss["attributes"]["uploadOperations"]:
+        headers = {h["name"]: h["value"] for h in op.get("requestHeaders", [])}
+        chunk = data[op["offset"]:op["offset"] + op["length"]]
+        r = requests.request(op["method"], op["url"], headers=headers, data=chunk, timeout=120)
+        r.raise_for_status()
+    checksum = hashlib.md5(data).hexdigest()
+    patch = {"data": {"type": "appScreenshots", "id": ss["id"],
+                      "attributes": {"uploaded": True, "sourceFileChecksum": checksum}}}
+    api("PATCH", f"/appScreenshots/{ss['id']}", json=patch)
+    return ss["id"]
+
+
+def cmd_upload_screenshots(args):
+    app_id = _resolve_app_id(args)
+    version = get_editable_version(app_id)
+    loc = get_or_create_localization(version["id"], args.locale)
+    sset = get_or_create_screenshot_set(loc["id"], args.device)
+
+    files = sorted(Path(args.dir).expanduser().glob("*.png"))
+    if not files:
+        sys.exit(f"no .png files in {args.dir}")
+    for f in files:
+        sid = upload_screenshot(sset["id"], f)
+        print(f"  uploaded {f.name} -> {sid}")
+
+
 # ---- bootstrap ----
 
 def cmd_bootstrap(args):
@@ -306,6 +508,44 @@ def main():
     ca.add_argument("--sku", required=True)
     ca.add_argument("--locale", default="en-US")
     ca.set_defaults(func=cmd_create_app)
+
+    def app_id_args(sp):
+        g = sp.add_mutually_exclusive_group(required=True)
+        g.add_argument("--app-id", help="ASC app resource ID")
+        g.add_argument("--bundle-id", help="bundle identifier (looked up automatically)")
+
+    sm = sub.add_parser("set-metadata",
+                        help="update description/keywords/etc. on the editable version")
+    app_id_args(sm)
+    sm.add_argument("--locale", default="en-US")
+    sm.add_argument("--description", help="text, or @path/to/file.txt")
+    sm.add_argument("--keywords", help="comma-separated, max 100 chars")
+    sm.add_argument("--promo-text", help="170 chars max")
+    sm.add_argument("--support-url")
+    sm.add_argument("--marketing-url")
+    sm.add_argument("--whats-new", help="text, or @path/to/file.txt (updates only)")
+    sm.set_defaults(func=cmd_set_metadata)
+
+    shm = sub.add_parser("show-metadata", help="print current metadata per locale")
+    app_id_args(shm)
+    shm.set_defaults(func=cmd_show_metadata)
+
+    si = sub.add_parser("set-info", help="update subtitle / privacy policy URL on the app info")
+    app_id_args(si)
+    si.add_argument("--locale", default="en-US")
+    si.add_argument("--subtitle", help="max 30 chars")
+    si.add_argument("--privacy-policy-url")
+    si.add_argument("--privacy-policy-text")
+    si.set_defaults(func=cmd_set_info)
+
+    us = sub.add_parser("upload-screenshots",
+                        help="upload all .png files in DIR for the given device display type")
+    app_id_args(us)
+    us.add_argument("--locale", default="en-US")
+    us.add_argument("--device", required=True,
+                    help="e.g. APP_IPHONE_67, APP_IPHONE_65, APP_IPAD_PRO_3GEN_129")
+    us.add_argument("--dir", required=True, help="folder containing .png screenshots")
+    us.set_defaults(func=cmd_upload_screenshots)
 
     bs = sub.add_parser("bootstrap")
     bs.add_argument("--bundle-id", default="com.andrewnguyen.bowpress")

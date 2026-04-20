@@ -32,7 +32,7 @@
           "introductoryOffer" : {
             "internalID" : "BP_MONTHLY_TRIAL",
             "paymentMode" : "free",
-            "subscriptionPeriod" : "P7D"
+            "subscriptionPeriod" : "P1M"
           },
           "localizations" : [
             {
@@ -50,18 +50,18 @@
         {
           "adHocOffers" : [],
           "codeOffers" : [],
-          "displayPrice" : "39.99",
+          "displayPrice" : "49.99",
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "BP_ANNUAL",
           "introductoryOffer" : {
             "internalID" : "BP_ANNUAL_TRIAL",
             "paymentMode" : "free",
-            "subscriptionPeriod" : "P7D"
+            "subscriptionPeriod" : "P1M"
           },
           "localizations" : [
             {
-              "description" : "BowPress Pro with annual billing — save 33%.",
+              "description" : "BowPress Pro with annual billing — save 16%.",
               "displayName" : "BowPress Pro — Annual",
               "locale" : "en_US"
             }

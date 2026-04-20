@@ -1,0 +1,30 @@
+Tune smarter. Shoot better.
+
+BowPress is for competitive and recreational archers who want data behind every adjustment they make to their bow — not just feel.
+
+THE PROBLEM
+Bow tuning involves dozens of interdependent variables: draw length, peep height, limb turns, cable twist, rest position, nocking height, and more. Most archers track changes through memory alone. When something stops working, it's nearly impossible to know what changed, when, or why.
+
+BowPress replaces guesswork with a logged history of every configuration state and every arrow you shoot under it.
+
+WHAT IT DOES
+
+Configuration tracking
+Every time you change something on your bow or arrow setup, BowPress snapshots the full configuration. Nothing is overwritten — the complete history is preserved so you can always see exactly what your bow looked like when a group of arrows was shot.
+
+Session logging
+When you shoot, you log arrows against the active configuration. A simple drag-to-place target UI captures where each arrow landed. You can write notes during a session — observations about hold feel, back tension, release — that travel alongside the objective data.
+
+Mid-session changes
+Changing something mid-session doesn't break the flow. BowPress handles the bookkeeping quietly in the background, keeping your arrows correctly attributed to the configuration they were shot under.
+
+Analytics
+After enough sessions, BowPress surfaces patterns: which configurations produced your tightest groups, how specific changes have affected your point of impact over time, and what your shooting data suggests you try next. The more you log, the more specific the insights.
+
+BOW PARAMETERS TRACKED
+Draw length, let-off %, peep height, D-loop length, top/bottom cable twists, main string twists, top and bottom limb turns, rest position (vertical, horizontal, depth), sight distance, grip angle, nocking height.
+
+ARROW PARAMETERS TRACKED
+Length, point weight, fletching type, length and offset, nock type, total arrow weight.
+
+Sign in with Apple, Google, or email. Optional subscription unlocks advanced analytics and unlimited session history.
