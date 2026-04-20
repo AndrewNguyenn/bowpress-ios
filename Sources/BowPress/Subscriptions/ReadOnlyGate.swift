@@ -63,5 +63,6 @@ struct UpgradeBanner: View {
             .overlay(Rectangle().frame(height: 0.5).foregroundStyle(.separator), alignment: .bottom)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("upgrade_banner")
     }
 }

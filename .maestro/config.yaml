@@ -1,0 +1,5 @@
+appId: com.andrewnguyen.bowpress
+---
+# Global Maestro config for the BowPress iOS suite.
+# Flows live alongside this file. The orchestrator (scripts/e2e.sh)
+# selects which flows to run per target (local/staging/production).

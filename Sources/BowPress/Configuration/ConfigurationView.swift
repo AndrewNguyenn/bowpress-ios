@@ -38,6 +38,7 @@ struct ConfigurationView: View {
                             }
                             .padding(.vertical, 2)
                         }
+                        .accessibilityIdentifier("bow_row_\(bow.id)")
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             Button(role: .destructive) {
                                 if isReadOnly { showingPaywall = true }

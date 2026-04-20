@@ -23,6 +23,20 @@ schemes:
       environmentVariables:
         USE_LOCAL_API: "1"
         API_BASE_URL: "http://localhost:8787"
+  # BowPress-RemoteAPI: end-to-end scheme used by scripts/e2e.sh. USE_LOCAL_API=1
+  # forces the live-HTTP path (not DevMockData). API_BASE_URL is deliberately
+  # unset here — the orchestrator injects it at launch time via the
+  # SIMCTL_CHILD_API_BASE_URL env var (xcrun simctl forwards SIMCTL_CHILD_*
+  # vars into the launched app's environment), letting a single build target
+  # local/staging/production backends without rebuilding.
+  BowPress-RemoteAPI:
+    build:
+      targets:
+        BowPress: all
+    run:
+      config: Debug
+      environmentVariables:
+        USE_LOCAL_API: "1"
   BowPressTests:
     build:
       targets:

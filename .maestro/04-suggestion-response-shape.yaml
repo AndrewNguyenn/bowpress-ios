@@ -1,0 +1,29 @@
+appId: com.andrewnguyen.bowpress
+name: 04-suggestion-response-shape
+tags:
+  - smoke
+  - read-only
+---
+# Analytics tab renders — which only succeeds if the unwrapped
+# [AnalyticsSuggestion] decode path works. A mismatched response wrapper
+# would throw and the view would drop into an error state.
+# Safe against production: pure read, no mutation.
+
+- launchApp:
+    clearState: true
+    arguments:
+      - "-AutoSignInEmail"
+      - "e2e-test@bowpress.dev"
+      - "-AutoSignInPassword"
+      - "bowpress-e2e-pw-1234"
+
+- assertVisible: "Session"
+
+- tapOn: "Analytics"
+- extendedWaitUntil:
+    visible: "Analytics"
+    timeout: 8000
+
+# No generic error banner on screen
+- assertNotVisible: "Something went wrong"
+- assertNotVisible: "Failed to load"

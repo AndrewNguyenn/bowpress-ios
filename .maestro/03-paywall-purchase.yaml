@@ -1,0 +1,67 @@
+appId: com.andrewnguyen.bowpress
+name: 03-paywall-purchase
+tags:
+  - paywall
+  - storekit
+---
+# Full StoreKit purchase flow: unentitled user → paywall → tap Monthly →
+# StoreKit test dialog auto-approves → backend verifies JWS → entitlement
+# active → banner disappears → writes work.
+# Precondition: orchestrator called `xcrun simctl storekit reset booted`.
+
+- launchApp:
+    clearState: true
+    arguments:
+      - "-AutoSignInEmail"
+      - "e2e-free@bowpress.dev"
+      - "-AutoSignInPassword"
+      - "bowpress-e2e-pw-1234"
+
+- assertVisible: "Session"
+
+- tapOn: "Equipment"
+- extendedWaitUntil:
+    visible:
+      id: "upgrade_banner"
+    timeout: 8000
+
+- tapOn:
+    id: "upgrade_banner"
+
+- extendedWaitUntil:
+    visible:
+      id: "paywall_sheet"
+    timeout: 5000
+
+- tapOn:
+    id: "paywall_monthly_button"
+
+# Defensive: iOS 17 sometimes re-prompts. If the confirm button appears, tap it.
+- tapOn:
+    text: "Subscribe"
+    optional: true
+- tapOn:
+    text: "Confirm"
+    optional: true
+
+- extendedWaitUntil:
+    notVisible:
+      id: "paywall_sheet"
+    timeout: 15000
+
+- extendedWaitUntil:
+    notVisible:
+      id: "upgrade_banner"
+    timeout: 8000
+
+# Prove writes are unlocked: Add Bow form should open (no paywall sheet)
+- tapOn:
+    point: "95%,18%"
+- assertVisible: "Add Bow"
+- tapOn:
+    id: "bow_name_field"
+- inputText: "Post-Purchase Bow"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Post-Purchase Bow"
+    timeout: 5000

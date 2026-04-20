@@ -1,0 +1,81 @@
+appId: com.andrewnguyen.bowpress
+name: 01-session-write-path
+tags:
+  - regression
+  - writes
+---
+# Exercises the write pipeline end-to-end: create a bow, log a tuning
+# config, start a session, plot three arrows, end it, assert the row.
+# Orchestrator follows up with server-side curl assertions.
+
+- launchApp:
+    clearState: true
+    arguments:
+      - "-AutoSignInEmail"
+      - "e2e-test@bowpress.dev"
+      - "-AutoSignInPassword"
+      - "bowpress-e2e-pw-1234"
+
+- assertVisible: "Session"
+
+# Create a new bow
+- tapOn: "Equipment"
+- assertVisible: "Equipment"
+- tapOn:
+    point: "95%,18%"     # the "+" in the Bows section header
+- assertVisible: "Add Bow"
+- tapOn: "Recurve"
+- tapOn:
+    id: "bow_name_field"
+- inputText: "Maestro Recurve"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Maestro Recurve"
+    timeout: 5000
+
+# Log a tuning config on the new bow
+- tapOn: "Maestro Recurve"
+- tapOn: "Log Tuning"
+- tapOn:
+    id: "bow_config_label_field"
+- inputText: "Maestro tune"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "Maestro Recurve"
+    timeout: 5000
+
+# Start a session against the new bow/config
+- tapOn: "Session"
+- extendedWaitUntil:
+    visible: "New Session"
+    timeout: 5000
+- tapOn: "Maestro Recurve"
+- tapOn:
+    index: 0
+    text: "Match Arrows|Practice"
+    optional: true
+- tapOn: "Start Session"
+- extendedWaitUntil:
+    visible: "target_plot_canvas"
+    timeout: 8000
+
+# Plot three arrows on the canvas
+- tapOn:
+    id: "target_plot_canvas"
+    point: "25%,25%"
+- tapOn:
+    id: "target_plot_canvas"
+    point: "50%,50%"
+- tapOn:
+    id: "target_plot_canvas"
+    point: "70%,60%"
+
+- tapOn: "End Session"
+- tapOn:
+    text: "End"
+    optional: true
+
+- tapOn: "Log"
+- extendedWaitUntil:
+    visible: "Maestro Recurve"
+    timeout: 5000

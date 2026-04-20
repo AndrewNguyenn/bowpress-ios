@@ -30,6 +30,7 @@ struct AddBowView: View {
 
                 Section("Name Your Bow") {
                     TextField("e.g. My Hoyt, Competition Rig", text: $customName)
+                        .accessibilityIdentifier("bow_name_field")
                 }
             }
             .navigationTitle("Add Bow")
