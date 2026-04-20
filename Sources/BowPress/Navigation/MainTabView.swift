@@ -4,7 +4,21 @@ struct MainTabView: View {
     @Environment(AppState.self) private var appState
     @Environment(LocalStore.self) private var store
     @State private var sessionViewModel = SessionViewModel()
-    @State private var selectedTab = 0
+    @State private var selectedTab = MainTabView.initialTabFromLaunchArgs()
+
+    // Allows Maestro flows to start directly on a specific tab, bypassing a
+    // SwiftUI/iOS-18 issue where tab-bar taps sometimes don't switch
+    // selection reliably. Passed via Maestro's launchApp arguments (iOS
+    // routes -key value launch args into NSUserDefaults) or via raw argv
+    // for backwards compatibility with older harnesses.
+    private static func initialTabFromLaunchArgs() -> Int {
+        let ud = UserDefaults.standard.integer(forKey: "StartTab")
+        if (0...4).contains(ud) && ud != 0 { return ud }
+        let args = ProcessInfo.processInfo.arguments
+        if let idx = args.firstIndex(of: "-StartTab"), idx + 1 < args.count,
+           let n = Int(args[idx + 1]), (0...4).contains(n) { return n }
+        return 0
+    }
     @State private var syncService = BackgroundSyncService()
 
     var body: some View {

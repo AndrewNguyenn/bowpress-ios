@@ -168,6 +168,7 @@ struct ConfigurationView: View {
                     .foregroundStyle(Color.appAccent)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Add \(title)")
             .accessibilityIdentifier("add_\(title.lowercased())_button")
         }
         .textCase(nil)

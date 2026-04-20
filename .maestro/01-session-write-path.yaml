@@ -14,13 +14,18 @@ tags:
       AutoSignInEmail: "e2e-test@bowpress.dev"
       AutoSignInPassword: "bowpress-e2e-pw-1234"
 
-- assertVisible: "Session"
+# HydrationSplashView covers MainTabView for ~3s on launch and eats taps.
+# Wait for it to fade before any navigation.
+- extendedWaitUntil:
+    notVisible: "Analyzing your data"
+    timeout: 20000
 
 # Create a new bow
 - tapOn: "Equipment"
-- assertVisible: "Equipment"
-- tapOn:
-    id: "add_bows_button"
+- extendedWaitUntil:
+    visible: "Bows"
+    timeout: 8000
+- tapOn: "Add Bows"
 - assertVisible: "Add Bow"
 - tapOn: "Recurve"
 - tapOn:

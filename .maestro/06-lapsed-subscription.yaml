@@ -15,7 +15,9 @@ tags:
       AutoSignInEmail: "e2e-free@bowpress.dev"
       AutoSignInPassword: "bowpress-e2e-pw-1234"
 
-- assertVisible: "Session"
+- extendedWaitUntil:
+    notVisible: "Analyzing your data"
+    timeout: 20000
 
 - tapOn: "Equipment"
 

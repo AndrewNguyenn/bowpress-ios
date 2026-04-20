@@ -116,10 +116,24 @@ if [[ -z "$APP_PATH" ]]; then
 fi
 
 echo "==> Booting simulator"
-xcrun simctl boot "$SIMULATOR" 2>/dev/null || true
-xcrun simctl bootstatus "$SIMULATOR" -b
+# Resolve SIMULATOR name → UDID once. When multiple sims share a name (e.g.
+# a duplicate across iOS runtimes) simctl's "booted" target is
+# nondeterministic, so every subsequent command must use UDID to stay on the
+# right device. Prefer a currently-booted sim with that name; otherwise pick
+# the first available and boot it.
+UDID=$(xcrun simctl list devices booted | grep -F "$SIMULATOR (" | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+if [[ -z "$UDID" ]]; then
+  UDID=$(xcrun simctl list devices available | grep -F "$SIMULATOR (" | head -1 | sed -E 's/.*\(([0-9A-F-]{36})\).*/\1/')
+  xcrun simctl boot "$UDID" 2>/dev/null || true
+fi
+if [[ -z "$UDID" ]]; then
+  echo "!! Could not resolve simulator UDID for '$SIMULATOR'" >&2
+  exit 1
+fi
+echo "==> Target UDID: $UDID"
+xcrun simctl bootstatus "$UDID" -b
 open -a Simulator
-xcrun simctl install booted "$APP_PATH"
+xcrun simctl install "$UDID" "$APP_PATH"
 
 # --- Flow selection -------------------------------------------------------
 
@@ -158,8 +172,8 @@ for FLOW in "${FLOWS[@]}"; do
   #      (this Xcode has no `simctl storekit` subcommand).
   #   2. The auth token persisted in the keychain by a previous flow's role
   #      (e.g. e2e-test) can't leak into this flow's role (e.g. e2e-free).
-  xcrun simctl uninstall booted "$BUNDLE_ID" 2>/dev/null || true
-  xcrun simctl install booted "$APP_PATH"
+  xcrun simctl uninstall "$UDID" "$BUNDLE_ID" 2>/dev/null || true
+  xcrun simctl install "$UDID" "$APP_PATH"
 
   # Flow #6 precondition: mark the e2e-free user's entitlement inactive.
   if [[ "$FLOW" == "06-"* && "$TARGET" != "production" ]]; then
@@ -171,7 +185,7 @@ for FLOW in "${FLOWS[@]}"; do
   fi
 
   if command -v maestro >/dev/null 2>&1; then
-    if ! maestro test "$REPO_ROOT/.maestro/$FLOW"; then
+    if ! maestro --udid "$UDID" test "$REPO_ROOT/.maestro/$FLOW"; then
       FAILED+=("$FLOW")
       continue
     fi
