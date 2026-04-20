@@ -12,10 +12,8 @@ tags:
 - launchApp:
     clearState: true
     arguments:
-      - "-AutoSignInEmail"
-      - "e2e-test@bowpress.dev"
-      - "-AutoSignInPassword"
-      - "bowpress-e2e-pw-1234"
+      AutoSignInEmail: "e2e-test@bowpress.dev"
+      AutoSignInPassword: "bowpress-e2e-pw-1234"
 
 - assertVisible: "Session"
 

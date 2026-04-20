@@ -10,10 +10,8 @@ tags:
 - launchApp:
     clearState: true
     arguments:
-      - "-AutoSignInEmail"
-      - "e2e-free@bowpress.dev"
-      - "-AutoSignInPassword"
-      - "bowpress-e2e-pw-1234"
+      AutoSignInEmail: "e2e-free@bowpress.dev"
+      AutoSignInPassword: "bowpress-e2e-pw-1234"
 
 - assertVisible: "Session"
 
@@ -34,8 +32,6 @@ tags:
 
 # Dismiss paywall — back to Equipment
 - swipe:
-    from:
-      point: "50%,10%"
-    to:
-      point: "50%,90%"
+    start: "50%,10%"
+    end: "50%,90%"
 - assertVisible: "Equipment"
