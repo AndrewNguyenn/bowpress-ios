@@ -144,6 +144,7 @@ struct BowConfiguration: Identifiable, Codable, Equatable {
                 restVertical: 0,
                 restHorizontal: 0,
                 restDepth: 0,
+                sightPosition: 0,
                 gripAngle: 0,
                 nockingHeight: 0,
                 frontStabWeight: 6,
