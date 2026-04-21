@@ -156,8 +156,8 @@ struct PaywallView: View {
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
             HStack(spacing: AppTheme.Spacing.md) {
-                Link("Terms of Service", destination: URL(string: "https://bowpress.app/terms")!)
-                Link("Privacy Policy", destination: URL(string: "https://bowpress.app/privacy")!)
+                Link("Terms of Use", destination: URL(string: "https://andrewnguyenn.github.io/bowpress-web/terms.html")!)
+                Link("Privacy Policy", destination: URL(string: "https://andrewnguyenn.github.io/bowpress-web/privacy.html")!)
             }
             .font(.caption2)
         }

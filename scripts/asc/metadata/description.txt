@@ -28,3 +28,9 @@ ARROW PARAMETERS TRACKED
 Length, point weight, fletching type, length and offset, nock type, total arrow weight.
 
 Sign in with Apple, Google, or email. Optional subscription unlocks advanced analytics and unlimited session history.
+
+SUBSCRIPTION DETAILS
+BowPress Pro — Monthly ($4.99/month) and BowPress Pro — Annual ($49.99/year). Each includes a 1-month free trial for new subscribers. Subscriptions auto-renew unless canceled at least 24 hours before the end of the current period; manage from Settings → Apple ID → Subscriptions on your device.
+
+Terms of Use: https://andrewnguyenn.github.io/bowpress-web/terms.html
+Privacy Policy: https://andrewnguyenn.github.io/bowpress-web/privacy.html

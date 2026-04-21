@@ -146,8 +146,29 @@ final class APIClient: BowPressAPIClient {
     var hasToken: Bool { authToken?.isEmpty == false }
 
     // MARK: - Auth
-    func signInWithApple(identityToken: String) async throws -> User { fatalError("stub") }
-    func signInWithGoogle(idToken: String) async throws -> User { fatalError("stub") }
+    func signInWithApple(identityToken: String) async throws -> User {
+        let body: [String: String] = ["identityToken": identityToken]
+        let (data, response) = try await post(path: "/auth/signin-apple", body: body)
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        if (200..<300).contains(http.statusCode) {
+            let decoded = try decoder.decode(AuthSuccessBody.self, from: data)
+            setToken(decoded.token)
+            return decoded.user
+        }
+        throw try authError(from: data, status: http.statusCode)
+    }
+
+    func signInWithGoogle(idToken: String) async throws -> User {
+        let body: [String: String] = ["idToken": idToken]
+        let (data, response) = try await post(path: "/auth/signin-google", body: body)
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        if (200..<300).contains(http.statusCode) {
+            let decoded = try decoder.decode(AuthSuccessBody.self, from: data)
+            setToken(decoded.token)
+            return decoded.user
+        }
+        throw try authError(from: data, status: http.statusCode)
+    }
 
     func signUp(name: String, email: String, password: String) async throws -> SignUpResult {
         let body: [String: String] = ["name": name, "email": email, "password": password]
