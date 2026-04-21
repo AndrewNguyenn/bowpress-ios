@@ -36,7 +36,7 @@
           },
           "localizations" : [
             {
-              "description" : "Unlock the full tuning engine with monthly billing.",
+              "description" : "Full analytics + unlimited history, billed monthly.",
               "displayName" : "BowPress Pro — Monthly",
               "locale" : "en_US"
             }
@@ -61,7 +61,7 @@
           },
           "localizations" : [
             {
-              "description" : "BowPress Pro with annual billing — save 16%.",
+              "description" : "Full analytics + unlimited history, billed yearly.",
               "displayName" : "BowPress Pro — Annual",
               "locale" : "en_US"
             }
