@@ -35,18 +35,18 @@ struct BowPressApp: App {
                     NotificationRouter.shared.configure(appState: appState)
                     SubscriptionManager.shared.configure(appState: appState)
                     if appState.isAuthenticated {
-                        Task {
-                            await SubscriptionManager.shared.loadProducts()
-                            await SubscriptionManager.shared.refreshEntitlement()
+                        Task { await SubscriptionManager.shared.loadProducts() }
+                        if !appState.isGuest {
+                            Task { await SubscriptionManager.shared.refreshEntitlement() }
                         }
                     }
                 }
                 .onChange(of: appState.isAuthenticated) { _, authenticated in
                     if authenticated {
-                        Task { await PushRegistrar.shared.requestAndRegister() }
-                        Task {
-                            await SubscriptionManager.shared.loadProducts()
-                            await SubscriptionManager.shared.refreshEntitlement()
+                        Task { await SubscriptionManager.shared.loadProducts() }
+                        if !appState.isGuest {
+                            Task { await PushRegistrar.shared.requestAndRegister() }
+                            Task { await SubscriptionManager.shared.refreshEntitlement() }
                         }
                     }
                 }

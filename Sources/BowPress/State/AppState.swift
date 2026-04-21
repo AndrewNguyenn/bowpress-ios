@@ -11,6 +11,12 @@ final class AppState {
     var currentUser: User?
     #endif
     var pendingVerificationEmail: String? = nil
+
+    /// Set when the user taps "Continue without account" on AuthView.
+    /// While guest, `isAuthenticated` is also true (so the app doesn't gate
+    /// the UI), but we skip any backend-sync calls and suppress the push
+    /// registration prompt — nothing to sync or receive without an account.
+    var isGuest: Bool = false
     #if DEBUG
     var bows: [Bow] = DevMockData.bows
     var arrowConfigs: [ArrowConfiguration] = DevMockData.arrowConfigs

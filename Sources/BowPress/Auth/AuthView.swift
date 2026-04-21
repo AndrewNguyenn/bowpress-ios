@@ -65,6 +65,21 @@ struct AuthView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Continue with Email")
+
+                // 4. Continue without account — required by App Review 5.1.1(v).
+                // Local-only: sessions stay on-device, nothing syncs, sign in later to back up.
+                Button(action: {
+                    appState.isGuest = true
+                    appState.isAuthenticated = true
+                }) {
+                    Text("Continue without an account")
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Continue without an account")
             }
             .padding(.horizontal, 32)
 
