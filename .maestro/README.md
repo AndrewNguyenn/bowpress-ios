@@ -6,23 +6,35 @@ evolve together.
 
 ## Status
 
-| Flow | Status | Notes |
-|---|---|---|
-| `01-session-write-path` | ✅ passing | server-verified: bow + session + plot + end all round-trip |
-| `02-paywall-gates-write` | ✅ passing | read-only user → upgrade banner → paywall sheet |
-| `03-paywall-purchase` | ⏸ manual only | see "Known limits" |
-| `04-suggestion-response-shape` | ✅ passing | guards the `GET /bows/:id/suggestions` shape from the recent sync-fix merge |
-| `05-delete-bow` | ✅ passing | server-verified deletion |
-| `06-lapsed-subscription` | ⏸ manual only | see "Known limits" |
-| `07-analytics-navigation` | ✅ passing | five-tab smoke |
-| `08-arrow-crud` | ✅ passing | server-verified: add + delete round-trip |
-| `09-config-persistence` | ✅ passing | draw-length edit survives tab switch and re-open |
-| `10-end-session-log` | ✅ passing | server-verified: session ends, appears in Log immediately |
-| `11-insights` | ✅ passing | backend-driven Insights section renders |
+| Flow | Driver | Status | Notes |
+|---|---|---|---|
+| `01-session-write-path` | Maestro | ✅ | server-verified: bow + session + plot + end all round-trip |
+| `02-paywall-gates-write` | Maestro | ✅ | read-only user → upgrade banner → paywall sheet |
+| `03-paywall-purchase` | XCUITest | ✅ | full StoreKit purchase via `SKTestSession`, backend verify round-trip |
+| `04-suggestion-response-shape` | Maestro | ✅ | guards the `GET /bows/:id/suggestions` shape |
+| `05-delete-bow` | Maestro | ✅ | server-verified deletion |
+| `06-lapsed-subscription` | XCUITest | ✅ | forces inactive via `PATCH /__test__/entitlement`, re-purchases |
+| `07-analytics-navigation` | Maestro | ✅ | five-tab smoke |
+| `08-arrow-crud` | Maestro | ✅ | server-verified: add + delete round-trip |
+| `09-config-persistence` | Maestro | ✅ | draw-length edit survives tab switch + re-open |
+| `10-end-session-log` | Maestro | ✅ | server-verified: session ends, appears in Log immediately |
+| `11-insights` | Maestro | ✅ | backend-driven Insights / Trend Analysis renders |
 
-## Known limits
+## Why two drivers
 
-**Paywall purchase flows (03, 06) are manual-only.** Testing StoreKit purchases from automation requires an `SKTestSession`, which is part of `StoreKitTest.framework`. That framework has a hard runtime dependency on `XCTest.framework`, available only to test-target bundles — an app target's weak-link can't satisfy the `@rpath` lookup. The other avenue (scheme-attached `STORE_KIT_CONFIGURATION_FILE_PATH`) works when running from the Xcode IDE but silently does nothing when launching via `xcodebuild` + `simctl launch`. For now these flows stay on disk for copy-paste into a manual Xcode run; a future follow-up could move them into a `BowPressUITests` XCUITest target where `SKTestSession` is legal.
+Maestro handles 9 of the flows — it's black-box, fast, and covers the
+navigation + UI-state paths well. The two paywall flows need
+`SKTestSession` from `StoreKitTest.framework`, which in turn requires
+`XCTest.framework` (weak-linking from an app target fails because
+`@rpath` isn't wired for non-test bundles). The solution is an XCUITest
+bundle (`Tests/BowPressUITests/PaywallUITests.swift`) where both
+frameworks are legal dependencies.
+
+The XCUITest bundle also needs backend cooperation to accept the
+SKTestSession-issued JWS — it's signed by Apple's test chain, not Apple
+Root G3 — so `src/controllers/subscriptionController.ts` decodes
+unverified payloads when `ENVIRONMENT !== 'production'`. Production
+still fails closed.
 
 ## Prerequisites
 

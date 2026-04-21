@@ -61,6 +61,9 @@ if [[ "$TARGET" == "local" ]]; then
     echo "!! Expected backend at $API_ROOT" >&2
     exit 1
   fi
+  echo "==> Applying local D1 migrations"
+  (cd "$API_ROOT" && npx wrangler d1 migrations apply bowpress-db --local 2>&1 | tail -3) \
+    || { echo "!! Migrations failed"; exit 1; }
   echo "==> Seeding local D1 with e2e fixtures"
   (cd "$API_ROOT" && npm run seed:e2e:local --silent) || { echo "!! Seed failed"; exit 1; }
   echo "==> Starting wrangler dev in $API_ROOT"
@@ -223,6 +226,30 @@ for FLOW in "${FLOWS[@]}"; do
       ;;
   esac
 done
+
+# --- XCUITest paywall flows -----------------------------------------------
+# Maestro can't drive StoreKit purchases from xcodebuild + simctl launch
+# (Apple's scheme-attached StoreKit config and SKTestSession both require
+# XCTest linkage that an app target can't provide). The XCUITest target
+# runs alongside Maestro and covers flows 03 (paywall purchase) and 06
+# (lapsed subscription). Skipped on production.
+if [[ "$TARGET" != "production" && -z "$SINGLE_FLOW" ]]; then
+  echo ""
+  echo "================================================================="
+  echo "  XCUITest: PaywallUITests"
+  echo "================================================================="
+  if API_BASE_URL="$API_BASE_URL" xcodebuild \
+      -project BowPress.xcodeproj \
+      -scheme BowPressUITests \
+      -destination "platform=iOS Simulator,id=$UDID" \
+      -derivedDataPath "$REPO_ROOT/build" \
+      -only-testing:BowPressUITests/PaywallUITests \
+      test 2>&1 | tail -40; then
+    echo "  ✓ PaywallUITests (2 tests)"
+  else
+    FAILED+=("PaywallUITests")
+  fi
+fi
 
 # --- Summary --------------------------------------------------------------
 

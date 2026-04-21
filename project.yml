@@ -135,8 +135,22 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - Tests/BowPressUITests
+    # SKTestSession needs Products.storekit inside the test runner's own
+    # bundle (separate process from the app under test). xcodegen dedupes
+    # resources between targets when the same file path appears in both,
+    # so attach it via a post-compile copy step instead.
+    postCompileScripts:
+      - name: Copy Products.storekit into UITests runner bundle
+        script: |
+          SRC="$SRCROOT/Sources/BowPress/Subscriptions/Products.storekit"
+          DST="$TARGET_BUILD_DIR/$PRODUCT_NAME.xctest/Products.storekit"
+          cp -f "$SRC" "$DST"
     dependencies:
       - target: BowPress
+      # StoreKitTest is an simulator-only framework Apple ships for
+      # automated purchase testing. UI test targets can link it directly
+      # because the XCTest runtime is already their dep.
+      - sdk: StoreKitTest.framework
     info:
       path: SupportingFiles/UITests-Info.plist
       properties:
