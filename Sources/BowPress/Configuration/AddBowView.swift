@@ -131,6 +131,7 @@ struct AddArrowView: View {
                     LabeledContent("Label") {
                         TextField("Required", text: $label)
                             .multilineTextAlignment(.trailing)
+                            .accessibilityIdentifier("arrow_label_field")
                     }
                     LabeledContent("Brand") {
                         TextField("Optional", text: $brand)

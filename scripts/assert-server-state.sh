@@ -98,6 +98,44 @@ case "$FLOW" in
     echo "  ✓ Maestro Recurve no longer in /bows"
     ;;
 
+  08-arrow-crud.yaml)
+    TOKEN="$(jwt_for "$USER_EMAIL" "$USER_PW")"
+    [[ -n "$TOKEN" ]] || die "could not obtain JWT for $USER_EMAIL"
+    # Flow creates "MaestroArrowUnique" then deletes it — end state is
+    # "not present". Give BackgroundSyncService a moment to push the
+    # delete, then assert the label is gone from GET /arrow-configs.
+    for i in $(seq 1 5); do
+      ARROWS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/arrow-configs")
+      if ! echo "$ARROWS" | jq -e '.[] | select(.label == "MaestroArrowUnique")' >/dev/null; then
+        echo "  ✓ MaestroArrowUnique absent from /arrow-configs after delete"
+        exit 0
+      fi
+      sleep 2
+    done
+    die "MaestroArrowUnique still in /arrow-configs after delete"
+    ;;
+
+  10-end-session-log.yaml)
+    TOKEN="$(jwt_for "$USER_EMAIL" "$USER_PW")"
+    [[ -n "$TOKEN" ]] || die "could not obtain JWT for $USER_EMAIL"
+    # Find the Thin Data (N2) bow and confirm its newest session has
+    # endedAt set (i.e. End Session fully round-tripped to the backend).
+    BOWS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/bows")
+    BOW_ID=$(echo "$BOWS" | jq -r '.[] | select(.name == "Thin Data (N2)") | .id')
+    [[ -n "$BOW_ID" ]] || die "Thin Data (N2) not in /bows"
+    for i in $(seq 1 5); do
+      SESSIONS=$(curl -fsS -H "Authorization: Bearer $TOKEN" "$API/sessions")
+      ENDED=$(echo "$SESSIONS" | jq -r --arg bow "$BOW_ID" \
+        '[.[] | select(.bowId == $bow and .endedAt != null and .endedAt != "")] | length')
+      if [[ "$ENDED" -ge 1 ]]; then
+        echo "  ✓ session ended: $ENDED session(s) with endedAt for Thin Data (N2)"
+        exit 0
+      fi
+      sleep 2
+    done
+    die "no ended session found for Thin Data (N2)"
+    ;;
+
   *)
     # No assertion defined for this flow — not an error.
     ;;

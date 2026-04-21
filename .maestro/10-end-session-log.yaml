@@ -1,0 +1,70 @@
+appId: com.andrewnguyen.bowpress
+name: 10-end-session-log
+tags:
+  - writes
+  - session
+---
+# Starts a session against a seeded bow, plots one arrow, completes the end,
+# taps End Session, confirms, navigates to the Log tab, and verifies the
+# just-ended session appears immediately. Guards the "session closes out
+# and shows in history" round-trip.
+
+- launchApp:
+    clearState: true
+    arguments:
+      AutoSignInEmail: "e2e-test@bowpress.dev"
+      AutoSignInPassword: "bowpress-e2e-pw-1234"
+
+- extendedWaitUntil:
+    notVisible: "Analyzing your data"
+    timeout: 20000
+
+- tapOn: "Session"
+- extendedWaitUntil:
+    visible: "Bow"
+    timeout: 10000
+
+# Seeded bow + seeded arrow config — deterministic picks.
+- scrollUntilVisible:
+    element: "Thin Data (N2)"
+    direction: DOWN
+- tapOn: "Thin Data (N2)"
+- scrollUntilVisible:
+    element: "Test Arrows"
+    direction: DOWN
+- tapOn: "Test Arrows"
+- scrollUntilVisible:
+    element: "Start Session"
+    direction: DOWN
+- tapOn: "Start Session"
+
+- extendedWaitUntil:
+    visible:
+      id: "target_plot_canvas"
+    timeout: 10000
+
+- tapOn:
+    id: "target_plot_canvas"
+    point: "50%,50%"
+
+- extendedWaitUntil:
+    visible: "Complete End 1"
+    timeout: 8000
+- tapOn: "Complete End 1"
+
+# After completing an end, "End Session" becomes available.
+- scrollUntilVisible:
+    element: "End Session"
+    direction: DOWN
+- tapOn: "End Session"
+# Confirm alert — destructive button is labelled "End Session" too.
+- tapOn:
+    text: "End Session"
+    optional: true
+
+# Jump to Log tab; the just-ended session should be at the top with "1 arrow"
+# (seeded sessions have 12+ arrows, so "1 arrow" is distinctive).
+- tapOn: "Log"
+- extendedWaitUntil:
+    visible: "1 arrow"
+    timeout: 10000

@@ -141,16 +141,22 @@ if [[ "$TARGET" == "production" ]]; then
   FLOWS=(
     "04-suggestion-response-shape.yaml"
     "07-analytics-navigation.yaml"
+    "11-insights.yaml"
   )
 else
+  # Flows 03 and 06 require a working StoreKit purchase, which xcodebuild
+  # + simctl launch cannot provide (see .maestro/README.md "Known limits").
+  # They remain on disk for manual Xcode-IDE verification; skip by default.
   FLOWS=(
     "01-session-write-path.yaml"
     "02-paywall-gates-write.yaml"
-    "03-paywall-purchase.yaml"
     "04-suggestion-response-shape.yaml"
     "05-delete-bow.yaml"
-    "06-lapsed-subscription.yaml"
     "07-analytics-navigation.yaml"
+    "08-arrow-crud.yaml"
+    "09-config-persistence.yaml"
+    "10-end-session-log.yaml"
+    "11-insights.yaml"
   )
 fi
 if [[ -n "$SINGLE_FLOW" ]]; then
@@ -208,7 +214,7 @@ for FLOW in "${FLOWS[@]}"; do
 
   # Server-state assertion for mutating flows.
   case "$FLOW" in
-    01-*|03-*|05-*)
+    01-*|03-*|05-*|08-*|10-*)
       if [[ "$TARGET" != "production" ]]; then
         if ! "$REPO_ROOT/scripts/assert-server-state.sh" "$FLOW"; then
           FAILED+=("$FLOW (server assertion)")

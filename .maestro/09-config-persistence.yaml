@@ -1,0 +1,64 @@
+appId: com.andrewnguyen.bowpress
+name: 09-config-persistence
+tags:
+  - writes
+  - equipment
+  - persistence
+---
+# Edits a bow's draw length, saves, returns to the list, re-opens the bow,
+# and verifies the change persisted. Also navigates to the Session tab in
+# between to prove the new value reaches the selection flow.
+
+- launchApp:
+    clearState: true
+    arguments:
+      AutoSignInEmail: "e2e-test@bowpress.dev"
+      AutoSignInPassword: "bowpress-e2e-pw-1234"
+
+- extendedWaitUntil:
+    notVisible: "Analyzing your data"
+    timeout: 20000
+
+- tapOn: "Equipment"
+- extendedWaitUntil:
+    visible: "Bows"
+    timeout: 8000
+
+# Open a seeded bow (Hoyt RX-7 (P1) is the first seeded compound).
+- scrollUntilVisible:
+    element: "Hoyt RX-7 (P1)"
+    direction: DOWN
+- tapOn: "Hoyt RX-7 (P1)"
+
+# Change draw length to 27 (distinct from the seeded value).
+- tapOn:
+    id: "bow_draw_length_field"
+- eraseText
+- inputText: "27"
+# iOS decimal-pad keyboard has no Done key and Maestro's hideKeyboard can
+# miss when no keyboard is observed. Tap the title area to dismiss instead.
+- tapOn:
+    point: "50%,10%"
+- tapOn: "Save"
+
+# Navigate away (Session tab) and back to prove the change survived a view
+# rebuild, not just the in-memory @State. Session tab's "Start Session"
+# button is below the seeded bow list — scroll until it's visible.
+- tapOn: "Session"
+- scrollUntilVisible:
+    element: "Start Session"
+    direction: DOWN
+    timeout: 15000
+- tapOn: "Equipment"
+- extendedWaitUntil:
+    visible: "Bows"
+    timeout: 5000
+- scrollUntilVisible:
+    element: "Hoyt RX-7 (P1)"
+    direction: DOWN
+- tapOn: "Hoyt RX-7 (P1)"
+
+# Assert the change persisted.
+- extendedWaitUntil:
+    visible: "27"
+    timeout: 5000

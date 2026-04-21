@@ -1,0 +1,38 @@
+appId: com.andrewnguyen.bowpress
+name: 11-insights
+tags:
+  - read-only
+  - analytics
+---
+# Verifies the Analytics tab renders backend-driven insights. The seeded
+# e2e-test user has enough session history to produce at least one insight
+# (the seed script generates suggestions; any pipeline output surfaces as
+# text under the "Insights" section). Running this flow catches regressions
+# in the hydration path or in the AnalyticsView rendering itself.
+
+- launchApp:
+    clearState: true
+    arguments:
+      AutoSignInEmail: "e2e-test@bowpress.dev"
+      AutoSignInPassword: "bowpress-e2e-pw-1234"
+
+- extendedWaitUntil:
+    notVisible: "Analyzing your data"
+    timeout: 20000
+
+# Analytics is the default tab on launch — no need to tap.
+- assertVisible: "Analytics"
+# Period selector buttons are stable across data states — their presence
+# confirms the Analytics view composed successfully from backend data.
+- assertVisible: "3 Days"
+- assertVisible: "1 Week"
+
+# Scroll far enough to reveal any backend-rendered content section. The
+# seeded e2e-test user shows "Insights" after a fresh seed; once the user
+# has recent activity the equivalent section is "Trend Analysis". Either
+# proves the analytics pipeline hydrated successfully.
+- scrollUntilVisible:
+    element:
+      text: "Insights|Trend Analysis|Tuning Suggestions|Feel-to-Performance"
+    direction: DOWN
+    timeout: 15000

@@ -538,6 +538,7 @@ struct BowDetailView: View {
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.center)
                         .frame(width: 60)
+                        .accessibilityIdentifier("bow_draw_length_field")
                         .onChange(of: drawLengthText) { _, val in
                             if let v = Double(val) { drawLength = v }
                         }

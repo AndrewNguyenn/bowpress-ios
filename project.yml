@@ -35,14 +35,13 @@ schemes:
         BowPress: all
     run:
       config: Debug
-      # storeKitConfiguration: Sources/BowPress/Subscriptions/Products.storekit
-      # ^ xcodegen emits this as identifier="../../Sources/..." which Xcode
-      # resolves RELATIVE TO THE .XCSCHEME FILE, landing one directory short
-      # of the project root. Attempts to fix via the yaml pathing were not
-      # successful. Paywall purchase flows (03, 06) depend on StoreKit test
-      # products loading; until this is resolved with a manual post-step on
-      # the generated scheme (or by wiring SKTestSession in DEBUG), those
-      # flows fail on "paywall_monthly_button not found".
+      # Intentionally no storeKitConfiguration here. xcodebuild + simctl
+      # launch does not honor scheme-attached StoreKit test configs the way
+      # the Xcode IDE does (it's an IDE-only feature), and SKTestSession
+      # requires XCTest — which pulls rpath dependencies an app target
+      # cannot satisfy. Paywall purchase flows (.maestro/03, .maestro/06)
+      # are therefore skipped by scripts/e2e.sh; manual verification in
+      # Xcode IDE is the documented path. See .maestro/README.md.
       environmentVariables:
         USE_LOCAL_API: "1"
   BowPressTests:

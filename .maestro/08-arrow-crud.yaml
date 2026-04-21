@@ -1,0 +1,60 @@
+appId: com.andrewnguyen.bowpress
+name: 08-arrow-crud
+tags:
+  - writes
+  - equipment
+---
+# Adds a new ArrowConfiguration via the Equipment tab, verifies it appears
+# in the list, then deletes it. Mirror of the bow create/delete flows for
+# the other half of the equipment model. Server-side assertion in
+# scripts/assert-server-state.sh verifies the sync round-trip.
+
+- launchApp:
+    clearState: true
+    arguments:
+      AutoSignInEmail: "e2e-test@bowpress.dev"
+      AutoSignInPassword: "bowpress-e2e-pw-1234"
+
+- extendedWaitUntil:
+    notVisible: "Analyzing your data"
+    timeout: 20000
+
+- tapOn: "Equipment"
+# The seeded bow list is long so the Arrows section is below the fold —
+# scroll it into view before interacting.
+- scrollUntilVisible:
+    element: "Arrows"
+    direction: DOWN
+
+# Create a new arrow config
+- tapOn: "Add Arrows"
+- assertVisible: "Add Arrow"
+- tapOn:
+    id: "arrow_label_field"
+# Unique label so the regex selector later doesn't also match "Test Arrows"
+# (the seeded sibling row).
+- inputText: "MaestroArrowUnique"
+- tapOn: "Save"
+- extendedWaitUntil:
+    visible: "MaestroArrowUnique"
+    timeout: 8000
+
+# Delete it — mirrors the pattern flow 05 uses for bow delete.
+- scrollUntilVisible:
+    element: "MaestroArrowUnique"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+- swipe:
+    direction: LEFT
+    from: "MaestroArrowUnique"
+- tapOn:
+    text: "Delete"
+    index: 0
+# Confirm dialog
+- tapOn:
+    text: "Delete"
+    index: 0
+- extendedWaitUntil:
+    notVisible: "MaestroArrowUnique"
+    timeout: 8000
