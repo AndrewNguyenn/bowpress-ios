@@ -55,10 +55,19 @@ final class SubscriptionManager {
     func loadProducts() async {
         do {
             let fetched = try await Product.products(for: BowPressProduct.all)
-            self.products = fetched.sorted { $0.price < $1.price }
-            self.lastError = nil
+            if fetched.isEmpty {
+                // StoreKit returns an empty array (no throw) when the account/agreement
+                // isn't configured to sell — most commonly, the Paid Apps Agreement
+                // hasn't been signed in ASC, or products haven't propagated to sandbox.
+                // Surface something instead of spinning forever.
+                self.products = []
+                self.lastError = "Subscription plans aren't available right now. Please try again shortly."
+            } else {
+                self.products = fetched.sorted { $0.price < $1.price }
+                self.lastError = nil
+            }
         } catch {
-            self.lastError = "Could not load plans"
+            self.lastError = "Could not load plans: \(error.localizedDescription)"
         }
     }
 
