@@ -56,21 +56,23 @@ struct SettingsView: View {
         Section("Subscription") {
             if let entitlement = appState.entitlement, entitlement.isActive {
                 SubscriptionStatusCard(entitlement: entitlement)
-            } else {
-                NavigationLink {
-                    PaywallView()
-                } label: {
-                    Label {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Upgrade to Pro")
-                                .font(.body.weight(.semibold))
-                            Text("Unlock the full tuning engine")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "sparkles")
+            }
+
+            // Always reachable, even on an active subscription, so users (and
+            // App Review) can see pricing, switch plans, or read the terms.
+            NavigationLink {
+                PaywallView()
+            } label: {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(appState.entitlement?.isActive == true ? "View Subscription Plans" : "Upgrade to Pro")
+                            .font(.body.weight(.semibold))
+                        Text("Unlock the full tuning engine")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+                } icon: {
+                    Image(systemName: "sparkles")
                 }
             }
 

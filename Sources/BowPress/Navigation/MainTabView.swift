@@ -91,9 +91,6 @@ struct MainTabView: View {
                 try? await Task.sleep(for: .milliseconds(1600))
             }()
             async let hydration: Void = {
-                // Guest users have no account and no backend token; the hydration
-                // endpoints would 401 anyway. Skip straight to local-only.
-                guard !appState.isGuest else { return }
                 #if DEBUG
                 await DevAutoSignIn.ensureSignedIn()
                 #endif
