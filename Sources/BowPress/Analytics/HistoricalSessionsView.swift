@@ -7,6 +7,11 @@ struct HistoricalSessionsView: View {
     let bowName: String
     var allConfigs: [BowConfiguration] = []
 
+    @Environment(AppState.self) private var appState
+    @Environment(LocalStore.self) private var store: LocalStore?
+    @State private var pendingDeleteSession: ShootingSession?
+    @State private var errorMessage: String?
+
     // Group sessions by week bucket.
     private var groupedSessions: [(header: String, sessions: [ShootingSession])] {
         let sorted = sessions.sorted { $0.startedAt > $1.startedAt }
@@ -38,6 +43,14 @@ struct HistoricalSessionsView: View {
                                 } label: {
                                     SessionRow(session: session)
                                 }
+                                .accessibilityIdentifier("session_row_\(session.id)")
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        pendingDeleteSession = session
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
                             }
                         } header: {
                             Text(group.header)
@@ -52,6 +65,34 @@ struct HistoricalSessionsView: View {
         }
         .navigationTitle("Session Log")
         .navigationBarTitleDisplayMode(.large)
+        .alert(
+            "Delete session?",
+            isPresented: Binding(
+                get: { pendingDeleteSession != nil },
+                set: { if !$0 { pendingDeleteSession = nil } }
+            ),
+            presenting: pendingDeleteSession
+        ) { session in
+            Button("Cancel", role: .cancel) { pendingDeleteSession = nil }
+            Button("Delete", role: .destructive) {
+                if let store {
+                    if let err = deleteSessionEverywhere(session, appState: appState, store: store) {
+                        errorMessage = err.localizedDescription
+                    }
+                }
+                pendingDeleteSession = nil
+            }
+        } message: { session in
+            Text("This permanently removes this session and its arrows, ends, and analytics — locally and from the cloud. This cannot be undone.")
+        }
+        .alert("Error", isPresented: Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
     }
 
     private var emptyState: some View {
@@ -981,10 +1022,12 @@ extension ShootingSession {
             bowName: "Hoyt RX7"
         )
     }
+    .environment(AppState())
 }
 
 #Preview("Empty") {
     NavigationStack {
         HistoricalSessionsView(sessions: [], bowName: "Hoyt RX7")
     }
+    .environment(AppState())
 }
