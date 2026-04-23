@@ -7,6 +7,7 @@ struct BowConfigDetailView: View {
     var isSetup: Bool
 
     @State private var showEditSheet = false
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -17,6 +18,8 @@ struct BowConfigDetailView: View {
 
     var body: some View {
         Form {
+            Section { UnitToggle(system: $unitSystem) }
+
             Section {
                 LabeledContent("Label", value: config.label ?? (isSetup ? "Initial Setup" : "—"))
                 LabeledContent("Recorded", value: Self.dateFormatter.string(from: config.createdAt))
@@ -54,14 +57,14 @@ struct BowConfigDetailView: View {
     private var compoundSections: some View {
         if isSetup {
             Section("Bow Setup") {
-                row("Draw Length", value: "\(String(format: "%.1f", config.drawLength))\"")
-                row("Let-off", value: "\(Int(config.letOffPct ?? 0))%")
-                row("Peep Height", value: "\(String(format: "%.2f", config.peepHeight ?? 0))\"")
-                row("D-Loop Length", value: "\(String(format: "%.3f", config.dLoopLength ?? 0))\"")
+                row("Draw Length", value: UnitFormatting.length(inches: config.drawLength, system: unitSystem, digits: 1))
+                row("Let-off", value: UnitFormatting.percent(config.letOffPct ?? 0))
+                row("Peep Height", value: UnitFormatting.length(inches: config.peepHeight ?? 0, system: unitSystem))
+                row("D-Loop Length", value: UnitFormatting.length(inches: config.dLoopLength ?? 0, system: unitSystem, digits: 3))
             }
         } else {
             Section("Base Setup") {
-                Text("Draw \(String(format: "%.1f", config.drawLength))\" · Let-off \(Int(config.letOffPct ?? 0))% · Peep \(String(format: "%.2f", config.peepHeight ?? 0))\" · D-loop \(String(format: "%.3f", config.dLoopLength ?? 0))\"")
+                Text(config.compactSetupLine(system: unitSystem))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -88,23 +91,25 @@ struct BowConfigDetailView: View {
                 value: sp == 0 ? "0 (baseline)" : "\(sp > 0 ? "+" : "")\(sp)",
                 isChanged: sp != 0
             )
-            deltaRow("Grip Angle", value: "\(String(format: "%.1f", config.gripAngle))°", isChanged: config.gripAngle != 0)
-            deltaRow("Nocking Height", value: sixteenthLabel(config.nockingHeight), isChanged: config.nockingHeight != 0)
+            deltaRow("Grip Angle", value: UnitFormatting.degrees(config.gripAngle), isChanged: config.gripAngle != 0)
+            deltaRow("Nocking Height",
+                     value: UnitFormatting.sixteenths(config.nockingHeight, system: unitSystem),
+                     isChanged: config.nockingHeight != 0)
         }
 
         Section("Front Stabilizer") {
             let w = config.frontStabWeight ?? 0
-            row("Weight", value: w == 0 ? "None" : "\(String(format: "%g", w)) oz")
-            row("Angle", value: "\(String(format: "%.0f", config.frontStabAngle ?? 0))°")
+            row("Weight", value: w == 0 ? "None" : UnitFormatting.stabWeight(ounces: w, system: unitSystem))
+            row("Angle", value: UnitFormatting.degrees(config.frontStabAngle ?? 0, digits: 0))
         }
 
         Section("Rear Stabilizer") {
             let side = config.rearStabSide ?? .none
             row("Side", value: side.label)
             if side != .none {
-                row("Weight", value: "\(String(format: "%g", config.rearStabWeight ?? 0)) oz")
-                row("Vertical Angle", value: "\(Int(config.rearStabVertAngle ?? 0))°")
-                row("Horizontal Angle", value: "\(Int(config.rearStabHorizAngle ?? 0))°")
+                row("Weight", value: UnitFormatting.stabWeight(ounces: config.rearStabWeight ?? 0, system: unitSystem))
+                row("Vertical Angle", value: UnitFormatting.degrees(config.rearStabVertAngle ?? 0, digits: 0))
+                row("Horizontal Angle", value: UnitFormatting.degrees(config.rearStabHorizAngle ?? 0, digits: 0))
             }
         }
     }
@@ -114,15 +119,15 @@ struct BowConfigDetailView: View {
     @ViewBuilder
     private var recurveSections: some View {
         Section("Bow Setup") {
-            row("Draw Length", value: "\(String(format: "%.1f", config.drawLength))\"")
-            row("Brace Height", value: "\(String(format: "%.3f", config.braceHeight ?? 0))\"")
+            row("Draw Length", value: UnitFormatting.length(inches: config.drawLength, system: unitSystem, digits: 1))
+            row("Brace Height", value: UnitFormatting.length(inches: config.braceHeight ?? 0, system: unitSystem, digits: 3))
         }
 
         Section("Tiller") {
             let t = config.tillerTop ?? 0
             let b = config.tillerBottom ?? 0
-            deltaRow("Top", value: String(format: "%+.1f mm", t), isChanged: t != 0)
-            deltaRow("Bottom", value: String(format: "%+.1f mm", b), isChanged: b != 0)
+            deltaRow("Top",    value: UnitFormatting.mmLength(t, system: unitSystem), isChanged: t != 0)
+            deltaRow("Bottom", value: UnitFormatting.mmLength(b, system: unitSystem), isChanged: b != 0)
         }
 
         Section("Plunger") {
@@ -131,24 +136,26 @@ struct BowConfigDetailView: View {
 
         Section("Clicker") {
             let c = config.clickerPosition ?? 0
-            deltaRow("Position", value: String(format: "%+.0f mm", c), isChanged: c != 0)
+            deltaRow("Position", value: UnitFormatting.mmLength(c, system: unitSystem, digits: 0), isChanged: c != 0)
         }
 
         Section("Grip & Nock") {
-            deltaRow("Grip Angle", value: "\(String(format: "%.1f", config.gripAngle))°", isChanged: config.gripAngle != 0)
-            deltaRow("Nocking Height", value: sixteenthLabel(config.nockingHeight), isChanged: config.nockingHeight != 0)
+            deltaRow("Grip Angle", value: UnitFormatting.degrees(config.gripAngle), isChanged: config.gripAngle != 0)
+            deltaRow("Nocking Height",
+                     value: UnitFormatting.sixteenths(config.nockingHeight, system: unitSystem),
+                     isChanged: config.nockingHeight != 0)
         }
 
         Section("Front Stabilizer") {
-            row("Weight", value: "\(String(format: "%g", config.frontStabWeight ?? 0)) oz")
-            row("Angle", value: "\(String(format: "%.0f", config.frontStabAngle ?? 0))°")
+            row("Weight", value: UnitFormatting.stabWeight(ounces: config.frontStabWeight ?? 0, system: unitSystem))
+            row("Angle",  value: UnitFormatting.degrees(config.frontStabAngle ?? 0, digits: 0))
         }
 
         Section("V-Bar (Rear Stabilizer)") {
-            row("Left Weight", value: "\(String(format: "%g", config.rearStabLeftWeight ?? 0)) oz")
-            row("Right Weight", value: "\(String(format: "%g", config.rearStabRightWeight ?? 0)) oz")
-            row("Vertical Angle", value: "\(Int(config.rearStabVertAngle ?? 0))°")
-            row("Horizontal Angle", value: "\(Int(config.rearStabHorizAngle ?? 0))°")
+            row("Left Weight",  value: UnitFormatting.stabWeight(ounces: config.rearStabLeftWeight ?? 0, system: unitSystem))
+            row("Right Weight", value: UnitFormatting.stabWeight(ounces: config.rearStabRightWeight ?? 0, system: unitSystem))
+            row("Vertical Angle",  value: UnitFormatting.degrees(config.rearStabVertAngle ?? 0, digits: 0))
+            row("Horizontal Angle", value: UnitFormatting.degrees(config.rearStabHorizAngle ?? 0, digits: 0))
         }
     }
 
@@ -157,15 +164,15 @@ struct BowConfigDetailView: View {
     @ViewBuilder
     private var barebowSections: some View {
         Section("Bow Setup") {
-            row("Draw Length", value: "\(String(format: "%.1f", config.drawLength))\"")
-            row("Brace Height", value: "\(String(format: "%.3f", config.braceHeight ?? 0))\"")
+            row("Draw Length", value: UnitFormatting.length(inches: config.drawLength, system: unitSystem, digits: 1))
+            row("Brace Height", value: UnitFormatting.length(inches: config.braceHeight ?? 0, system: unitSystem, digits: 3))
         }
 
         Section("Tiller") {
             let t = config.tillerTop ?? 0
             let b = config.tillerBottom ?? 0
-            deltaRow("Top", value: String(format: "%+.1f mm", t), isChanged: t != 0)
-            deltaRow("Bottom", value: String(format: "%+.1f mm", b), isChanged: b != 0)
+            deltaRow("Top",    value: UnitFormatting.mmLength(t, system: unitSystem), isChanged: t != 0)
+            deltaRow("Bottom", value: UnitFormatting.mmLength(b, system: unitSystem), isChanged: b != 0)
         }
 
         Section("Plunger") {
@@ -173,17 +180,25 @@ struct BowConfigDetailView: View {
         }
 
         Section("Grip & Nock") {
-            deltaRow("Grip Angle", value: "\(String(format: "%.1f", config.gripAngle))°", isChanged: config.gripAngle != 0)
-            deltaRow("Nocking Height", value: sixteenthLabel(config.nockingHeight), isChanged: config.nockingHeight != 0)
+            deltaRow("Grip Angle", value: UnitFormatting.degrees(config.gripAngle), isChanged: config.gripAngle != 0)
+            deltaRow("Nocking Height",
+                     value: UnitFormatting.sixteenths(config.nockingHeight, system: unitSystem),
+                     isChanged: config.nockingHeight != 0)
         }
     }
 
     @ViewBuilder
     private var restDisplaySection: some View {
         Section("Rest") {
-            deltaRow("Vertical", value: sixteenthLabel(config.restVertical), isChanged: config.restVertical != 0)
-            deltaRow("Horizontal", value: sixteenthLabel(config.restHorizontal), isChanged: config.restHorizontal != 0)
-            deltaRow("Depth", value: "\(String(format: "%.2f", config.restDepth))\"", isChanged: config.restDepth != 0)
+            deltaRow("Vertical",
+                     value: UnitFormatting.sixteenths(config.restVertical, system: unitSystem),
+                     isChanged: config.restVertical != 0)
+            deltaRow("Horizontal",
+                     value: UnitFormatting.sixteenths(config.restHorizontal, system: unitSystem),
+                     isChanged: config.restHorizontal != 0)
+            deltaRow("Depth",
+                     value: UnitFormatting.length(inches: config.restDepth, system: unitSystem),
+                     isChanged: config.restDepth != 0)
         }
     }
 
@@ -214,12 +229,6 @@ struct BowConfigDetailView: View {
         let direction = turns < 0 ? "out" : "in"
         let formatted = absVal == absVal.rounded() ? String(format: "%.0f", absVal) : String(format: "%.1f", absVal)
         return "\(formatted) turn\(absVal == 1 ? "" : "s") \(direction)"
-    }
-
-    private func sixteenthLabel(_ n: Int) -> String {
-        if n == 0 { return "0/16\"" }
-        let sign = n > 0 ? "+" : "-"
-        return "\(sign)\(abs(n))/16\""
     }
 }
 

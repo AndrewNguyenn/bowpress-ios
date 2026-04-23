@@ -15,6 +15,7 @@ struct SessionView: View {
     @State private var showingPaywall = false
     @State private var selectedBow: Bow? = nil
     @State private var selectedArrow: ArrowConfiguration? = nil
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
 
     var body: some View {
         Group {
@@ -143,9 +144,7 @@ struct SessionView: View {
     }
 
     private func arrowSubtitle(_ arrow: ArrowConfiguration) -> String {
-        [String(format: "%.2f\"", arrow.length),
-         "\(arrow.pointWeight)gr",
-         arrow.fletchingType.rawValue].joined(separator: " · ")
+        arrow.specSummary(system: unitSystem)
     }
 
     private func startNewSession() async {
@@ -362,7 +361,7 @@ struct SessionView: View {
                         .fontWeight(.semibold)
                         .lineLimit(1)
                     if let config = displayBowConfig {
-                        Text(config.label ?? "Config · \(String(format: "%.1f\"", config.drawLength))")
+                        Text(config.label ?? "Config · \(UnitFormatting.length(inches: config.drawLength, system: unitSystem, digits: 1))")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -380,7 +379,7 @@ struct SessionView: View {
                         .fontWeight(.semibold)
                         .lineLimit(1)
                     if let arrow = displayArrow {
-                        Text(String(format: "%.2f\" · %dgr", arrow.length, arrow.pointWeight))
+                        Text("\(UnitFormatting.length(inches: arrow.length, system: unitSystem)) · \(UnitFormatting.arrowMass(grains: arrow.pointWeight, system: unitSystem))")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }

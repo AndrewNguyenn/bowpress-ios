@@ -27,9 +27,12 @@ struct ArrowDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.isReadOnly) private var isReadOnly
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
 
     var body: some View {
         Form {
+            Section { UnitToggle(system: $unitSystem) }
+
             Section("Identity") {
                 LabeledContent("Label") {
                     TextField("Required", text: $label)
@@ -46,16 +49,26 @@ struct ArrowDetailView: View {
             }
 
             Section("Shaft") {
-                Stepper(value: $length, in: 18.0...36.0, step: 0.25) {
-                    LabeledContent("Length", value: "\(String(format: "%.2f", length))\"")
+                Stepper(
+                    value: $length.displayed(in: unitSystem, scale: .inchToCm),
+                    in: UnitRange.arrowLength.displayRange(unitSystem),
+                    step: UnitRange.arrowLength.displayStep(unitSystem)
+                ) {
+                    LabeledContent("Length",
+                                   value: UnitFormatting.length(inches: length, system: unitSystem))
                 }
-                Stepper(value: $pointWeight, in: 50...300, step: 5) {
-                    LabeledContent("Point Weight", value: "\(pointWeight) gr")
+                Stepper(
+                    value: $pointWeight.displayed(in: unitSystem, scale: .grainToGram),
+                    in: UnitRange.pointWeight.displayRange(unitSystem),
+                    step: UnitRange.pointWeight.displayStep(unitSystem)
+                ) {
+                    LabeledContent("Point Weight",
+                                   value: UnitFormatting.arrowMass(grains: pointWeight, system: unitSystem))
                 }
                 Picker("Diameter", selection: $shaftDiameter) {
                     Text("Not set").tag(ArrowConfiguration.ShaftDiameter?.none)
                     ForEach(ArrowConfiguration.ShaftDiameter.allCases, id: \.self) { d in
-                        Text(d.displayName).tag(ArrowConfiguration.ShaftDiameter?.some(d))
+                        Text(d.displayName(for: unitSystem)).tag(ArrowConfiguration.ShaftDiameter?.some(d))
                     }
                 }
             }
@@ -66,11 +79,16 @@ struct ArrowDetailView: View {
                         Text(type.rawValue.capitalized).tag(type)
                     }
                 }
-                Stepper(value: $fletchingLength, in: 1.0...5.0, step: 0.25) {
-                    LabeledContent("Length", value: "\(String(format: "%.2f", fletchingLength))\"")
+                Stepper(
+                    value: $fletchingLength.displayed(in: unitSystem, scale: .inchToCm),
+                    in: UnitRange.fletchingLength.displayRange(unitSystem),
+                    step: UnitRange.fletchingLength.displayStep(unitSystem)
+                ) {
+                    LabeledContent("Length",
+                                   value: UnitFormatting.length(inches: fletchingLength, system: unitSystem))
                 }
                 Stepper(value: $fletchingOffset, in: 0.0...10.0, step: 0.5) {
-                    LabeledContent("Offset", value: "\(String(format: "%.1f", fletchingOffset))°")
+                    LabeledContent("Offset", value: UnitFormatting.degrees(fletchingOffset))
                 }
             }
 
@@ -79,9 +97,9 @@ struct ArrowDetailView: View {
                     TextField("Optional", text: $nockType)
                         .multilineTextAlignment(.trailing)
                 }
-                LabeledContent("Total Weight (gr)") {
+                LabeledContent("Total Weight (\(UnitFormatting.massSuffix(unitSystem)))") {
                     TextField("Optional", text: $totalWeightText)
-                        .keyboardType(.numberPad)
+                        .keyboardType(unitSystem == .imperial ? .numberPad : .decimalPad)
                         .multilineTextAlignment(.trailing)
                 }
             }
@@ -149,6 +167,11 @@ struct ArrowDetailView: View {
         .onAppear {
             seedFromArrow()
         }
+        .onChange(of: unitSystem) { old, new in
+            // Reparse the in-flight text as the *old* unit, then render in the new one.
+            guard let grains = UnitFormatting.parseArrowMass(totalWeightText, system: old) else { return }
+            totalWeightText = UnitFormatting.arrowMassValue(grains: grains, system: new)
+        }
     }
 
     private var saveBanner: some View {
@@ -176,7 +199,9 @@ struct ArrowDetailView: View {
         fletchingLength = arrow.fletchingLength
         fletchingOffset = arrow.fletchingOffset
         nockType = arrow.nockType ?? ""
-        totalWeightText = arrow.totalWeight.map { String($0) } ?? ""
+        totalWeightText = arrow.totalWeight.map {
+            UnitFormatting.arrowMassValue(grains: $0, system: unitSystem)
+        } ?? ""
         shaftDiameter = arrow.shaftDiameter
         notes = arrow.notes ?? ""
     }
@@ -192,7 +217,8 @@ struct ArrowDetailView: View {
             fletchingType: fletchingType, fletchingLength: fletchingLength,
             fletchingOffset: fletchingOffset,
             nockType: nockType.isEmpty ? nil : nockType.trimmingCharacters(in: .whitespaces),
-            totalWeight: Int(totalWeightText), shaftDiameter: shaftDiameter,
+            totalWeight: UnitFormatting.parseArrowMass(totalWeightText, system: unitSystem),
+            shaftDiameter: shaftDiameter,
             notes: notes.isEmpty ? nil : notes
         )
         do {
