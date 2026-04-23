@@ -65,6 +65,9 @@ private let relativeFormatter: RelativeDateTimeFormatter = {
 
 // MARK: - SuggestionCard
 
+// TODO(units): currentValue / suggestedValue arrive from the server as free-form
+// strings ("+3/16\"", "+0.5 turns"). They do not honor the client unit toggle yet;
+// revisit once the API emits structured {value, unit} payloads.
 struct SuggestionCard: View {
     let suggestion: AnalyticsSuggestion
 

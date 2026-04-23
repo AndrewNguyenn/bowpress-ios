@@ -15,6 +15,7 @@ struct ConfigurationView: View {
     @State private var pendingDeleteArrow: ArrowConfiguration?
     @State private var navigateToNewBow: Bow?
     @State private var pendingNavBow: Bow?
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
 
     var body: some View {
         List {
@@ -72,7 +73,7 @@ struct ConfigurationView: View {
                         NavigationLink(destination: ArrowDetailView(arrow: arrow, appState: appState)) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(arrow.label).font(.body.weight(.semibold))
-                                Text("\(String(format: "%.2f", arrow.length))\" · \(arrow.pointWeight)gr point")
+                                Text("\(UnitFormatting.length(inches: arrow.length, system: unitSystem)) · \(UnitFormatting.arrowMass(grains: arrow.pointWeight, system: unitSystem)) point")
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             .padding(.vertical, 2)

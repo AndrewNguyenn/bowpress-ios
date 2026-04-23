@@ -121,12 +121,15 @@ struct AddArrowView: View {
     @State private var shaftDiameter: ArrowConfiguration.ShaftDiameter? = nil
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
 
     private var canSave: Bool { !label.trimmingCharacters(in: .whitespaces).isEmpty }
 
     var body: some View {
         NavigationStack {
             Form {
+                Section { UnitToggle(system: $unitSystem) }
+
                 Section("Identity") {
                     LabeledContent("Label") {
                         TextField("Required", text: $label)
@@ -143,11 +146,21 @@ struct AddArrowView: View {
                     }
                 }
                 Section("Specs") {
-                    Stepper(value: $length, in: 18.0...36.0, step: 0.25) {
-                        LabeledContent("Length", value: "\(String(format: "%.2f", length))\"")
+                    Stepper(
+                        value: $length.displayed(in: unitSystem, scale: .inchToCm),
+                        in: UnitRange.arrowLength.displayRange(unitSystem),
+                        step: UnitRange.arrowLength.displayStep(unitSystem)
+                    ) {
+                        LabeledContent("Length",
+                                       value: UnitFormatting.length(inches: length, system: unitSystem))
                     }
-                    Stepper(value: $pointWeight, in: 50...200, step: 5) {
-                        LabeledContent("Point Weight", value: "\(pointWeight) gr")
+                    Stepper(
+                        value: $pointWeight.displayed(in: unitSystem, scale: .grainToGram),
+                        in: UnitRange.pointWeight.displayRange(unitSystem),
+                        step: UnitRange.pointWeight.displayStep(unitSystem)
+                    ) {
+                        LabeledContent("Point Weight",
+                                       value: UnitFormatting.arrowMass(grains: pointWeight, system: unitSystem))
                     }
                 }
                 Section("Fletching") {
@@ -156,18 +169,23 @@ struct AddArrowView: View {
                             Text($0.rawValue.capitalized).tag($0)
                         }
                     }
-                    Stepper(value: $fletchingLength, in: 1.0...5.0, step: 0.25) {
-                        LabeledContent("Length", value: "\(String(format: "%.2f", fletchingLength))\"")
+                    Stepper(
+                        value: $fletchingLength.displayed(in: unitSystem, scale: .inchToCm),
+                        in: UnitRange.fletchingLength.displayRange(unitSystem),
+                        step: UnitRange.fletchingLength.displayStep(unitSystem)
+                    ) {
+                        LabeledContent("Length",
+                                       value: UnitFormatting.length(inches: fletchingLength, system: unitSystem))
                     }
                     Stepper(value: $fletchingOffset, in: 0.0...10.0, step: 0.5) {
-                        LabeledContent("Offset", value: "\(String(format: "%.1f", fletchingOffset))°")
+                        LabeledContent("Offset", value: UnitFormatting.degrees(fletchingOffset))
                     }
                 }
                 Section("Shaft Diameter") {
                     Picker("Diameter", selection: $shaftDiameter) {
                         Text("Not set").tag(ArrowConfiguration.ShaftDiameter?.none)
                         ForEach(ArrowConfiguration.ShaftDiameter.allCases, id: \.self) { d in
-                            Text(d.displayName).tag(ArrowConfiguration.ShaftDiameter?.some(d))
+                            Text(d.displayName(for: unitSystem)).tag(ArrowConfiguration.ShaftDiameter?.some(d))
                         }
                     }
                     .pickerStyle(.wheel)

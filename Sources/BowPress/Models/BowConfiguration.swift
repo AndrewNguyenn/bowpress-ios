@@ -179,3 +179,30 @@ struct BowConfiguration: Identifiable, Codable, Equatable {
         }
     }
 }
+
+// MARK: - Display helpers
+
+extension BowConfiguration {
+    /// Compact one-line summary used for the "Base Setup" recap on edit screens.
+    /// Shape depends on which optional fields this config actually has.
+    /// e.g. `Draw 28.5" · Let-off 80% · Peep 9.25" · D-loop 2.125"` (compound imperial)
+    /// e.g. `Draw 72.4 cm · Let-off 80% · Peep 23.5 cm · D-loop 5.4 cm`   (compound metric)
+    func compactSetupLine(system: UnitSystem) -> String {
+        var parts: [String] = [
+            "Draw \(UnitFormatting.length(inches: drawLength, system: system))"
+        ]
+        if let letOff = letOffPct {
+            parts.append("Let-off \(UnitFormatting.percent(letOff))")
+        }
+        if let peep = peepHeight {
+            parts.append("Peep \(UnitFormatting.length(inches: peep, system: system))")
+        }
+        if let dLoop = dLoopLength {
+            parts.append("D-loop \(UnitFormatting.length(inches: dLoop, system: system, digits: 3))")
+        }
+        if let brace = braceHeight {
+            parts.append("Brace \(UnitFormatting.length(inches: brace, system: system, digits: 3))")
+        }
+        return parts.joined(separator: " · ")
+    }
+}
