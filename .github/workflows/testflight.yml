@@ -1,0 +1,128 @@
+name: TestFlight upload
+
+# Push to main → archive + upload to TestFlight. No App Review submission here;
+# that's what release.yml (triggered by a `v*` tag) is for. This workflow gives
+# internal testers the new build in ~10 minutes without touching Apple's review
+# queue, so iterative work on main stays fast.
+
+on:
+  push:
+    branches: [main]
+    # Don't rebuild when only docs / meta change.
+    paths-ignore:
+      - '**/*.md'
+      - '.github/workflows/release.yml'
+      - 'scripts/asc/metadata/**'
+      - 'scripts/asc/screenshots/**'
+  workflow_dispatch: {}
+
+concurrency:
+  group: testflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  upload:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Install Python deps
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r scripts/asc/requirements.txt
+
+      - name: Write ASC API key
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "${{ secrets.ASC_API_KEY_P8 }}" > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          echo "ASC_KEY_PATH=$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8" >> $GITHUB_ENV
+
+      - name: Compute next build number
+        id: buildnum
+        run: |
+          N=$(python3 scripts/ci/next-build-number.py)
+          echo "build=$N" >> $GITHUB_OUTPUT
+          echo "Next CFBundleVersion: $N"
+
+      - name: Pin CURRENT_PROJECT_VERSION in project.yml
+        run: |
+          sed -i '' "s/CURRENT_PROJECT_VERSION: \"[0-9]*\"/CURRENT_PROJECT_VERSION: \"${{ steps.buildnum.outputs.build }}\"/" project.yml
+          grep CURRENT_PROJECT_VERSION project.yml
+
+      - name: Generate xcodeproj
+        run: xcodegen generate
+
+      - name: Import signing certificate
+        env:
+          P12_BASE64: ${{ secrets.APPLE_DIST_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.APPLE_DIST_CERT_P12_PASSWORD }}
+        run: |
+          KEYCHAIN_PASSWORD="ephemeral-ci-$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          echo "$P12_BASE64" | base64 --decode > cert.p12
+          security import cert.p12 -k build.keychain -P "$P12_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm cert.p12
+
+      - name: Install provisioning profile
+        env:
+          PROFILE_BASE64: ${{ secrets.APPLE_PROVISION_PROFILE_BASE64 }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE_BASE64" | base64 --decode > profile.mobileprovision
+          UUID=$(security cms -D -i profile.mobileprovision | plutil -extract UUID raw -)
+          mv profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/${UUID}.mobileprovision
+          echo "Installed profile UUID=$UUID"
+
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -scheme BowPress \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/BowPress.xcarchive \
+            -quiet \
+            DEVELOPMENT_TEAM=$APPLE_TEAM_ID
+
+      - name: Export IPA
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath build/BowPress.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist scripts/asc/ExportOptions.plist
+
+      - name: Upload to TestFlight
+        run: |
+          xcrun altool --upload-app --type ios \
+            --file build/export/BowPress.ipa \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
+
+      - name: Summary
+        run: |
+          echo "### TestFlight upload succeeded" >> $GITHUB_STEP_SUMMARY
+          echo "- Build: ${{ steps.buildnum.outputs.build }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review queue: **NOT TOUCHED** — this is a TestFlight-only upload." >> $GITHUB_STEP_SUMMARY
+          echo "- To submit to App Review, push a tag: \`git tag v1.0.X && git push --tags\`" >> $GITHUB_STEP_SUMMARY
