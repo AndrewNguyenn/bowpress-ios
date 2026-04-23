@@ -226,6 +226,22 @@ final class LocalStore {
         }
     }
 
+    func deleteSession(id: String) throws {
+        let arrowPredicate = #Predicate<PersistentArrowPlot> { $0.sessionId == id }
+        for arrow in try context.fetch(FetchDescriptor<PersistentArrowPlot>(predicate: arrowPredicate)) {
+            context.delete(arrow)
+        }
+        let endPredicate = #Predicate<PersistentEnd> { $0.sessionId == id }
+        for end in try context.fetch(FetchDescriptor<PersistentEnd>(predicate: endPredicate)) {
+            context.delete(end)
+        }
+        let sessionPredicate = #Predicate<PersistentSession> { $0.id == id }
+        if let existing = try context.fetch(FetchDescriptor<PersistentSession>(predicate: sessionPredicate)).first {
+            context.delete(existing)
+        }
+        try context.save()
+    }
+
     // MARK: - ArrowPlots
 
     func save(arrow: ArrowPlot) throws {
