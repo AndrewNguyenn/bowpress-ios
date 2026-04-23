@@ -42,9 +42,14 @@ jobs:
         run: brew install xcodegen
 
       - name: Install Python deps
+        # macos-15's system Python is Homebrew-managed (PEP 668), so pip is
+        # blocked outside a venv. Use one and expose its python as `python3`
+        # for the rest of the job.
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install -r scripts/asc/requirements.txt
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r scripts/asc/requirements.txt
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
 
       - name: Write ASC API key
         run: |
