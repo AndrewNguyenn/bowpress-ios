@@ -577,7 +577,7 @@ struct RingBadge: View {
                 // Strike-through line indicates flier-flagged (excluded from analytics)
                 if excluded {
                     Rectangle()
-                        .fill(Color.red.opacity(0.85))
+                        .fill(Color.appDanger.opacity(0.85))
                         .frame(width: 28, height: 2)
                         .rotationEffect(.degrees(-45))
                 }
@@ -586,18 +586,16 @@ struct RingBadge: View {
 
     private var bgColor: Color {
         switch ring {
-        case 11: return Color(red: 1.0,  green: 0.85, blue: 0.0)   // gold   (X)
-        case 10: return Color(red: 1.0,  green: 0.95, blue: 0.2)   // yellow
-        case 9:  return Color(red: 1.0,  green: 0.95, blue: 0.2)   // yellow (still yellow zone)
-        case 8:  return Color(red: 0.88, green: 0.28, blue: 0.22)  // red
-        case 7:  return Color(red: 0.88, green: 0.28, blue: 0.22)  // red
-        case 6:  return Color(red: 0.0,  green: 0.73, blue: 0.89)  // blue
-        default: return .gray
+        case 11:    return .appTargetGold    // X ring
+        case 9, 10: return .appTargetYellow
+        case 7, 8:  return .appTargetRed
+        case 5, 6:  return .appTargetBlue
+        default:    return .appTextTertiary
         }
     }
 
     private var textColor: Color {
-        ring >= 9 ? .black : .white
+        ring >= 9 ? .appTargetInk : .white
     }
 }
 

@@ -23,7 +23,7 @@ struct OverviewCard: View {
         VStack(alignment: .leading, spacing: 20) {
 
             Text("Last \(overview.period.label)")
-                .font(.subheadline.weight(.semibold))
+                .font(.footnote.weight(.semibold))
                 .foregroundStyle(Color.appText)
                 .textCase(.uppercase)
                 .kerning(0.5)
