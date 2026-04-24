@@ -358,7 +358,20 @@ struct BowDetailView: View {
             Picker("Side", selection: $rearStabSide) {
                 ForEach(RearStabSide.allCases, id: \.self) { Text($0.label).tag($0) }
             }
-            if rearStabSide != .none {
+            if rearStabSide == .both {
+                Stepper(value: $rearStabLeftWeight, in: 0...60, step: 0.5) {
+                    LabeledContent("Left Weight", value: "\(String(format: "%g", rearStabLeftWeight)) oz")
+                }
+                Stepper(value: $rearStabRightWeight, in: 0...60, step: 0.5) {
+                    LabeledContent("Right Weight", value: "\(String(format: "%g", rearStabRightWeight)) oz")
+                }
+                Stepper(value: $rearStabVertAngle, in: -90...90, step: 5) {
+                    LabeledContent("Vertical Angle", value: "\(Int(rearStabVertAngle))°")
+                }
+                Stepper(value: $rearStabHorizAngle, in: 0...90, step: 5) {
+                    LabeledContent("Horizontal Angle", value: "\(Int(rearStabHorizAngle))°")
+                }
+            } else if rearStabSide != .none {
                 Stepper(value: $rearStabWeight, in: 0...60, step: 0.5) {
                     LabeledContent("Weight", value: "\(String(format: "%g", rearStabWeight)) oz")
                 }
@@ -661,8 +674,8 @@ struct BowDetailView: View {
         tillerBottom = c?.tillerBottom ?? fallback.tillerBottom ?? 0
         plungerTension = c?.plungerTension ?? fallback.plungerTension ?? 12
         clickerPosition = c?.clickerPosition ?? fallback.clickerPosition ?? 0
-        rearStabLeftWeight = c?.rearStabLeftWeight ?? fallback.rearStabLeftWeight ?? 6
-        rearStabRightWeight = c?.rearStabRightWeight ?? fallback.rearStabRightWeight ?? 6
+        rearStabLeftWeight = c?.rearStabLeftWeight ?? fallback.rearStabLeftWeight ?? (bow.bowType == .compound ? 0 : 6)
+        rearStabRightWeight = c?.rearStabRightWeight ?? fallback.rearStabRightWeight ?? (bow.bowType == .compound ? 0 : 6)
     }
 
     private func saveCurrentState() async {
@@ -696,7 +709,15 @@ struct BowDetailView: View {
             newConfig.frontStabWeight = frontStabWeight
             newConfig.frontStabAngle = frontStabAngle
             newConfig.rearStabSide = rearStabSide
-            newConfig.rearStabWeight = rearStabWeight
+            if rearStabSide == .both {
+                newConfig.rearStabWeight = nil
+                newConfig.rearStabLeftWeight = rearStabLeftWeight
+                newConfig.rearStabRightWeight = rearStabRightWeight
+            } else {
+                newConfig.rearStabWeight = rearStabWeight
+                newConfig.rearStabLeftWeight = nil
+                newConfig.rearStabRightWeight = nil
+            }
             newConfig.rearStabVertAngle = rearStabVertAngle
             newConfig.rearStabHorizAngle = rearStabHorizAngle
         case .recurve:

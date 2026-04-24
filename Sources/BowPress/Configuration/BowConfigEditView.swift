@@ -185,7 +185,32 @@ struct BowConfigEditView: View {
             Picker("Side", selection: $rearStabSide) {
                 ForEach(RearStabSide.allCases, id: \.self) { Text($0.label).tag($0) }
             }
-            if rearStabSide != .none {
+            if rearStabSide == .both {
+                Stepper(
+                    value: $rearStabLeftWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                    in: UnitRange.rearStabWeight.displayRange(unitSystem),
+                    step: UnitRange.rearStabWeight.displayStep(unitSystem)
+                ) {
+                    LabeledContent("Left Weight",
+                                   value: UnitFormatting.stabWeight(ounces: rearStabLeftWeight, system: unitSystem))
+                }
+                Stepper(
+                    value: $rearStabRightWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                    in: UnitRange.rearStabWeight.displayRange(unitSystem),
+                    step: UnitRange.rearStabWeight.displayStep(unitSystem)
+                ) {
+                    LabeledContent("Right Weight",
+                                   value: UnitFormatting.stabWeight(ounces: rearStabRightWeight, system: unitSystem))
+                }
+                Stepper(value: $rearStabVertAngle, in: -90...90, step: 5) {
+                    LabeledContent("Vertical Angle",
+                                   value: UnitFormatting.degrees(rearStabVertAngle, digits: 0))
+                }
+                Stepper(value: $rearStabHorizAngle, in: 0...90, step: 5) {
+                    LabeledContent("Horizontal Angle",
+                                   value: UnitFormatting.degrees(rearStabHorizAngle, digits: 0))
+                }
+            } else if rearStabSide != .none {
                 Stepper(
                     value: $rearStabWeight.displayed(in: unitSystem, scale: .ounceToGram),
                     in: UnitRange.rearStabWeight.displayRange(unitSystem),
@@ -394,6 +419,8 @@ struct BowConfigEditView: View {
             frontStabAngle = baseConfig.frontStabAngle ?? 0
             rearStabSide = baseConfig.rearStabSide ?? .none
             rearStabWeight = baseConfig.rearStabWeight ?? 0
+            rearStabLeftWeight = baseConfig.rearStabLeftWeight ?? 0
+            rearStabRightWeight = baseConfig.rearStabRightWeight ?? 0
             rearStabVertAngle = baseConfig.rearStabVertAngle ?? 0
             rearStabHorizAngle = baseConfig.rearStabHorizAngle ?? 0
             topCableTwists = 0; bottomCableTwists = 0
@@ -454,7 +481,15 @@ struct BowConfigEditView: View {
             newConfig.frontStabWeight = frontStabWeight
             newConfig.frontStabAngle = frontStabAngle
             newConfig.rearStabSide = rearStabSide
-            newConfig.rearStabWeight = rearStabWeight
+            if rearStabSide == .both {
+                newConfig.rearStabWeight = nil
+                newConfig.rearStabLeftWeight = rearStabLeftWeight
+                newConfig.rearStabRightWeight = rearStabRightWeight
+            } else {
+                newConfig.rearStabWeight = rearStabWeight
+                newConfig.rearStabLeftWeight = nil
+                newConfig.rearStabRightWeight = nil
+            }
             newConfig.rearStabVertAngle = rearStabVertAngle
             newConfig.rearStabHorizAngle = rearStabHorizAngle
         case .recurve:

@@ -106,7 +106,12 @@ struct BowConfigDetailView: View {
         Section("Rear Stabilizer") {
             let side = config.rearStabSide ?? .none
             row("Side", value: side.label)
-            if side != .none {
+            if side == .both {
+                row("Left Weight", value: UnitFormatting.stabWeight(ounces: config.rearStabLeftWeight ?? 0, system: unitSystem))
+                row("Right Weight", value: UnitFormatting.stabWeight(ounces: config.rearStabRightWeight ?? 0, system: unitSystem))
+                row("Vertical Angle", value: UnitFormatting.degrees(config.rearStabVertAngle ?? 0, digits: 0))
+                row("Horizontal Angle", value: UnitFormatting.degrees(config.rearStabHorizAngle ?? 0, digits: 0))
+            } else if side != .none {
                 row("Weight", value: UnitFormatting.stabWeight(ounces: config.rearStabWeight ?? 0, system: unitSystem))
                 row("Vertical Angle", value: UnitFormatting.degrees(config.rearStabVertAngle ?? 0, digits: 0))
                 row("Horizontal Angle", value: UnitFormatting.degrees(config.rearStabHorizAngle ?? 0, digits: 0))
