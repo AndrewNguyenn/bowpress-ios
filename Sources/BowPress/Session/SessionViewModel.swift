@@ -68,6 +68,10 @@ import Observation
     /// Persists for the whole session. Never cleared automatically.
     var sessionNotes: String = ""
 
+    /// Pre-session "intention" for the current stage. Transient, in-memory only —
+    /// not written to the store or API. Cleared on session start/reset.
+    var intentionNote: String = ""
+
     // MARK: - Setup
 
     var selectedBow: Bow?
@@ -337,6 +341,7 @@ import Observation
         completedEnds = []
         endArrowCounts = []
         sessionNotes = ""
+        intentionNote = ""
         selectedBow = nil
         isLoading = false
     }
