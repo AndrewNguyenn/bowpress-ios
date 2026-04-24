@@ -230,10 +230,8 @@ struct SessionView: View {
 
     @ViewBuilder
     private var bowIcon: some View {
-        // 44pt square, 1px pond border, archery glyph in pondDk.
-        Image(systemName: "figure.archery")
-            .font(.system(size: 24, weight: .medium))
-            .foregroundStyle(Color.appPondDk)
+        // 44pt square, 1px pond border, Kenrokuen bow wireframe in pondDk.
+        BPBowIcon(size: 28, stroke: 1.4)
             .frame(width: 44, height: 44)
             .overlay(Rectangle().strokeBorder(Color.appPond, lineWidth: 1))
     }
