@@ -256,7 +256,15 @@ final class LocalStore {
             existing.zoneStr = arrow.zone.rawValue
             existing.plotX = arrow.plotX
             existing.plotY = arrow.plotY
-            existing.endId = arrow.endId
+            // Preserve locally-stamped endId when the incoming record doesn't
+            // carry one. `completeEnd` stamps endId locally and fires a
+            // best-effort API sync; if `LocalHydration` pulls arrows back from
+            // the server before that sync lands, the server payload's nil
+            // endId would otherwise wipe the local stamp and break the
+            // per-end breakdown in Session Detail on next launch.
+            if let incomingEndId = arrow.endId {
+                existing.endId = incomingEndId
+            }
             existing.shotAt = arrow.shotAt
             existing.excluded = arrow.excluded
             existing.notes = arrow.notes
