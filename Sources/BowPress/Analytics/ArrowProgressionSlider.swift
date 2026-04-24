@@ -22,19 +22,20 @@ struct ArrowProgressionSlider: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 10) {
             Slider(
                 value: sliderValue,
                 in: 0...Double(max(totalArrows, 1)),
                 step: 1
             )
-            .tint(Color.appAccent)
+            .controlSize(.large)
+            .tint(Color.appPondDk)
             .overlay(
                 GeometryReader { geo in
                     ForEach(endBoundaries, id: \.self) { boundary in
                         let frac = Double(boundary) / Double(totalArrows)
                         Rectangle()
-                            .fill(Color.secondary.opacity(0.55))
+                            .fill(Color.appInk3.opacity(0.55))
                             .frame(width: 1.5, height: 12)
                             .position(
                                 x: CGFloat(frac) * geo.size.width,
@@ -44,13 +45,20 @@ struct ArrowProgressionSlider: View {
                 }
                 .allowsHitTesting(false)
             )
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                Capsule().fill(.regularMaterial)
+                    .overlay(Capsule().strokeBorder(Color.appLine, lineWidth: 0.5))
+            )
 
             Text(caption)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.bpMono(10))
+                .appTracking(0.04, at: 10)
+                .foregroundStyle(Color.appInk3)
                 .animation(.none, value: visibleCount)
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .disabled(isDisabled)
         .opacity(isDisabled ? 0.5 : 1.0)
