@@ -63,6 +63,7 @@ extension Color {
     static let appTargetYellow = Color(UIColor(hex: "#fff233"))
     static let appTargetRed    = Color(UIColor(hex: "#e04738"))
     static let appTargetBlue   = Color(UIColor(hex: "#00bae3"))
+    static let appTargetBlack  = Color(UIColor(hex: "#1a1a1a"))
     static let appTargetWhite  = Color(UIColor(hex: "#fafaf2"))
     static let appTargetInk    = Color(UIColor(hex: "#1f2937"))
 
@@ -98,6 +99,7 @@ extension Color {
     static let appTargetYellow = Color(red: 1.0,   green: 0.949, blue: 0.2)
     static let appTargetRed    = Color(red: 0.878, green: 0.278, blue: 0.22)
     static let appTargetBlue   = Color(red: 0.0,   green: 0.729, blue: 0.890)
+    static let appTargetBlack  = Color(red: 0.102, green: 0.102, blue: 0.102)
     static let appTargetWhite  = Color(red: 0.980, green: 0.980, blue: 0.949)
     static let appTargetInk    = Color(red: 0.122, green: 0.161, blue: 0.216)
 

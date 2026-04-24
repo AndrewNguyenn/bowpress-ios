@@ -13,6 +13,12 @@ struct SessionSetupView: View {
     @State private var selectedArrowConfig: ArrowConfiguration?
     @State private var isStarting = false
 
+    /// Target face for the new session. Auto-selects from the bow's type, but
+    /// tracks a "user touched" flag so the archer's override isn't clobbered
+    /// if they then pick a different bow.
+    @State private var selectedFaceType: TargetFaceType = .sixRing
+    @State private var userTouchedFace: Bool = false
+
     var canStart: Bool {
         selectedBow != nil && selectedArrowConfig != nil && selectedBowConfig != nil
     }
@@ -99,6 +105,23 @@ struct SessionSetupView: View {
                         .disabled(availableConfigs.count <= 1)
                         .padding(.top, -16)
                         .accessibilityIdentifier("session_config_row_\(config.id)")
+                    }
+                }
+
+                // MARK: Target Face Picker
+                if selectedBow != nil {
+                    VStack(alignment: .leading, spacing: 10) {
+                        sectionHeader("Target Face", icon: "scope")
+                        Picker("Target face", selection: $selectedFaceType) {
+                            ForEach(TargetFaceType.allCases, id: \.self) { face in
+                                Text(face.label).tag(face)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: selectedFaceType) { _, _ in
+                            userTouchedFace = true
+                        }
+                        .accessibilityIdentifier("session_face_picker")
                     }
                 }
 
@@ -245,6 +268,11 @@ struct SessionSetupView: View {
         selectedBowConfig = nil
         availableConfigs = []
         configError = nil
+        // Auto-sync the face type to the bow's default unless the user has
+        // explicitly picked one in this setup flow.
+        if !userTouchedFace {
+            selectedFaceType = TargetFaceType.defaultFor(bow.bowType)
+        }
         Task { await loadConfigs(for: bow) }
     }
 
@@ -266,7 +294,12 @@ struct SessionSetupView: View {
               let bowConfig = selectedBowConfig,
               let arrowConfig = selectedArrowConfig else { return }
         isStarting = true
-        await viewModel.startSession(bow: bow, bowConfig: bowConfig, arrowConfig: arrowConfig)
+        await viewModel.startSession(
+            bow: bow,
+            bowConfig: bowConfig,
+            arrowConfig: arrowConfig,
+            targetFaceType: selectedFaceType
+        )
         isStarting = false
     }
 }

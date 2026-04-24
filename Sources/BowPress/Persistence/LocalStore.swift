@@ -171,6 +171,7 @@ final class LocalStore {
             existing.notes = session.notes
             existing.feelTagsJSON = tagsJSON
             existing.arrowCount = session.arrowCount
+            existing.targetFaceTypeStr = session.targetFaceType.rawValue
         } else {
             let record = PersistentSession.from(session)
             record.pendingSync = true

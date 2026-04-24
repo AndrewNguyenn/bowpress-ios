@@ -1,38 +1,104 @@
 import SwiftUI
 
-// MARK: - Ring & Zone Thresholds
+// MARK: - Target Geometry
 
-private enum TargetGeometry {
-    // Pixel-measured boundaries in the 1470×1470 target_face.png (centre 735,735).
-    // Color zones: yellow 0–238px, red 238–475px, blue 475–594px.
-    // Yellow splits: X (0–60px) / ring 10 (60–119px) — user-confirmed X is half of old xRadius.
-    // Red splits: ring 9 (119–238px) / ring 8 (238–357px ... wait re-mapped below).
-    static let xRadius:   Double =  60.0 / 735.0   // 0.082 — X / 10 divider
-    static let r10Radius: Double = 119.0 / 735.0   // 0.162 — 10 / 9 divider
-    static let r9Radius:  Double = 238.0 / 735.0   // 0.324 — 9 / 8 divider (yellow→red)
-    static let r8Radius:  Double = 357.0 / 735.0   // 0.485 — 8 / 7 divider (mid of red)
-    static let r7Radius:  Double = 475.0 / 735.0   // 0.646 — 7 / 6 divider (red→blue)
-    static let r6Radius:  Double = 594.0 / 735.0   // 0.808 — outer edge of ring 6 (blue→white)
+/// Normalised-radius ring geometry for a given target face.
+///
+/// `rings` lists the outer radius of each scoring ring, outer-most first, in
+/// normalised units (1.0 = the outer edge of the face). `xRadius` is the
+/// outer radius of the X ring (the inner-most ring, scores 10 but rendered
+/// as "X"). Ring numbers start at `outerRingValue` for the outer-most ring
+/// and count up inward; the X ring is always `xRingValue`.
+struct TargetGeometry {
+    let faceType: TargetFaceType
+    /// Outer radius of each scoring ring, outer-most first (decreasing).
+    /// Last entry is the outer radius of the ring just before the X.
+    let rings: [Double]
+    /// Outer radius of the X ring.
+    let xRadius: Double
+    /// Value of the outer-most ring (`6` for sixRing, `1` for tenRing).
+    let outerRingValue: Int
+    /// Value representing the X ring (always `11`).
+    let xRingValue: Int = 11
 
-    // Real mm per 1.0 normalised unit — used for the arrow-overlap scoring rule.
-    static let mmPerNormUnit: Double = 20.0 / r10Radius  // ring 10 outer ≈ 20mm → ~123.5 mm
+    /// Pixel-measured boundaries in the 1470x1470 target_face.png (centre 735,735).
+    /// Yellow 0-238px, red 238-475px, blue 475-594px. Yellow splits: X (0-60) /
+    /// ring 10 (60-119). Matches the geometry stored against every pre-existing
+    /// session, so legacy data stays interpretable.
+    static let sixRing = TargetGeometry(
+        faceType: .sixRing,
+        rings: [
+            594.0 / 735.0,  // ring 6  (blue outer)
+            475.0 / 735.0,  // ring 7  (red outer / blue inner)
+            357.0 / 735.0,  // ring 8  (mid red)
+            238.0 / 735.0,  // ring 9  (yellow outer / red inner)
+            119.0 / 735.0   // ring 10 (inner yellow / outer X)
+        ],
+        xRadius: 60.0 / 735.0,
+        outerRingValue: 6
+    )
 
-    /// Within the X ring, this distance from absolute centre is the "CENTER" zone.
-    static let centerZoneRadius: Double = 0.04
+    /// Standard WA 10-ring face — equal-width rings. X at 0.05, ring 10 at 0.10,
+    /// ring 9 at 0.20, ... ring 1 at 1.00.
+    static let tenRing = TargetGeometry(
+        faceType: .tenRing,
+        rings: [
+            1.00,  // ring 1 (outer white)
+            0.90,  // ring 2 (inner white)
+            0.80,  // ring 3 (outer black)
+            0.70,  // ring 4 (inner black)
+            0.60,  // ring 5 (outer blue)
+            0.50,  // ring 6 (inner blue)
+            0.40,  // ring 7 (outer red)
+            0.30,  // ring 8 (inner red)
+            0.20,  // ring 9 (outer yellow)
+            0.10   // ring 10 (inner yellow / outer X)
+        ],
+        xRadius: 0.05,
+        outerRingValue: 1
+    )
 
-    static func ring(for normalizedDist: Double) -> Int? {
-        switch normalizedDist {
-        case ..<xRadius:   return 11  // X (displayed as "X", scores 10)
-        case ..<r10Radius: return 10
-        case ..<r9Radius:  return 9
-        case ..<r8Radius:  return 8
-        case ..<r7Radius:  return 7
-        case ..<r6Radius:  return 6
-        default:           return nil
+    static func preset(for faceType: TargetFaceType) -> TargetGeometry {
+        switch faceType {
+        case .sixRing: return .sixRing
+        case .tenRing: return .tenRing
         }
     }
 
-    static func zone(for normalizedDist: Double, angle: Double) -> ArrowPlot.Zone {
+    /// Real mm per 1.0 normalised unit — used for the arrow-overlap scoring rule.
+    /// The outer edge of ring 10 is 20mm from centre on the WA 40cm 10-ring face
+    /// and on the compound 10-ring inner face. Ring 10's outer radius is the
+    /// second-inner boundary on both presets.
+    var mmPerNormUnit: Double {
+        // ring 10 is the last entry in `rings` (inner-most scoring ring above X)
+        guard let ring10Outer = rings.last, ring10Outer > 0 else { return 20.0 }
+        return 20.0 / ring10Outer
+    }
+
+    /// Within the X ring, this distance from absolute centre is the "CENTER" zone.
+    var centerZoneRadius: Double { 0.04 }
+
+    /// Returns the ring number for a given normalised distance from centre,
+    /// or `nil` for a miss (outside the outer-most scoring ring).
+    /// Ring numbers are `outerRingValue` at the outside, counting up toward
+    /// the centre; `xRingValue` (11) is the innermost X.
+    func ring(for normalizedDist: Double) -> Int? {
+        if normalizedDist < xRadius { return xRingValue }
+        // `rings` lists outer-most (largest radius) first, so the array index
+        // matches the offset from `outerRingValue`:
+        //   rings[0] is the outer-most scoring ring (ring = outerRingValue)
+        //   rings[N-1] is the inner-most scoring ring above X
+        // Walk from inner-most to outer-most and return the first band whose
+        // outer radius still contains the point.
+        for idx in stride(from: rings.count - 1, through: 0, by: -1) {
+            if normalizedDist < rings[idx] {
+                return outerRingValue + idx
+            }
+        }
+        return nil
+    }
+
+    func zone(for normalizedDist: Double, angle: Double) -> ArrowPlot.Zone {
         // Angle is in degrees, 0 = right (east), going counter-clockwise.
         // We want 0 = North (top), clockwise.
         guard normalizedDist >= centerZoneRadius else { return .center }
@@ -62,6 +128,9 @@ struct TargetPlotView: View {
     var onArrowPlotted: (Int, ArrowPlot.Zone, Double, Double) -> Void
     var isEnabled: Bool = true
     var arrowDiameterMm: Double = 5.0
+    var faceType: TargetFaceType = .sixRing
+
+    private var geometry: TargetGeometry { TargetGeometry.preset(for: faceType) }
 
     // Confirmation overlay state
     @State private var confirmationText: String?
@@ -78,11 +147,12 @@ struct TargetPlotView: View {
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
             let radius = min(geo.size.width, geo.size.height) / 2
             // Scale arrow to match real-world mm on the drawn face.
-            let arrowDotSize = max(CGFloat(arrowDiameterMm / TargetGeometry.mmPerNormUnit) * radius, 8)
+            let arrowDotSize = max(CGFloat(arrowDiameterMm / geometry.mmPerNormUnit) * radius, 8)
 
             ZStack {
                 // MARK: Target face
-                TargetFaceShape(radius: radius)
+                TargetFaceCanvas(faceType: faceType)
+                    .frame(width: radius * 2, height: radius * 2)
                     .position(center)
 
                 // MARK: Placed arrows
@@ -155,10 +225,10 @@ struct TargetPlotView: View {
         // Shift inward by the dot radius: if any visible part of the dot touches a higher ring, score it.
         let scoringDist = max(0.0, normalizedDist - arrowNormRadius)
 
-        guard let ring = TargetGeometry.ring(for: scoringDist) else { return }
+        guard let ring = geometry.ring(for: scoringDist) else { return }
 
         let angle = atan2(Double(dy), Double(dx)) * 180 / .pi
-        let zone = TargetGeometry.zone(for: normalizedDist, angle: angle)
+        let zone = geometry.zone(for: normalizedDist, angle: angle)
 
         // Normalized position stored with the arrow (-1…1 relative to center)
         let normX = Double(dx) / Double(radius)
@@ -200,7 +270,7 @@ struct TargetPlotView: View {
             return CGPoint(x: center.x + CGFloat(px) * radius,
                            y: center.y + CGFloat(py) * radius)
         }
-        // Legacy fallback: reconstruct from ring/zone
+        // Legacy fallback: reconstruct from ring/zone using this face's geometry.
         let normR = normalizedRadius(for: arrow.ring, zone: arrow.zone)
         let angle = compassAngle(for: arrow.zone)
         let dx = CGFloat(normR) * radius * CGFloat(cos(angle))
@@ -210,15 +280,16 @@ struct TargetPlotView: View {
 
     private func normalizedRadius(for ring: Int, zone: ArrowPlot.Zone) -> Double {
         let jitter = pseudoJitter(for: ring)
-        switch ring {
-        case 11: return zone == .center ? 0.02 : (TargetGeometry.xRadius * 0.7) + jitter * 0.01
-        case 10: return midpoint(TargetGeometry.xRadius, TargetGeometry.r10Radius) + jitter * 0.02
-        case 9:  return midpoint(TargetGeometry.r10Radius, TargetGeometry.r9Radius) + jitter * 0.04
-        case 8:  return midpoint(TargetGeometry.r9Radius, TargetGeometry.r8Radius) + jitter * 0.04
-        case 7:  return midpoint(TargetGeometry.r8Radius, TargetGeometry.r7Radius) + jitter * 0.04
-        case 6:  return midpoint(TargetGeometry.r7Radius, TargetGeometry.r6Radius) + jitter * 0.04
-        default: return 0.5
+        if ring == geometry.xRingValue {
+            return zone == .center ? 0.02 : (geometry.xRadius * 0.7) + jitter * 0.01
         }
+        // Ring value -> index into `geometry.rings`.
+        // outerRingValue corresponds to rings[0]; incrementing ring -> inward.
+        let idx = ring - geometry.outerRingValue
+        guard idx >= 0, idx < geometry.rings.count else { return 0.5 }
+        let outer = geometry.rings[idx]
+        let inner: Double = (idx == geometry.rings.count - 1) ? geometry.xRadius : geometry.rings[idx + 1]
+        return midpoint(inner, outer) + jitter * 0.04
     }
 
     private func compassAngle(for zone: ArrowPlot.Zone) -> Double {
@@ -245,18 +316,100 @@ struct TargetPlotView: View {
     }
 }
 
-// MARK: - Target Face
+// MARK: - Target Face Canvas
 
-private struct TargetFaceShape: View {
-    var radius: CGFloat
+/// Draws the concentric coloured rings for a given target face using SwiftUI
+/// Canvas. Sized to fill whatever frame it's given; `radius` is derived from
+/// `min(width, height) / 2`.
+struct TargetFaceCanvas: View {
+    var faceType: TargetFaceType
 
     var body: some View {
-        Image("target_face")
-            .resizable()
-            .aspectRatio(1, contentMode: .fill)
-            .frame(width: radius * 2, height: radius * 2)
-            .clipShape(Circle())
-            .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
+        Canvas { context, size in
+            let radius = min(size.width, size.height) / 2
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            let geo = TargetGeometry.preset(for: faceType)
+
+            // Outer-most ring outward fill — paint the widest ring first, then
+            // paint each inner ring on top so only the "annular" band of each
+            // colour is visible.
+            let colors = ringFillColors(for: faceType)
+
+            // Face background: paint the outer-most ring as a filled disc.
+            // Then overlay each inner ring as a smaller disc.
+            for (idx, outerRadius) in geo.rings.enumerated() {
+                let r = radius * CGFloat(outerRadius)
+                let rect = CGRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2)
+                context.fill(Path(ellipseIn: rect), with: .color(colors[idx]))
+            }
+
+            // X ring — inner-most yellow disc, same colour as ring 10.
+            let xR = radius * CGFloat(geo.xRadius)
+            let xRect = CGRect(x: center.x - xR, y: center.y - xR, width: xR * 2, height: xR * 2)
+            context.fill(Path(ellipseIn: xRect), with: .color(.appTargetGold))
+
+            // Thin stroked divider circles between every ring + X.
+            let dividerRadii: [Double] = geo.rings + [geo.xRadius]
+            let dividerColor = dividerStrokeColor(for: faceType)
+            for rNorm in dividerRadii {
+                let r = radius * CGFloat(rNorm)
+                let rect = CGRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2)
+                context.stroke(Path(ellipseIn: rect), with: .color(dividerColor), lineWidth: 0.6)
+            }
+
+            // X tick: small cross at centre so the X ring reads as X even when shrunk.
+            let tickR = radius * CGFloat(geo.xRadius) * 0.55
+            var tick = Path()
+            tick.move(to: CGPoint(x: center.x - tickR, y: center.y))
+            tick.addLine(to: CGPoint(x: center.x + tickR, y: center.y))
+            tick.move(to: CGPoint(x: center.x, y: center.y - tickR))
+            tick.addLine(to: CGPoint(x: center.x, y: center.y + tickR))
+            context.stroke(tick, with: .color(.appTargetInk.opacity(0.6)), lineWidth: 0.8)
+        }
+        .clipShape(Circle())
+        .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
+    }
+
+    /// Colour of each ring (outer-most first), matching the ring order in
+    /// `TargetGeometry.rings`. Every consecutive pair of rings in the WA face
+    /// share a colour (outer/inner white, outer/inner black, ... ).
+    private func ringFillColors(for faceType: TargetFaceType) -> [Color] {
+        switch faceType {
+        case .sixRing:
+            // Colour bands on the compound 6-ring face, outer → inner:
+            //   ring 6  → blue
+            //   rings 7 → red (ring-7 outer band sits at the red-ring outer edge)
+            //   ring 8  → red
+            //   rings 9 → yellow
+            //   ring 10 → yellow (outer yellow band; X ring is filled separately)
+            return [
+                .appTargetBlue,    // ring 6
+                .appTargetRed,     // ring 7
+                .appTargetRed,     // ring 8
+                .appTargetYellow,  // ring 9
+                .appTargetYellow   // ring 10
+            ]
+        case .tenRing:
+            return [
+                .appTargetWhite,   // ring 1
+                .appTargetWhite,   // ring 2
+                .appTargetBlack,   // ring 3
+                .appTargetBlack,   // ring 4
+                .appTargetBlue,    // ring 5
+                .appTargetBlue,    // ring 6
+                .appTargetRed,     // ring 7
+                .appTargetRed,     // ring 8
+                .appTargetYellow,  // ring 9
+                .appTargetYellow   // ring 10
+            ]
+        }
+    }
+
+    private func dividerStrokeColor(for faceType: TargetFaceType) -> Color {
+        switch faceType {
+        case .sixRing: return .appTargetInk.opacity(0.25)
+        case .tenRing: return .appTargetInk.opacity(0.25)
+        }
     }
 }
 
@@ -272,6 +425,10 @@ private struct ArrowDot: View {
             Circle()
                 .fill(dotColor)
                 .frame(width: size, height: size)
+                .overlay(
+                    Circle()
+                        .strokeBorder(outlineColor, lineWidth: outlineWidth)
+                )
                 .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
 
             if size >= 12 {
@@ -284,24 +441,51 @@ private struct ArrowDot: View {
 
     private var dotColor: Color {
         switch ring {
-        case 11: return Color(red: 1.0,  green: 0.85, blue: 0.0)   // gold   (X, inner yellow)
-        case 10: return Color(red: 1.0,  green: 0.95, blue: 0.2)   // yellow (outer yellow zone)
-        case 9:  return Color(red: 1.0,  green: 0.95, blue: 0.2)   // yellow (still yellow zone)
-        case 8:  return Color(red: 0.88, green: 0.28, blue: 0.22)  // red
-        case 7:  return Color(red: 0.88, green: 0.28, blue: 0.22)  // red
-        case 6:  return Color(red: 0.0,  green: 0.73, blue: 0.89)  // blue
+        case 11: return .appTargetGold      // X
+        case 10: return .appTargetYellow
+        case 9:  return .appTargetYellow
+        case 8:  return .appTargetRed
+        case 7:  return .appTargetRed
+        case 6:  return .appTargetBlue
+        case 5:  return .appTargetBlue      // 10-ring: ring 5 is the inner blue band
+        case 4:  return .appTargetBlack
+        case 3:  return .appTargetBlack
+        case 2:  return .appTargetWhite
+        case 1:  return .appTargetWhite
         default: return .gray
         }
     }
 
+    /// White dots on the outer white rings need a dark border to be visible;
+    /// black dots on the black rings need a light border for the same reason.
+    private var outlineColor: Color {
+        switch ring {
+        case 1, 2:  return .appTargetInk.opacity(0.85)
+        case 3, 4:  return .appTargetWhite.opacity(0.9)
+        default:    return .clear
+        }
+    }
+
+    private var outlineWidth: CGFloat {
+        switch ring {
+        case 1, 2, 3, 4: return 1.0
+        default: return 0
+        }
+    }
+
     private var textColor: Color {
-        ring >= 9 ? .black : .white
+        switch ring {
+        case 9, 10, 11: return .appTargetInk     // dark ink on yellow/gold
+        case 1, 2:      return .appTargetInk     // dark ink on white
+        case 3, 4:      return .white            // white on black
+        default:        return .white
+        }
     }
 }
 
 // MARK: - Preview
 
-#Preview {
+#Preview("6-Ring (compound)") {
     let arrows: [ArrowPlot] = [
         ArrowPlot(id: "1", sessionId: "s1", bowConfigId: "bc1", arrowConfigId: "ac1",
                   ring: 11, zone: .center, shotAt: Date(), excluded: false, notes: nil),
@@ -313,15 +497,32 @@ private struct ArrowDot: View {
                   ring: 8, zone: .se, shotAt: Date(), excluded: false, notes: nil),
     ]
 
-    VStack(spacing: 20) {
-        TargetPlotView(arrows: arrows, onArrowPlotted: { ring, zone, _, _ in
-            print("Plotted ring \(ring) zone \(zone)")
-        })
-        .frame(width: 320, height: 320)
-        .padding()
+    return VStack(spacing: 20) {
+        TargetPlotView(arrows: arrows,
+                       onArrowPlotted: { _, _, _, _ in },
+                       faceType: .sixRing)
+            .frame(width: 320, height: 320)
+            .padding()
+    }
+}
 
-        TargetPlotView(arrows: [], onArrowPlotted: { _, _, _, _ in }, isEnabled: false)
-            .frame(width: 200, height: 200)
-            .opacity(0.5)
+#Preview("10-Ring (recurve)") {
+    let arrows: [ArrowPlot] = [
+        ArrowPlot(id: "1", sessionId: "s1", bowConfigId: "bc1", arrowConfigId: "ac1",
+                  ring: 11, zone: .center, shotAt: Date(), excluded: false, notes: nil),
+        ArrowPlot(id: "2", sessionId: "s1", bowConfigId: "bc1", arrowConfigId: "ac1",
+                  ring: 8, zone: .ne, shotAt: Date(), excluded: false, notes: nil),
+        ArrowPlot(id: "3", sessionId: "s1", bowConfigId: "bc1", arrowConfigId: "ac1",
+                  ring: 5, zone: .w, shotAt: Date(), excluded: false, notes: nil),
+        ArrowPlot(id: "4", sessionId: "s1", bowConfigId: "bc1", arrowConfigId: "ac1",
+                  ring: 2, zone: .se, shotAt: Date(), excluded: false, notes: nil),
+    ]
+
+    return VStack(spacing: 20) {
+        TargetPlotView(arrows: arrows,
+                       onArrowPlotted: { _, _, _, _ in },
+                       faceType: .tenRing)
+            .frame(width: 320, height: 320)
+            .padding()
     }
 }
