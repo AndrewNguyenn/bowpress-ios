@@ -254,11 +254,14 @@ enum DevMockData {
 
     // MARK: - Sessions
 
-    // Distance distribution exercises the analytics distance filter:
-    //   • s1_1, s1_2: nil (early sessions before the user started tracking distance)
-    //   • s1_3, s1_4: 20yd (indoor practice)
-    //   • s1_5..s1_8: 50m (outdoor compound)
-    // Combined with bow2's 70m sessions that's 3 distinct distances → chip row appears.
+    // Distance distribution is spread across the most-recent sessions so every
+    // chip shows real data at the default 3-day period:
+    //   • s1_1, s1_2: nil (oldest — before the user started tracking distance)
+    //   • s1_3, s1_5: 20yd (indoor practice)  — incl. one within 3 days
+    //   • s1_6, s1_8: 50m (outdoor compound)  — incl. one within 3 days
+    //   • s1_4, s1_7: 70m (outdoor compound)  — incl. one within 3 days
+    // Plus bow2's recurve sessions (most at 70m) and the recurve session that's
+    // also been pulled inside the 3-day window so the Recurve chip has data.
     private static let bow1Sessions: [ShootingSession] = [
         ShootingSession(
             id: "dev_s1_1",
@@ -318,38 +321,41 @@ enum DevMockData {
             arrowCount: 12,
             distance: .fiftyMeters
         ),
+        // The most-recent three sessions are spread across all three distances
+        // and all sit inside the default 3-day analytics window so each
+        // distance chip surfaces real data without changing the period selector.
         ShootingSession(
             id: "dev_s1_6",
             bowId: "dev_bow1",
             bowConfigId: "dev_bc1c",
             arrowConfigId: "dev_arrow1",
-            startedAt: daysAgo(9),
-            endedAt: daysAgo(9).addingTimeInterval(5_400),
-            notes: "Competition setup dialed in. Hitting consistent Xs in low-wind conditions.",
+            startedAt: daysAgo(2),
+            endedAt: daysAgo(2).addingTimeInterval(5_400),
+            notes: "Indoor 20yd practice — clean groups, tested new D-loop length.",
             feelTags: ["consistent", "clean_release"],
             arrowCount: 18,
-            distance: .fiftyMeters
+            distance: .twentyYards
         ),
         ShootingSession(
             id: "dev_s1_7",
             bowId: "dev_bow1",
             bowConfigId: "dev_bc1c",
             arrowConfigId: "dev_arrow1",
-            startedAt: daysAgo(5),
-            endedAt: daysAgo(5).addingTimeInterval(5_700),
-            notes: "Best session yet. Back tension fully engaged, impact pattern very tight.",
+            startedAt: daysAgo(1),
+            endedAt: daysAgo(1).addingTimeInterval(5_700),
+            notes: "Long-distance work at 70m. Back tension fully engaged, impact pattern very tight.",
             feelTags: ["back_tension", "clean_release", "consistent"],
             arrowCount: 18,
-            distance: .fiftyMeters
+            distance: .seventyMeters
         ),
         ShootingSession(
             id: "dev_s1_8",
             bowId: "dev_bow1",
             bowConfigId: "dev_bc1c",
             arrowConfigId: "dev_arrow1",
-            startedAt: daysAgo(2),
-            endedAt: daysAgo(2).addingTimeInterval(5_400),
-            notes: "Pre-comp tune check. Groups holding well. Minor sight drift to correct.",
+            startedAt: daysAgo(0),
+            endedAt: daysAgo(0).addingTimeInterval(5_400),
+            notes: "Pre-comp tune check at 50m. Groups holding well. Minor sight drift to correct.",
             feelTags: ["consistent", "clean_release"],
             arrowCount: 18,
             distance: .fiftyMeters
@@ -507,30 +513,30 @@ enum DevMockData {
             zones: [.ne, .n, .center, .ne, .center, .n, .ne, .center, .n, .center, .ne, .n]
         )
 
-        // dev_s1_6 — bc1c, 10s/11s, mostly center/n, NE bias developing
+        // dev_s1_6 — bc1c, 20yd indoor, 10s/11s, mostly center/n, NE bias developing
         plots += makePlots(
             sessionId: "dev_s1_6", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
-            startedAt: daysAgo(9), count: 18,
+            startedAt: daysAgo(2), count: 18,
             rings: [10, 11, 10, 11, 10, 11, 10, 10, 11, 10, 11, 10, 11, 10, 10, 11, 10, 11],
             zones: [.center, .n, .center, .center, .n, .center, .ne, .center, .center, .n, .center, .center, .n, .center, .center, .center, .n, .center],
             plotX: [ 0.015,  0.012, -0.010,  0.018,  0.025, -0.005,  0.030, -0.018,  0.022,  0.010, -0.012,  0.028,  0.015, -0.015,  0.020,  0.010, -0.008,  0.008],
             plotY: [ 0.095,  0.030,  0.112,  0.025,  0.095,  0.040,  0.108,  0.120,  0.035,  0.102,  0.042,  0.115,  0.038,  0.105,  0.092,  0.028,  0.118,  0.032]
         )
 
-        // dev_s1_7 — bc1c, best session, mostly 11s/Xs, tight NE cluster
+        // dev_s1_7 — bc1c, 70m outdoor, best session, mostly 11s/Xs, tight NE cluster
         plots += makePlots(
             sessionId: "dev_s1_7", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
-            startedAt: daysAgo(5), count: 18,
+            startedAt: daysAgo(1), count: 18,
             rings: [11, 11, 10, 11, 11, 10, 11, 11, 11, 10, 11, 11, 10, 11, 11, 11, 10, 11],
             zones: [.center, .center, .n, .center, .center, .center, .n, .center, .center, .center, .center, .n, .center, .center, .center, .center, .n, .center],
             plotX: [ 0.020,  0.025,  0.088,  0.018,  0.028,  0.095,  0.015,  0.022,  0.030,  0.082,  0.012,  0.025,  0.098,  0.020,  0.018,  0.022,  0.085,  0.015],
             plotY: [ 0.025,  0.030,  0.095,  0.022,  0.032,  0.105,  0.020,  0.028,  0.018,  0.108,  0.035,  0.030,  0.090,  0.025,  0.040,  0.015,  0.112,  0.028]
         )
 
-        // dev_s1_8 — bc1c, 10s/11s, tightening, N bias only
+        // dev_s1_8 — bc1c, 50m outdoor, 10s/11s, tightening, N bias only
         plots += makePlots(
             sessionId: "dev_s1_8", bowConfigId: "dev_bc1c", arrowConfigId: "dev_arrow1",
-            startedAt: daysAgo(2), count: 18,
+            startedAt: daysAgo(0), count: 18,
             rings: [10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11, 11, 10, 11, 10, 11, 11],
             zones: [.center, .center, .n, .center, .center, .n, .center, .center, .n, .center, .center, .center, .n, .center, .center, .center, .n, .center],
             plotX: [ 0.008,  0.012, -0.005,  0.015,  0.018, -0.010,  0.010, -0.008,  0.012,  0.020, -0.005,  0.015, -0.010,  0.010,  0.018,  0.008, -0.010,  0.020],
