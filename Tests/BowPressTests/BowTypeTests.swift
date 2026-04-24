@@ -181,6 +181,23 @@ final class BowTypeTests: XCTestCase {
         XCTAssertFalse(json.contains("\"rearStabRightWeight\""))
     }
 
+    func test_compoundConfigJSON_withRearStabBoth_includesLeftRightWeights() throws {
+        let bow = Bow(id: "b1", userId: "u1", name: "C", bowType: .compound, createdAt: Date())
+        var cfg = BowConfiguration.makeDefault(for: bow)
+        cfg.rearStabSide = .both
+        cfg.rearStabWeight = nil
+        cfg.rearStabLeftWeight = 4
+        cfg.rearStabRightWeight = 6
+
+        let data = try JSONEncoder().encode(cfg)
+        let json = try XCTUnwrap(String(data: data, encoding: .utf8))
+
+        XCTAssertTrue(json.contains("\"rearStabLeftWeight\""), "compound .both payload must include rearStabLeftWeight")
+        XCTAssertTrue(json.contains("\"rearStabRightWeight\""), "compound .both payload must include rearStabRightWeight")
+        XCTAssertFalse(json.contains("\"rearStabWeight\""), "compound .both payload must omit single rearStabWeight")
+        XCTAssertTrue(json.contains("\"rearStabSide\""))
+    }
+
     func test_compoundConfigJSON_omitsRecurveFields() throws {
         let bow = Bow(id: "b1", userId: "u1", name: "C", bowType: .compound, createdAt: Date())
         let cfg = BowConfiguration.makeDefault(for: bow)

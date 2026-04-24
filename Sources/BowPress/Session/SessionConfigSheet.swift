@@ -181,7 +181,32 @@ struct SessionConfigSheet: View {
             Picker("Side", selection: $rearStabSide) {
                 ForEach(RearStabSide.allCases, id: \.self) { Text($0.label).tag($0) }
             }
-            if rearStabSide != .none {
+            if rearStabSide == .both {
+                Stepper(
+                    value: $rearStabLeftWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                    in: UnitRange.rearStabWeight.displayRange(unitSystem),
+                    step: UnitRange.rearStabWeight.displayStep(unitSystem)
+                ) {
+                    LabeledContent("Left Weight",
+                                   value: UnitFormatting.stabWeight(ounces: rearStabLeftWeight, system: unitSystem))
+                }
+                Stepper(
+                    value: $rearStabRightWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                    in: UnitRange.rearStabWeight.displayRange(unitSystem),
+                    step: UnitRange.rearStabWeight.displayStep(unitSystem)
+                ) {
+                    LabeledContent("Right Weight",
+                                   value: UnitFormatting.stabWeight(ounces: rearStabRightWeight, system: unitSystem))
+                }
+                Stepper(value: $rearStabVertAngle, in: -90...90, step: 5) {
+                    LabeledContent("Vertical Angle",
+                                   value: UnitFormatting.degrees(rearStabVertAngle, digits: 0))
+                }
+                Stepper(value: $rearStabHorizAngle, in: 0...90, step: 5) {
+                    LabeledContent("Horizontal Angle",
+                                   value: UnitFormatting.degrees(rearStabHorizAngle, digits: 0))
+                }
+            } else if rearStabSide != .none {
                 Stepper(
                     value: $rearStabWeight.displayed(in: unitSystem, scale: .ounceToGram),
                     in: UnitRange.rearStabWeight.displayRange(unitSystem),
@@ -420,8 +445,8 @@ struct SessionConfigSheet: View {
         tillerBottom = config.tillerBottom ?? 0
         plungerTension = config.plungerTension ?? 12
         clickerPosition = config.clickerPosition ?? 0
-        rearStabLeftWeight = config.rearStabLeftWeight ?? 6
-        rearStabRightWeight = config.rearStabRightWeight ?? 6
+        rearStabLeftWeight = config.rearStabLeftWeight ?? (bowType == .compound ? 0 : 6)
+        rearStabRightWeight = config.rearStabRightWeight ?? (bowType == .compound ? 0 : 6)
 
         let arrow = viewModel.pendingArrowConfig ?? viewModel.activeArrowConfig
         selectedArrowConfig = arrow
@@ -456,7 +481,15 @@ struct SessionConfigSheet: View {
             draft.frontStabWeight = frontStabWeight
             draft.frontStabAngle = frontStabAngle
             draft.rearStabSide = rearStabSide
-            draft.rearStabWeight = rearStabWeight
+            if rearStabSide == .both {
+                draft.rearStabWeight = nil
+                draft.rearStabLeftWeight = rearStabLeftWeight
+                draft.rearStabRightWeight = rearStabRightWeight
+            } else {
+                draft.rearStabWeight = rearStabWeight
+                draft.rearStabLeftWeight = nil
+                draft.rearStabRightWeight = nil
+            }
             draft.rearStabVertAngle = rearStabVertAngle
             draft.rearStabHorizAngle = rearStabHorizAngle
         case .recurve:
