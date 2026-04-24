@@ -373,6 +373,9 @@ final class PersistentSession {
     /// Raw value of `ShootingDistance`. Optional — existing rows decode as nil.
     /// SwiftData lightweight-migrates this since it's added with a default.
     var distanceStr: String? = nil
+    /// Short archer-authored session name. Optional — existing rows decode nil.
+    /// Migrated in via SwiftData lightweight migration (default nil).
+    var title: String? = nil
     var pendingSync: Bool = false
 
     init(
@@ -386,7 +389,8 @@ final class PersistentSession {
         feelTagsJSON: String,
         arrowCount: Int,
         targetFaceTypeStr: String = TargetFaceType.sixRing.rawValue,
-        distanceStr: String? = nil
+        distanceStr: String? = nil,
+        title: String? = nil
     ) {
         self.id = id
         self.bowId = bowId
@@ -399,6 +403,7 @@ final class PersistentSession {
         self.arrowCount = arrowCount
         self.targetFaceTypeStr = targetFaceTypeStr
         self.distanceStr = distanceStr
+        self.title = title
     }
 
     func toDTO() -> ShootingSession {
@@ -424,7 +429,8 @@ final class PersistentSession {
             ends: nil,
             arrows: nil,
             targetFaceType: TargetFaceType(rawValue: targetFaceTypeStr) ?? .sixRing,
-            distance: distanceStr.flatMap { ShootingDistance(rawValue: $0) }
+            distance: distanceStr.flatMap { ShootingDistance(rawValue: $0) },
+            title: title
         )
     }
 
@@ -448,7 +454,8 @@ final class PersistentSession {
             feelTagsJSON: tagsJSON,
             arrowCount: dto.arrowCount,
             targetFaceTypeStr: dto.targetFaceType.rawValue,
-            distanceStr: dto.distance?.rawValue
+            distanceStr: dto.distance?.rawValue,
+            title: dto.title
         )
     }
 }

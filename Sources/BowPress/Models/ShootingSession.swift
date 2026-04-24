@@ -20,12 +20,16 @@ struct ShootingSession: Identifiable, Codable, Equatable {
     /// Distance from the shooter to the target. Optional — sessions that
     /// predate the field, or where the user didn't pick a distance, stay nil.
     var distance: ShootingDistance?
+    /// Short archer-authored session name ("Morning range", "Pre-comp tune").
+    /// Server side lives in `shooting_sessions.title` (migration 0018); nil
+    /// when untitled, in which case the UI falls back to a distance template.
+    var title: String?
 
     enum CodingKeys: String, CodingKey {
         case id, bowId, bowConfigId, arrowConfigId
         case startedAt, endedAt, notes, feelTags
         case conditions, arrowCount, ends, arrows
-        case targetFaceType, distance
+        case targetFaceType, distance, title
     }
 
     init(
@@ -42,7 +46,8 @@ struct ShootingSession: Identifiable, Codable, Equatable {
         ends: [SessionEnd]? = nil,
         arrows: [ArrowPlot]? = nil,
         targetFaceType: TargetFaceType = .sixRing,
-        distance: ShootingDistance? = nil
+        distance: ShootingDistance? = nil,
+        title: String? = nil
     ) {
         self.id = id
         self.bowId = bowId
@@ -58,6 +63,7 @@ struct ShootingSession: Identifiable, Codable, Equatable {
         self.arrows = arrows
         self.targetFaceType = targetFaceType
         self.distance = distance
+        self.title = title
     }
 
     init(from decoder: Decoder) throws {
@@ -76,6 +82,7 @@ struct ShootingSession: Identifiable, Codable, Equatable {
         arrows = try c.decodeIfPresent([ArrowPlot].self, forKey: .arrows)
         targetFaceType = try c.decodeIfPresent(TargetFaceType.self, forKey: .targetFaceType) ?? .sixRing
         distance = try c.decodeIfPresent(ShootingDistance.self, forKey: .distance)
+        title = try c.decodeIfPresent(String.self, forKey: .title)
     }
 }
 

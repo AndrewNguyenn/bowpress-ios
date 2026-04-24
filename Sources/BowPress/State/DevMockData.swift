@@ -272,7 +272,8 @@ enum DevMockData {
             endedAt: daysAgo(35).addingTimeInterval(4_500),
             notes: "First range session with the new bow. Still finding anchor, groups were wide.",
             feelTags: ["anchor_drift", "rushed"],
-            arrowCount: 12
+            arrowCount: 12,
+            title: "First range"
         ),
         ShootingSession(
             id: "dev_s1_2",
@@ -283,7 +284,8 @@ enum DevMockData {
             endedAt: daysAgo(32).addingTimeInterval(5_400),
             notes: "Worked on back tension. Some improvement but still inconsistent peep alignment.",
             feelTags: ["back_tension", "peep_alignment"],
-            arrowCount: 15
+            arrowCount: 15,
+            title: "Back tension drill"
         ),
         ShootingSession(
             id: "dev_s1_3",
@@ -295,7 +297,8 @@ enum DevMockData {
             notes: "Groups tightening slightly. Wind made it hard to judge impact consistently.",
             feelTags: ["wind_affected", "back_tension"],
             arrowCount: 14,
-            distance: .twentyYards
+            distance: .twentyYards,
+            title: "Windy afternoon"
         ),
         ShootingSession(
             id: "dev_s1_4",
@@ -307,7 +310,8 @@ enum DevMockData {
             notes: "New rest position making a clear difference. Cleaner breaks off the wall.",
             feelTags: ["clean_release", "consistent"],
             arrowCount: 16,
-            distance: .twentyYards
+            distance: .twentyYards,
+            title: "Rest tune check"
         ),
         ShootingSession(
             id: "dev_s1_5",
@@ -319,7 +323,8 @@ enum DevMockData {
             notes: "Short session due to fatigue. Still, groups are noticeably tighter than first week.",
             feelTags: ["fatigue", "consistent"],
             arrowCount: 12,
-            distance: .fiftyMeters
+            distance: .fiftyMeters,
+            title: "Short session"
         ),
         // The most-recent three sessions are spread across all three distances
         // and all sit inside the default 3-day analytics window so each
@@ -334,7 +339,8 @@ enum DevMockData {
             notes: "Indoor 20yd practice — clean groups, tested new D-loop length.",
             feelTags: ["consistent", "clean_release"],
             arrowCount: 18,
-            distance: .twentyYards
+            distance: .twentyYards,
+            title: "Indoor practice"
         ),
         ShootingSession(
             id: "dev_s1_7",
@@ -346,7 +352,8 @@ enum DevMockData {
             notes: "Long-distance work at 70m. Back tension fully engaged, impact pattern very tight.",
             feelTags: ["back_tension", "clean_release", "consistent"],
             arrowCount: 18,
-            distance: .seventyMeters
+            distance: .seventyMeters,
+            title: "Long-distance work"
         ),
         ShootingSession(
             id: "dev_s1_8",
@@ -358,7 +365,8 @@ enum DevMockData {
             notes: "Pre-comp tune check at 50m. Groups holding well. Minor sight drift to correct.",
             feelTags: ["consistent", "clean_release"],
             arrowCount: 18,
-            distance: .fiftyMeters
+            distance: .fiftyMeters,
+            title: "Pre-comp tune check"
         ),
     ]
 
@@ -373,7 +381,8 @@ enum DevMockData {
             notes: "Initial setup session. Getting used to the longer draw on the Hoyt.",
             feelTags: ["anchor_drift", "rushed"],
             arrowCount: 12,
-            distance: .seventyMeters
+            distance: .seventyMeters,
+            title: "Hoyt opener"
         ),
         ShootingSession(
             id: "dev_s2_2",
@@ -385,7 +394,8 @@ enum DevMockData {
             notes: "More comfortable with the draw cycle. Groups still wide but more intentional.",
             feelTags: ["peep_alignment", "back_tension"],
             arrowCount: 13,
-            distance: .seventyMeters
+            distance: .seventyMeters,
+            title: "Finding the draw"
         ),
         ShootingSession(
             id: "dev_s2_3",
@@ -397,7 +407,8 @@ enum DevMockData {
             notes: "Full tune applied. Huge difference in arrow flight stability off the rest.",
             feelTags: ["consistent", "clean_release"],
             arrowCount: 14,
-            distance: .seventyMeters
+            distance: .seventyMeters,
+            title: "Tune applied"
         ),
         ShootingSession(
             id: "dev_s2_4",
@@ -409,7 +420,8 @@ enum DevMockData {
             notes: "Focused on windage. Groups printing slightly left — adjustments logged.",
             feelTags: ["consistent", "peep_alignment"],
             arrowCount: 15,
-            distance: .seventyMeters
+            distance: .seventyMeters,
+            title: "Windage chase"
         ),
         ShootingSession(
             id: "dev_s2_5",
@@ -421,7 +433,8 @@ enum DevMockData {
             notes: "Strong session. Back tension and release timing syncing up well.",
             feelTags: ["back_tension", "clean_release", "consistent"],
             arrowCount: 15,
-            distance: .seventyMeters
+            distance: .seventyMeters,
+            title: "Strong session"
         ),
         ShootingSession(
             id: "dev_s2_6",
@@ -433,7 +446,8 @@ enum DevMockData {
             notes: "Late evening session, slightly fatigued but managed consistent groups.",
             feelTags: ["fatigue", "consistent"],
             arrowCount: 14,
-            distance: .seventyMeters
+            distance: .seventyMeters,
+            title: "Evening range"
         ),
     ]
 

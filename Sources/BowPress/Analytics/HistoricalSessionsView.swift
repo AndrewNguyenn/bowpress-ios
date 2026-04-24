@@ -574,6 +574,9 @@ private struct SessionLogRow: View {
     }
 
     private var sessionTitle: String {
+        if let t = session.title?.trimmingCharacters(in: .whitespacesAndNewlines), !t.isEmpty {
+            return t
+        }
         if let dist = session.distance {
             return "Range · \(dist.label)"
         }

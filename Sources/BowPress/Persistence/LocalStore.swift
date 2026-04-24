@@ -173,6 +173,7 @@ final class LocalStore {
             existing.arrowCount = session.arrowCount
             existing.targetFaceTypeStr = session.targetFaceType.rawValue
             existing.distanceStr = session.distance?.rawValue
+            existing.title = session.title
         } else {
             let record = PersistentSession.from(session)
             record.pendingSync = true
