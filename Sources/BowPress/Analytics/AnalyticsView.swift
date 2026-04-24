@@ -14,6 +14,19 @@ struct AnalyticsView: View {
     @State private var highlightedSuggestionId: String?
     @State private var filtersSheetPresented = false
 
+    #if DEBUG
+    /// Test-only initialiser — injects a pre-populated `AnalyticsViewModel` so
+    /// snapshot tests can render specific states without hitting the network.
+    /// Passing `nil` (the default) is equivalent to the synthesised no-arg init.
+    /// `@MainActor` is required because `AnalyticsViewModel.init()` is
+    /// main-actor-isolated; `nil` is used as the default to avoid evaluating
+    /// that call in a nonisolated default-parameter position.
+    @MainActor
+    init(testViewModel: AnalyticsViewModel? = nil) {
+        _viewModel = State(initialValue: testViewModel ?? AnalyticsViewModel())
+    }
+    #endif
+
     var body: some View {
         Group {
             if viewModel.isLoading && viewModel.overview == nil {

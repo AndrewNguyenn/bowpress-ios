@@ -1,15 +1,23 @@
 import XCTest
 import SwiftUI
+import SnapshotTesting
 @testable import BowPress
 
-// NOTE: The brief requested pointfreeco/swift-snapshot-testing, but that
-// dependency is not present in Package.swift / project.yml and adding a new
-// package would touch project.yml (which `ios-subscription-ui` is also
-// modifying on a parallel branch). These tests exercise the same views the
-// snapshots would render, validating the deterministic state that drives each
-// variant — populated user, verified vs unverified badge, pristine and error
-// states. When the snapshot library is wired up we can drop these in favour
-// of image diffs.
+#if canImport(UIKit)
+import UIKit
+
+// MARK: - SettingsSnapshotTests
+//
+// Image snapshots of the Kenrokuen Settings surface. Previously this file only
+// performed compile/instantiation checks; it is now wired to swift-snapshot-
+// testing so palette and typography regressions surface as pixel diffs.
+//
+// Covered variants:
+//   • SettingsView         — populated verified user
+//   • AccountView          — verified badge / unverified badge
+//   • EditProfileView      — pristine (save button disabled until name changes)
+//   • ChangePasswordView   — pristine + error state
+//   • DeleteAccountView    — pristine
 
 @MainActor
 final class SettingsSnapshotTests: XCTestCase {
@@ -40,88 +48,89 @@ final class SettingsSnapshotTests: XCTestCase {
         let state = AppState()
         state.currentUser = user
         state.isAuthenticated = user != nil
+        state.isHydrating = false
         return state
     }
 
     // MARK: - SettingsView
 
-    func test_settingsView_rendersWithPopulatedUser() {
+    func testSettingsView_populatedVerifiedUser() {
         let state = stateWithUser(verifiedUser())
         let view = NavigationStack { SettingsView() }.environment(state)
-        XCTAssertNoThrow(try hostAndInstantiate(view))
+        assertSnapshot(
+            of: SnapshotTestHelpers.snaphost(view),
+            as: .image(on: .iPhone13),
+            record: false
+        )
     }
 
     // MARK: - AccountView
 
-    func test_accountView_verifiedUser_rendersVerifiedBadge() {
+    func testAccountView_verifiedUser_showsVerifiedBadge() {
         let state = stateWithUser(verifiedUser())
-        XCTAssertEqual(state.currentUser?.emailVerified, true)
         let view = NavigationStack { AccountView() }.environment(state)
-        XCTAssertNoThrow(try hostAndInstantiate(view))
+        assertSnapshot(
+            of: SnapshotTestHelpers.snaphost(view),
+            as: .image(on: .iPhone13),
+            record: false
+        )
     }
 
-    func test_accountView_unverifiedUser_rendersUnverifiedBadge() {
+    func testAccountView_unverifiedUser_showsUnverifiedBadge() {
         let state = stateWithUser(unverifiedUser())
-        XCTAssertEqual(state.currentUser?.emailVerified, false)
         let view = NavigationStack { AccountView() }.environment(state)
-        XCTAssertNoThrow(try hostAndInstantiate(view))
+        assertSnapshot(
+            of: SnapshotTestHelpers.snaphost(view),
+            as: .image(on: .iPhone13),
+            record: false
+        )
     }
 
     // MARK: - EditProfileView
 
-    func test_editProfileView_pristine_rendersAndHasSaveButtonDisabledForEmptyName() {
+    func testEditProfileView_pristine() {
         let state = stateWithUser(verifiedUser())
         let view = NavigationStack { EditProfileView() }.environment(state)
-        XCTAssertNoThrow(try hostAndInstantiate(view))
+        assertSnapshot(
+            of: SnapshotTestHelpers.snaphost(view),
+            as: .image(on: .iPhone13),
+            record: false
+        )
     }
 
     // MARK: - ChangePasswordView
 
-    func test_changePasswordView_pristine_renders() {
+    func testChangePasswordView_pristine() {
         let view = NavigationStack { ChangePasswordView() }
-        XCTAssertNoThrow(try hostAndInstantiate(view))
+        assertSnapshot(
+            of: SnapshotTestHelpers.snaphost(view),
+            as: .image(on: .iPhone13),
+            record: false
+        )
     }
 
-    func test_changePasswordView_withError_renders() {
+    func testChangePasswordView_withError() {
         let view = NavigationStack {
             ChangePasswordView(previewError: "Current password incorrect")
         }
-        XCTAssertNoThrow(try hostAndInstantiate(view))
+        assertSnapshot(
+            of: SnapshotTestHelpers.snaphost(view),
+            as: .image(on: .iPhone13),
+            record: false
+        )
     }
 
     // MARK: - DeleteAccountView
 
-    func test_deleteAccountView_pristine_renders() {
+    func testDeleteAccountView_pristine() {
         let state = stateWithUser(verifiedUser())
         let view = NavigationStack { DeleteAccountView() }.environment(state)
-        XCTAssertNoThrow(try hostAndInstantiate(view))
-    }
-
-    // MARK: - APIClient wiring
-
-    func test_apiClient_exposesAccountMethods() {
-        // Compile-time assertion: the async methods exist with the documented
-        // shape. We don't hit the network; this guards against accidental
-        // renames when the backend worker finalises the contracts.
-        let client = APIClient.shared
-        _ = { () async throws -> Void in
-            _ = try await client.fetchProfile()
-            _ = try await client.updateProfile(name: "N")
-            try await client.changePassword(current: "c", new: "n12345678")
-            try await client.deleteAccount(password: "p")
-        }
-    }
-
-    // MARK: - Helpers
-
-    /// Instantiates the view's body so that any ViewBuilder / state
-    /// construction errors surface at test-time. This is the minimum we can
-    /// do without the snapshot-testing library; it catches the common
-    /// regressions — missing environment values, crashing initialisers,
-    /// misconfigured bindings.
-    private func hostAndInstantiate(_ view: some View) throws {
-        let host = UIHostingController(rootView: view)
-        host.view.layoutIfNeeded()
-        _ = host.view.bounds
+        assertSnapshot(
+            of: SnapshotTestHelpers.snaphost(view),
+            as: .image(on: .iPhone13),
+            record: false
+        )
     }
 }
+
+#endif

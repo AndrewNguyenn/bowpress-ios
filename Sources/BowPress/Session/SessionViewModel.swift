@@ -20,6 +20,13 @@ import Observation
         self.store = store
     }
 
+    #if DEBUG
+    /// When `true`, `SessionView.primeSetupState()` skips the `LocalStore` fetch
+    /// calls. Set this in snapshot tests that inject pre-populated AppState so
+    /// that the in-memory SwiftData context is never accessed during rendering.
+    var isSnapshotTest: Bool = false
+    #endif
+
     // MARK: - Active Session State
 
     var currentSession: ShootingSession?

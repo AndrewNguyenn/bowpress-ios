@@ -28,6 +28,26 @@ struct SessionView: View {
     @State private var now: Date = Date()
     private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
+    #if DEBUG
+    /// Test-only initialiser — lets snapshot tests pin specific selection state
+    /// (distance, face type) without relying on @AppStorage or .onAppear priming.
+    /// `mockNow` pins the `now` state variable so both the active-session elapsed
+    /// timer and the setup-view time stamp render deterministically.
+    init(
+        appState: AppState,
+        viewModel: SessionViewModel,
+        selectedDistance: ShootingDistance? = nil,
+        selectedFaceType: TargetFaceType = .tenRing,
+        mockNow: Date = Date(timeIntervalSince1970: 1_735_689_600)  // 2025-01-01 00:00 UTC
+    ) {
+        self.appState = appState
+        self._viewModel = Bindable(wrappedValue: viewModel)
+        self._selectedDistance = State(initialValue: selectedDistance)
+        self._selectedFaceType = State(initialValue: selectedFaceType)
+        self._now = State(initialValue: mockNow)
+    }
+    #endif
+
     var body: some View {
         Group {
             if viewModel.isSessionActive {
@@ -123,12 +143,13 @@ struct SessionView: View {
 
     @ViewBuilder
     private var setupStamp: some View {
-        let d = Date()
+        // Use `now` (the same State variable as the active-session timer) so that
+        // snapshot tests can pin a deterministic date via the DEBUG init.
         VStack(alignment: .trailing, spacing: 0) {
-            Text(dateLine(d))
+            Text(dateLine(now))
                 .font(.bpMono(10, weight: .medium))
                 .foregroundStyle(Color.appInk)
-            Text(timeLine(d))
+            Text(timeLine(now))
                 .font(.bpMono(10))
                 .foregroundStyle(Color.appInk3)
             Text(sunriseLine())
@@ -471,12 +492,27 @@ struct SessionView: View {
     // MARK: - Setup priming
 
     private func primeSetupState() {
+#if DEBUG
+        // Snapshot tests inject pre-populated AppState and an in-memory SwiftData
+        // store. Calling context.fetch() from within the snapshot render path can
+        // crash. When isSnapshotTest is true we skip the store sync and rely
+        // solely on the already-populated AppState.
+        if !viewModel.isSnapshotTest {
+            if let fresh = try? store.fetchBows(), fresh.count != appState.bows.count {
+                appState.bows = fresh
+            }
+            if let fresh = try? store.fetchArrowConfigs(), fresh.count != appState.arrowConfigs.count {
+                appState.arrowConfigs = fresh
+            }
+        }
+#else
         if let fresh = try? store.fetchBows(), fresh.count != appState.bows.count {
             appState.bows = fresh
         }
         if let fresh = try? store.fetchArrowConfigs(), fresh.count != appState.arrowConfigs.count {
             appState.arrowConfigs = fresh
         }
+#endif
         if selectedBow == nil { selectedBow = appState.bows.first }
         if selectedArrow == nil { selectedArrow = appState.arrowConfigs.first }
         if !userTouchedFace, let bow = selectedBow {
