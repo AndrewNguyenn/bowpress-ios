@@ -37,6 +37,13 @@ struct AnalyticsView: View {
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        // AnalyticsView is the root of its NavigationStack. iOS 26 still runs
+        // a left-edge pop-swipe animation at root even though there's nothing
+        // to pop to — the whole container drags then snaps back. Hiding the
+        // back button also turns off the swipe recognizer, killing the ghost
+        // drag without changing any visible chrome (there's no back button at
+        // root anyway).
+        .navigationBarBackButtonHidden(true)
         .background(Color.appPaper.ignoresSafeArea())
         .task {
             await initialLoad()
