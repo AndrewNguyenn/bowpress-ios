@@ -4,12 +4,18 @@ import Observation
 @Observable @MainActor
 final class AnalyticsViewModel {
     static let bowTypeDefaultsKey = "analytics.selectedBowType"
+    static let distanceDefaultsKey = "analytics.selectedDistance"
 
     var selectedPeriod: AnalyticsPeriod = .threeDays
     /// nil = "All bows" (default).
     var selectedBowType: BowType? = {
         guard let raw = UserDefaults.standard.string(forKey: AnalyticsViewModel.bowTypeDefaultsKey) else { return nil }
         return BowType(rawValue: raw)
+    }()
+    /// nil = "All distances" (default).
+    var selectedDistance: ShootingDistance? = {
+        guard let raw = UserDefaults.standard.string(forKey: AnalyticsViewModel.distanceDefaultsKey) else { return nil }
+        return ShootingDistance(rawValue: raw)
     }()
     var overview: AnalyticsOverview?
     var comparison: PeriodComparison?
@@ -57,14 +63,25 @@ final class AnalyticsViewModel {
         await load(period: selectedPeriod)
     }
 
+    func selectDistance(_ distance: ShootingDistance?) async {
+        guard distance != selectedDistance else { return }
+        selectedDistance = distance
+        if let distance {
+            UserDefaults.standard.set(distance.rawValue, forKey: Self.distanceDefaultsKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: Self.distanceDefaultsKey)
+        }
+        await load(period: selectedPeriod)
+    }
+
     func load(period: AnalyticsPeriod) async {
         guard !isLoading, let engine else { return }
         selectedPeriod = period
         isLoading = true
         error = nil
         do {
-            overview = try engine.overview(period: period, bowType: selectedBowType)
-            comparison = try engine.comparison(period: period, bowType: selectedBowType)
+            overview = try engine.overview(period: period, bowType: selectedBowType, distance: selectedDistance)
+            comparison = try engine.comparison(period: period, bowType: selectedBowType, distance: selectedDistance)
             extraInsights = (try? engine.multiSessionInsights()) ?? []
             let readIds = Set(suggestions.filter(\.wasRead).map(\.id))
             // Carry over any locally-applied state too — the server is the

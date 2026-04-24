@@ -17,12 +17,15 @@ struct ShootingSession: Identifiable, Codable, Equatable {
     /// missing so legacy rows (which predate this field) decode with the
     /// compound 6-ring geometry their ring values were recorded against.
     var targetFaceType: TargetFaceType
+    /// Distance from the shooter to the target. Optional — sessions that
+    /// predate the field, or where the user didn't pick a distance, stay nil.
+    var distance: ShootingDistance?
 
     enum CodingKeys: String, CodingKey {
         case id, bowId, bowConfigId, arrowConfigId
         case startedAt, endedAt, notes, feelTags
         case conditions, arrowCount, ends, arrows
-        case targetFaceType
+        case targetFaceType, distance
     }
 
     init(
@@ -38,7 +41,8 @@ struct ShootingSession: Identifiable, Codable, Equatable {
         arrowCount: Int,
         ends: [SessionEnd]? = nil,
         arrows: [ArrowPlot]? = nil,
-        targetFaceType: TargetFaceType = .sixRing
+        targetFaceType: TargetFaceType = .sixRing,
+        distance: ShootingDistance? = nil
     ) {
         self.id = id
         self.bowId = bowId
@@ -53,6 +57,7 @@ struct ShootingSession: Identifiable, Codable, Equatable {
         self.ends = ends
         self.arrows = arrows
         self.targetFaceType = targetFaceType
+        self.distance = distance
     }
 
     init(from decoder: Decoder) throws {
@@ -70,6 +75,7 @@ struct ShootingSession: Identifiable, Codable, Equatable {
         ends = try c.decodeIfPresent([SessionEnd].self, forKey: .ends)
         arrows = try c.decodeIfPresent([ArrowPlot].self, forKey: .arrows)
         targetFaceType = try c.decodeIfPresent(TargetFaceType.self, forKey: .targetFaceType) ?? .sixRing
+        distance = try c.decodeIfPresent(ShootingDistance.self, forKey: .distance)
     }
 }
 

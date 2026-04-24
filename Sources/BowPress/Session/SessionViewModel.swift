@@ -89,7 +89,8 @@ import Observation
         bowConfig: BowConfiguration,
         arrowConfig: ArrowConfiguration,
         knownConfigs: [BowConfiguration] = [],
-        targetFaceType: TargetFaceType? = nil
+        targetFaceType: TargetFaceType? = nil,
+        distance: ShootingDistance? = nil
     ) async {
         isLoading = true
         error = nil
@@ -104,7 +105,8 @@ import Observation
             notes: "",
             feelTags: [],
             arrowCount: 0,
-            targetFaceType: resolvedFaceType
+            targetFaceType: resolvedFaceType,
+            distance: distance
         )
         // Persist locally first — session exists even if server is unreachable
         try? store?.save(session: session)
@@ -186,7 +188,8 @@ import Observation
                 notes: "",
                 feelTags: [],
                 arrowCount: 0,
-                targetFaceType: currentSession?.targetFaceType ?? TargetFaceType.defaultFor(bow.bowType)
+                targetFaceType: currentSession?.targetFaceType ?? TargetFaceType.defaultFor(bow.bowType),
+                distance: currentSession?.distance
             )
             try? store?.save(session: newSession)
             currentSession = newSession
@@ -293,7 +296,8 @@ import Observation
             notes: notes,
             feelTags: session.feelTags,
             arrowCount: allArrows.count,
-            targetFaceType: session.targetFaceType
+            targetFaceType: session.targetFaceType,
+            distance: session.distance
         )
         onSessionCompleted?(completed)
         // Trigger analytics pipeline immediately — spec: "Every time a session closes".

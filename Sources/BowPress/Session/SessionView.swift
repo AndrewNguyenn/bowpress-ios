@@ -17,6 +17,9 @@ struct SessionView: View {
     @State private var selectedArrow: ArrowConfiguration? = nil
     @State private var selectedFaceType: TargetFaceType = .sixRing
     @State private var userTouchedFace: Bool = false
+    /// Last picked distance, persisted across launches. `nil` = unset.
+    @AppStorage("session.lastDistance") private var lastDistanceRaw: String = ""
+    @State private var selectedDistance: ShootingDistance? = nil
     @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
 
     var body: some View {
@@ -117,6 +120,25 @@ struct SessionView: View {
                 }
             }
 
+            Section("Distance") {
+                StartPickerRow(
+                    title: "Not set",
+                    subtitle: "Skip if you don't want to filter analytics by distance",
+                    isSelected: selectedDistance == nil
+                ) { selectedDistance = nil }
+                    .listRowBackground(selectedDistance == nil ? Color.appAccent : nil)
+                    .accessibilityIdentifier("session_distance_row_none")
+                ForEach(ShootingDistance.allCases, id: \.self) { distance in
+                    StartPickerRow(
+                        title: distance.label,
+                        subtitle: distance.subtitle,
+                        isSelected: selectedDistance == distance
+                    ) { selectedDistance = distance }
+                        .listRowBackground(selectedDistance == distance ? Color.appAccent : nil)
+                        .accessibilityIdentifier("session_distance_row_\(distance.rawValue)")
+                }
+            }
+
             Section {
                 Button {
                     if isReadOnly { showingPaywall = true }
@@ -160,10 +182,17 @@ struct SessionView: View {
             if !userTouchedFace, let bow = selectedBow {
                 selectedFaceType = TargetFaceType.defaultFor(bow.bowType)
             }
+            // Restore last-used distance once on appear; user can clear it via "Not set".
+            if selectedDistance == nil, !lastDistanceRaw.isEmpty {
+                selectedDistance = ShootingDistance(rawValue: lastDistanceRaw)
+            }
         }
         .onChange(of: selectedBow?.id) { _, _ in
             guard !userTouchedFace, let bow = selectedBow else { return }
             selectedFaceType = TargetFaceType.defaultFor(bow.bowType)
+        }
+        .onChange(of: selectedDistance) { _, new in
+            lastDistanceRaw = new?.rawValue ?? ""
         }
     }
 
@@ -189,7 +218,8 @@ struct SessionView: View {
             bow: bow,
             bowConfig: latestConfig,
             arrowConfig: freshArrow,
-            targetFaceType: selectedFaceType
+            targetFaceType: selectedFaceType,
+            distance: selectedDistance
         )
         isStarting = false
     }
