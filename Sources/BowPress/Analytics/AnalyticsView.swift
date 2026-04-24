@@ -34,6 +34,9 @@ struct AnalyticsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
 
+                    // Bow style filter (All / Compound / Recurve / Barebow)
+                    bowStyleSelector
+
                     // Period selector
                     periodSelector
 
@@ -87,6 +90,52 @@ struct AnalyticsView: View {
                 appState.pendingAnalyticsNavigation = nil
             }
         }
+    }
+
+    // MARK: - Bow style selector
+
+    /// Filters all aggregates on the dashboard to sessions shot with bows of the
+    /// chosen style. `nil` = all bows. Hidden when the user owns at most one
+    /// distinct bow style — there's nothing to choose between.
+    private var bowStyleSelector: some View {
+        let stylesOwned = Set(appState.bows.map(\.bowType))
+        return Group {
+            if stylesOwned.count >= 2 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        styleChip(label: "All", isSelected: viewModel.selectedBowType == nil) {
+                            await viewModel.selectBowType(nil)
+                        }
+                        ForEach(BowType.allCases, id: \.self) { type in
+                            if stylesOwned.contains(type) {
+                                styleChip(label: type.label, isSelected: viewModel.selectedBowType == type) {
+                                    await viewModel.selectBowType(type)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
+    }
+
+    private func styleChip(label: String, isSelected: Bool, action: @escaping () async -> Void) -> some View {
+        Button {
+            Task { await action() }
+        } label: {
+            Text(label)
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? .white : Color.appAccent)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    isSelected ? Color.appAccent : Color.appAccent.opacity(0.1),
+                    in: Capsule()
+                )
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 
     // MARK: - Period selector
