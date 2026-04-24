@@ -394,6 +394,10 @@ struct AnalyticsView: View {
                     }
                     .frame(height: 86, alignment: .leading)
                 }
+                // X-axis date labels — first, two evenly-spaced middle samples,
+                // then "now" pinned to the right — so the eye can anchor the
+                // polyline to the window.
+                timelineXAxis(points: points)
             } else {
                 Text("no session data yet")
                     .font(.bpUI(11))
@@ -411,6 +415,45 @@ struct AnalyticsView: View {
         Text(formatted(value))
             .font(.bpMono(9))
             .foregroundStyle(Color.appInk3)
+    }
+
+    /// X-axis date labels sitting immediately below the sparkline. Matches
+    /// analytics-japanese.html (lines 457–460): three evenly-spaced dates plus
+    /// a right-anchored "now". Labels come from the sparkline points' `at`
+    /// timestamps so the scale is always correct for the current window.
+    @ViewBuilder
+    private func timelineXAxis(points: [SparklinePoint]) -> some View {
+        if points.isEmpty {
+            EmptyView()
+        } else {
+            let count = points.count
+            let first = points.first!
+            // Pick at most 3 anchor samples + pin "now" on the far right.
+            let midIndex = max(1, min(count - 2, count / 2))
+            let earlyIndex = max(1, min(midIndex - 1, count / 4))
+            let hasRoomFor3 = count >= 4
+            HStack(spacing: 0) {
+                Text(shortDate(first.at))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if hasRoomFor3 {
+                    Text(shortDate(points[earlyIndex].at))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    Text(shortDate(points[midIndex].at))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+                Text("now")
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .font(.bpMono(9))
+            .foregroundStyle(Color.appInk3)
+            .padding(.top, 2)
+        }
+    }
+
+    private func shortDate(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f.string(from: d).lowercased()
     }
 
     private func computedSigma(_ values: [Double]) -> Double {
