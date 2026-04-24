@@ -268,6 +268,14 @@ final class LocalStore {
         try context.save()
     }
 
+    func deleteArrow(id: String) throws {
+        let predicate = #Predicate<PersistentArrowPlot> { $0.id == id }
+        if let existing = try context.fetch(FetchDescriptor<PersistentArrowPlot>(predicate: predicate)).first {
+            context.delete(existing)
+            try context.save()
+        }
+    }
+
     func fetchArrows(since date: Date) throws -> [ArrowPlot] {
         let descriptor = FetchDescriptor<PersistentArrowPlot>(
             predicate: #Predicate { $0.shotAt >= date },

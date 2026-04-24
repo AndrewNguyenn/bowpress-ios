@@ -88,6 +88,7 @@ final class MockAPIClient: BowPressAPIClient {
     func deleteSession(id: String) async throws {}
     func fetchPlots(sessionId: String) async throws -> [ArrowPlot] { [] }
     func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot { plot }
+    func deletePlot(sessionId: String, id: String) async throws {}
     func completeEnd(_ end: SessionEnd) async throws -> SessionEnd { end }
 
     // MARK: - Subscription

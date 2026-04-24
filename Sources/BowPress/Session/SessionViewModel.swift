@@ -372,12 +372,14 @@ import Observation
         isLoading = false
     }
 
-    /// Undo — removes the last plotted arrow from local state only.
+    /// Undo — removes the last plotted arrow from local state, SwiftData, and remote.
     /// Cannot undo past a completed end.
     func removeLastArrow() {
         let completedCount = endArrowCounts.reduce(0, +)
         guard allArrows.count > completedCount else { return }
         let removed = allArrows.removeLast()
         currentArrows.removeAll { $0.id == removed.id }
+        try? store?.deleteArrow(id: removed.id)
+        Task { try? await apiClient.deletePlot(sessionId: removed.sessionId, id: removed.id) }
     }
 }
