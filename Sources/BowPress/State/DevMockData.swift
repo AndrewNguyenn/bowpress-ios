@@ -30,6 +30,7 @@ enum DevMockData {
         id: "dev_bow1",
         userId: "dev",
         name: "Mathews TITLE 36",
+        bowType: .compound,
         brand: "Mathews",
         model: "TITLE 36",
         createdAt: daysAgo(45)
@@ -38,13 +39,27 @@ enum DevMockData {
     static let bow2 = Bow(
         id: "dev_bow2",
         userId: "dev",
-        name: "Hoyt Concept X 37",
+        name: "Hoyt Satori",
+        bowType: .recurve,
         brand: "Hoyt",
-        model: "Concept X 37",
+        model: "Satori",
         createdAt: daysAgo(60)
     )
 
-    static let bows: [Bow] = [bow1, bow2]
+    /// Third bow exists so the analytics bow-style chip row renders all three
+    /// styles. No sessions attached yet — clicking the Barebow chip will show
+    /// the empty state, which is the correct behavior.
+    static let bow3 = Bow(
+        id: "dev_bow3",
+        userId: "dev",
+        name: "Border HEX7 Barebow",
+        bowType: .barebow,
+        brand: "Border",
+        model: "HEX7",
+        createdAt: daysAgo(20)
+    )
+
+    static let bows: [Bow] = [bow1, bow2, bow3]
 
     // MARK: - Arrow Configurations
 
@@ -239,6 +254,11 @@ enum DevMockData {
 
     // MARK: - Sessions
 
+    // Distance distribution exercises the analytics distance filter:
+    //   • s1_1, s1_2: nil (early sessions before the user started tracking distance)
+    //   • s1_3, s1_4: 20yd (indoor practice)
+    //   • s1_5..s1_8: 50m (outdoor compound)
+    // Combined with bow2's 70m sessions that's 3 distinct distances → chip row appears.
     private static let bow1Sessions: [ShootingSession] = [
         ShootingSession(
             id: "dev_s1_1",
@@ -271,7 +291,8 @@ enum DevMockData {
             endedAt: daysAgo(29).addingTimeInterval(5_100),
             notes: "Groups tightening slightly. Wind made it hard to judge impact consistently.",
             feelTags: ["wind_affected", "back_tension"],
-            arrowCount: 14
+            arrowCount: 14,
+            distance: .twentyYards
         ),
         ShootingSession(
             id: "dev_s1_4",
@@ -282,7 +303,8 @@ enum DevMockData {
             endedAt: daysAgo(23).addingTimeInterval(4_800),
             notes: "New rest position making a clear difference. Cleaner breaks off the wall.",
             feelTags: ["clean_release", "consistent"],
-            arrowCount: 16
+            arrowCount: 16,
+            distance: .twentyYards
         ),
         ShootingSession(
             id: "dev_s1_5",
@@ -293,7 +315,8 @@ enum DevMockData {
             endedAt: daysAgo(18).addingTimeInterval(3_600),
             notes: "Short session due to fatigue. Still, groups are noticeably tighter than first week.",
             feelTags: ["fatigue", "consistent"],
-            arrowCount: 12
+            arrowCount: 12,
+            distance: .fiftyMeters
         ),
         ShootingSession(
             id: "dev_s1_6",
@@ -304,7 +327,8 @@ enum DevMockData {
             endedAt: daysAgo(9).addingTimeInterval(5_400),
             notes: "Competition setup dialed in. Hitting consistent Xs in low-wind conditions.",
             feelTags: ["consistent", "clean_release"],
-            arrowCount: 18
+            arrowCount: 18,
+            distance: .fiftyMeters
         ),
         ShootingSession(
             id: "dev_s1_7",
@@ -315,7 +339,8 @@ enum DevMockData {
             endedAt: daysAgo(5).addingTimeInterval(5_700),
             notes: "Best session yet. Back tension fully engaged, impact pattern very tight.",
             feelTags: ["back_tension", "clean_release", "consistent"],
-            arrowCount: 18
+            arrowCount: 18,
+            distance: .fiftyMeters
         ),
         ShootingSession(
             id: "dev_s1_8",
@@ -326,7 +351,8 @@ enum DevMockData {
             endedAt: daysAgo(2).addingTimeInterval(5_400),
             notes: "Pre-comp tune check. Groups holding well. Minor sight drift to correct.",
             feelTags: ["consistent", "clean_release"],
-            arrowCount: 18
+            arrowCount: 18,
+            distance: .fiftyMeters
         ),
     ]
 
@@ -340,7 +366,8 @@ enum DevMockData {
             endedAt: daysAgo(34).addingTimeInterval(4_200),
             notes: "Initial setup session. Getting used to the longer draw on the Hoyt.",
             feelTags: ["anchor_drift", "rushed"],
-            arrowCount: 12
+            arrowCount: 12,
+            distance: .seventyMeters
         ),
         ShootingSession(
             id: "dev_s2_2",
@@ -351,7 +378,8 @@ enum DevMockData {
             endedAt: daysAgo(31).addingTimeInterval(4_500),
             notes: "More comfortable with the draw cycle. Groups still wide but more intentional.",
             feelTags: ["peep_alignment", "back_tension"],
-            arrowCount: 13
+            arrowCount: 13,
+            distance: .seventyMeters
         ),
         ShootingSession(
             id: "dev_s2_3",
@@ -362,7 +390,8 @@ enum DevMockData {
             endedAt: daysAgo(27).addingTimeInterval(5_100),
             notes: "Full tune applied. Huge difference in arrow flight stability off the rest.",
             feelTags: ["consistent", "clean_release"],
-            arrowCount: 14
+            arrowCount: 14,
+            distance: .seventyMeters
         ),
         ShootingSession(
             id: "dev_s2_4",
@@ -373,7 +402,8 @@ enum DevMockData {
             endedAt: daysAgo(20).addingTimeInterval(5_400),
             notes: "Focused on windage. Groups printing slightly left — adjustments logged.",
             feelTags: ["consistent", "peep_alignment"],
-            arrowCount: 15
+            arrowCount: 15,
+            distance: .seventyMeters
         ),
         ShootingSession(
             id: "dev_s2_5",
@@ -384,7 +414,8 @@ enum DevMockData {
             endedAt: daysAgo(12).addingTimeInterval(5_700),
             notes: "Strong session. Back tension and release timing syncing up well.",
             feelTags: ["back_tension", "clean_release", "consistent"],
-            arrowCount: 15
+            arrowCount: 15,
+            distance: .seventyMeters
         ),
         ShootingSession(
             id: "dev_s2_6",
@@ -395,7 +426,8 @@ enum DevMockData {
             endedAt: daysAgo(6).addingTimeInterval(5_400),
             notes: "Late evening session, slightly fatigued but managed consistent groups.",
             feelTags: ["fatigue", "consistent"],
-            arrowCount: 14
+            arrowCount: 14,
+            distance: .seventyMeters
         ),
     ]
 
