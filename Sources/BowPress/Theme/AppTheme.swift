@@ -2,6 +2,7 @@ import SwiftUI
 
 #if canImport(UIKit)
 import UIKit
+import CoreText
 #endif
 
 // MARK: - Brand Colors (Kenrokuen)
@@ -186,6 +187,60 @@ extension View {
 private func hasFont(_ name: String) -> Bool {
     UIFont(name: name, size: 12) != nil
 }
+
+/// 4-char OpenType tag → Int (used for variable-font axis keys).
+/// 'opsz' → 0x6F70737A, 'wght' → 0x77676874, etc.
+private func axisTag(_ s: StaticString) -> Int {
+    var r = 0
+    s.withUTF8Buffer { bytes in
+        for b in bytes { r = (r << 8) + Int(b) }
+    }
+    return r
+}
+
+/// Fraunces variable font constructor. Sets `opsz` + `wght` axes explicitly
+/// so titles get display-italic forms (chunkier glyphs, more character) and
+/// body sizes keep text-italic forms (plain, readable). Without this,
+/// SwiftUI's `.custom(name:).weight()` uses the font's default axis values
+/// — which on the variable build is `opsz=9pt` regardless of render size,
+/// matching the CSS fallback `font-optical-sizing: none` and producing
+/// uniformly plain italics. The web design uses CSS `auto` (the default),
+/// which scales opsz with font size — we mirror that here.
+private func frauncesUIFont(size: CGFloat, italic: Bool, weight: Font.Weight) -> UIFont? {
+    let candidates: [String] = italic
+        ? ["Fraunces-Italic", "Fraunces-9ptBlackItalic", "FrauncesRoman-Italic"]
+        : ["Fraunces", "Fraunces-9ptBlack", "FrauncesRoman-Regular"]
+    guard let name = candidates.first(where: hasFont),
+          let base = UIFont(name: name, size: size) else { return nil }
+    let wghtValue: CGFloat
+    switch weight {
+    case .ultraLight: wghtValue = 100
+    case .thin:       wghtValue = 200
+    case .light:      wghtValue = 300
+    case .regular:    wghtValue = 400
+    case .medium:     wghtValue = 500
+    case .semibold:   wghtValue = 600
+    case .bold:       wghtValue = 700
+    case .heavy:      wghtValue = 800
+    case .black:      wghtValue = 900
+    default:          wghtValue = 500
+    }
+    // opsz axis is 9…144 per the Fraunces build. We mirror CSS auto-opsz:
+    // optical size tracks the render size so display-sized text gets the
+    // display glyphs (more stroke contrast, more pronounced italic forms).
+    // Clamp to the font's supported range.
+    let opszValue = min(max(size, 9), 144)
+    let variationKey = UIFontDescriptor.AttributeName(
+        rawValue: kCTFontVariationAttribute as String
+    )
+    let descriptor = base.fontDescriptor.addingAttributes([
+        variationKey: [
+            axisTag("opsz"): opszValue,
+            axisTag("wght"): wghtValue,
+        ],
+    ])
+    return UIFont(descriptor: descriptor, size: size)
+}
 #else
 private func hasFont(_ name: String) -> Bool { false }
 #endif
@@ -200,27 +255,16 @@ extension Font {
     /// Fraunces serif — display type. Italic by default (per spec; hero
     /// numerals pass `italic: false` so they render upright).
     ///
-    /// Name resolution: the Fraunces variable font gets registered on iOS
-    /// under several candidate names depending on the build. We probe common
-    /// ones; otherwise we fall back to the system serif.
+    /// Sets the `opsz` variable-axis so display-sized titles render with the
+    /// chunky, higher-character display italic forms (matching CSS `auto`
+    /// optical sizing in the web prototype), not the plain text-italic
+    /// forms you get from the variable font's default `opsz=9` axis value.
     static func bpDisplay(_ size: CGFloat, italic: Bool = true, weight: Font.Weight = .medium) -> Font {
-        let candidates: [String]
-        if italic {
-            candidates = [
-                "Fraunces-Italic",
-                "Fraunces-9ptBlackItalic",
-                "FrauncesRoman-Italic",
-            ]
-        } else {
-            candidates = [
-                "Fraunces",
-                "Fraunces-9ptBlack",
-                "FrauncesRoman-Regular",
-            ]
+        #if canImport(UIKit)
+        if let ui = frauncesUIFont(size: size, italic: italic, weight: weight) {
+            return Font(ui)
         }
-        if let n = firstRegistered(candidates) {
-            return .custom(n, size: size).weight(weight)
-        }
+        #endif
         return .system(size: size, weight: weight, design: .serif)
     }
 

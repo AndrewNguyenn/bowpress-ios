@@ -140,17 +140,14 @@ struct ConfigurationView: View {
                 VStack(spacing: 0) {
                     ForEach(Array(appState.bows.enumerated()), id: \.element.id) { idx, bow in
                         let isLast = idx == appState.bows.count - 1
-                        BowRow(bow: bow, isLast: isLast) {
-                            // Swipe-to-delete via swipeActions requires List;
-                            // expose delete via context menu for scroll view
-                            if isReadOnly { showingPaywall = true }
-                            else { pendingDeleteBow = bow }
+                        NavigationLink(destination: BowDetailView(bow: bow, appState: appState)) {
+                            BowRow(bow: bow, isLast: isLast) {
+                                if isReadOnly { showingPaywall = true }
+                                else { pendingDeleteBow = bow }
+                            }
                         }
+                        .buttonStyle(.plain)
                         .accessibilityIdentifier("bow_row_\(bow.id)")
-                        .background(
-                            NavigationLink("", destination: BowDetailView(bow: bow, appState: appState))
-                                .opacity(0)
-                        )
                         .contentShape(Rectangle())
                         .contextMenu {
                             Button(role: .destructive) {
@@ -203,13 +200,12 @@ struct ConfigurationView: View {
                 VStack(spacing: 0) {
                     ForEach(Array(appState.arrowConfigs.enumerated()), id: \.element.id) { idx, arrow in
                         let isLast = idx == appState.arrowConfigs.count - 1
-                        ArrowRow(arrow: arrow, unitSystem: unitSystem, isLast: isLast)
-                            .background(
-                                NavigationLink("", destination: ArrowDetailView(arrow: arrow, appState: appState))
-                                    .opacity(0)
-                            )
-                            .contentShape(Rectangle())
-                            .contextMenu {
+                        NavigationLink(destination: ArrowDetailView(arrow: arrow, appState: appState)) {
+                            ArrowRow(arrow: arrow, unitSystem: unitSystem, isLast: isLast)
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        .contextMenu {
                                 Button(role: .destructive) {
                                     if isReadOnly { showingPaywall = true }
                                     else { pendingDeleteArrow = arrow }

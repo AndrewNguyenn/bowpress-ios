@@ -354,11 +354,6 @@ struct SessionView: View {
                 Text(faceName(face))
                     .font(.bpDisplay(11.5, italic: true, weight: .medium))
                     .foregroundStyle(selected ? Color.appPondDk : Color.appInk)
-                Text(faceSub(face))
-                    .font(.bpMono(8.5))
-                    .appTracking(0.04, at: 8.5)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Color.appInk3)
             }
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 8)

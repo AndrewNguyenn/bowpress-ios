@@ -1015,9 +1015,9 @@ struct SessionDetailSheet: View {
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                     } header: {
-                        Text(selectedEnd == nil ? "Shot Distribution" : "End \(selectedEnd!.endNumber)")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                        Text(selectedEnd == nil ? "Shot distribution" : "End \(selectedEnd!.endNumber)")
+                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appInk)
                             .textCase(nil)
                     }
                 }
@@ -1131,6 +1131,8 @@ struct SessionDetailSheet: View {
                 }
             }
         .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(Color.appPaper)
         .navigationTitle("Session Detail")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -1407,12 +1409,13 @@ private struct StatChip: View {
     let label: String
 
     var body: some View {
-        Text(label)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Color.appAccent)
+        Text(label.uppercased())
+            .font(.bpUI(9, weight: .semibold))
+            .tracking(9 * 0.18)
+            .foregroundStyle(Color.appPondDk)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(Color.appAccent.opacity(0.1), in: Capsule())
+            .overlay(Rectangle().strokeBorder(Color.appPondDk, lineWidth: 1))
     }
 }
 
@@ -1435,9 +1438,10 @@ private struct PrecisionScatterView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Text("X \u{00B7} 10 Ring Detail")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+            Text("X \u{00B7} 10 RING DETAIL")
+                .font(.bpUI(9, weight: .semibold))
+                .tracking(9 * 0.22)
+                .foregroundStyle(Color.appInk3)
 
             Canvas { context, size in
                 let halfW = size.width / 2
