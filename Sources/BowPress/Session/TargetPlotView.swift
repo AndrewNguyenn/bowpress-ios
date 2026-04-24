@@ -138,9 +138,31 @@ struct TargetPlotView: View {
     @State private var confirmationOpacity: Double = 0
     @State private var confirmationTask: Task<Void, Never>?
 
-    // Live drag preview — dot shown above thumb while placing
+    // Single-finger drag preview — dot shown above thumb when dragging at 1x.
     @State private var dragPreviewPoint: CGPoint? = nil
     private let touchOffset: CGFloat = 80
+    /// Below this translation magnitude the gesture is treated as a tap
+    /// (place arrow at the raw tap point with no thumb offset).
+    private let tapSlop: CGFloat = 8
+
+    // Pinch-zoom + pan state. `committed*` persists between gestures;
+    // `live*` is @GestureState that auto-resets when the gesture ends.
+    @GestureState private var liveMagnification: CGFloat = 1.0
+    @State        private var committedZoom: CGFloat = 1.0
+    @GestureState private var livePan: CGSize = .zero
+    @State        private var committedPan: CGSize = .zero
+    // Set true while a pinch is active; kept true briefly after so the
+    // simultaneous drag's .onEnded doesn't fire a ghost tap at the last
+    // finger position when the user releases a pinch.
+    @State private var pinchInProgress: Bool = false
+    @State private var pinchCooldownTask: Task<Void, Never>?
+
+    private var currentZoom: CGFloat { committedZoom * liveMagnification }
+    private var isZoomed: Bool { currentZoom > 1.01 }
+    private var panOffset: CGSize {
+        CGSize(width: committedPan.width + livePan.width,
+               height: committedPan.height + livePan.height)
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -148,23 +170,31 @@ struct TargetPlotView: View {
             let radius = min(geo.size.width, geo.size.height) / 2
             // Scale arrow to match real-world mm on the drawn face.
             let arrowDotSize = max(CGFloat(arrowDiameterMm / geometry.mmPerNormUnit) * radius, 8)
+            let panLimit = max(0, radius * (currentZoom - 1))
 
             ZStack {
-                // MARK: Target face
-                TargetFaceCanvas(faceType: faceType)
-                    .frame(width: radius * 2, height: radius * 2)
-                    .position(center)
+                // Scaled group: target + placed arrows share the same coord space
+                // and both scale/pan together. Overlays (preview dot, confirmation)
+                // stay in screen coords so they read at a fixed pixel size.
+                ZStack {
+                    TargetFaceCanvas(faceType: faceType)
+                        .frame(width: radius * 2, height: radius * 2)
+                        .position(center)
 
-                // MARK: Placed arrows
-                ForEach(Array(arrows.enumerated()), id: \.element.id) { idx, arrow in
-                    if let pos = storedPosition(for: arrow, center: center, radius: radius) {
-                        ArrowDot(number: idx + 1, ring: arrow.ring, size: arrowDotSize)
-                            .position(pos)
+                    ForEach(Array(arrows.enumerated()), id: \.element.id) { idx, arrow in
+                        if let pos = storedPosition(for: arrow, center: center, radius: radius) {
+                            ArrowDot(number: idx + 1, ring: arrow.ring, size: arrowDotSize)
+                                .position(pos)
+                        }
                     }
                 }
+                .scaleEffect(currentZoom, anchor: .center)
+                .offset(panOffset)
+                .animation(.easeOut(duration: 0.15), value: committedZoom)
+                .animation(.easeOut(duration: 0.15), value: committedPan)
 
-                // MARK: Drag preview
-                if let preview = dragPreviewPoint {
+                // Drag preview (1x only — at zoom the user can see the exact spot)
+                if let preview = dragPreviewPoint, !isZoomed {
                     Circle()
                         .strokeBorder(.white, lineWidth: 1.5)
                         .frame(width: arrowDotSize, height: arrowDotSize)
@@ -173,7 +203,6 @@ struct TargetPlotView: View {
                         .allowsHitTesting(false)
                 }
 
-                // MARK: Confirmation overlay
                 if let text = confirmationText {
                     Text(text)
                         .font(.system(size: 14, weight: .bold, design: .rounded))
@@ -190,36 +219,137 @@ struct TargetPlotView: View {
                         .allowsHitTesting(false)
                 }
             }
-            .contentShape(Circle().size(CGSize(width: radius * 2, height: radius * 2))
-                .offset(x: center.x - radius, y: center.y - radius))
-            .gesture(
-                isEnabled ? DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        dragPreviewPoint = CGPoint(x: value.location.x,
-                                                   y: value.location.y - touchOffset)
+            .contentShape(Rectangle())
+            .gesture(isEnabled ? combinedGesture(center: center, radius: radius,
+                                                 arrowDotSize: arrowDotSize,
+                                                 panLimit: panLimit) : nil)
+            .overlay(alignment: .topTrailing) {
+                if isZoomed {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            committedZoom = 1.0
+                            committedPan = .zero
+                        }
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise.circle.fill")
+                            .font(.title3)
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, .black.opacity(0.65))
                     }
-                    .onEnded { value in
-                        let placement = CGPoint(x: value.location.x,
-                                                y: value.location.y - touchOffset)
-                        // Use displayed dot radius so visual overlap matches scoring.
-                        let dotNormRadius = Double(arrowDotSize / 2) / Double(radius)
-                        handleTap(at: placement, center: center, radius: radius,
-                                  arrowNormRadius: dotNormRadius)
-                        dragPreviewPoint = nil
-                    } : nil
-            )
+                    .padding(10)
+                    .accessibilityLabel("Reset zoom")
+                    .disabled(!isEnabled)
+                }
+            }
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityIdentifier("target_plot_canvas")
+        .accessibilityLabel("Target face, \(faceType.label). Zoom \(Int(currentZoom * 100)) percent.")
+    }
+
+    // MARK: - Gesture composition
+
+    private func combinedGesture(center: CGPoint, radius: CGFloat,
+                                 arrowDotSize: CGFloat, panLimit: CGFloat) -> some Gesture {
+        let pinch = MagnificationGesture()
+            .updating($liveMagnification) { value, state, _ in state = value }
+            .onChanged { _ in markPinchInProgress() }
+            .onEnded { value in
+                let newZoom = min(max(committedZoom * value, 1.0), 3.0)
+                if newZoom <= 1.01 {
+                    committedZoom = 1.0
+                    committedPan = .zero
+                } else {
+                    committedZoom = newZoom
+                    let newLimit = max(0, radius * (newZoom - 1))
+                    committedPan = clampPan(committedPan, panLimit: newLimit)
+                }
+                scheduleClearPinchFlag()
+            }
+
+        let drag = DragGesture(minimumDistance: 0)
+            .updating($livePan) { value, state, _ in
+                // Live pan only when zoomed and not mid-pinch.
+                if currentZoom > 1.01 && !pinchInProgress {
+                    state = value.translation
+                }
+            }
+            .onChanged { value in
+                if isZoomed || pinchInProgress {
+                    dragPreviewPoint = nil
+                } else {
+                    dragPreviewPoint = CGPoint(x: value.location.x,
+                                               y: value.location.y - touchOffset)
+                }
+            }
+            .onEnded { value in
+                dragPreviewPoint = nil
+                if pinchInProgress { return }
+                let translationMag = hypot(value.translation.width, value.translation.height)
+                let dotNormRadius = Double(arrowDotSize / 2) / Double(radius)
+
+                if isZoomed {
+                    // At zoom: tap still places (tapping is how you score at zoom);
+                    // a real drag pans the canvas.
+                    if translationMag < tapSlop {
+                        handleTap(at: value.location, center: center, radius: radius,
+                                  arrowNormRadius: dotNormRadius)
+                    } else {
+                        let newPan = CGSize(
+                            width: committedPan.width + value.translation.width,
+                            height: committedPan.height + value.translation.height
+                        )
+                        committedPan = clampPan(newPan, panLimit: panLimit)
+                    }
+                    return
+                }
+                // At 1x: short translation = tap (place directly, no offset);
+                // longer translation = drag (place at finger-80pt preview point).
+                let screenPoint: CGPoint = translationMag < tapSlop
+                    ? value.location
+                    : CGPoint(x: value.location.x, y: value.location.y - touchOffset)
+                handleTap(at: screenPoint, center: center, radius: radius,
+                          arrowNormRadius: dotNormRadius)
+            }
+
+        return SimultaneousGesture(pinch, drag)
+    }
+
+    private func markPinchInProgress() {
+        pinchCooldownTask?.cancel()
+        pinchInProgress = true
+    }
+
+    private func scheduleClearPinchFlag() {
+        pinchCooldownTask?.cancel()
+        pinchCooldownTask = Task {
+            try? await Task.sleep(for: .milliseconds(180))
+            guard !Task.isCancelled else { return }
+            await MainActor.run { pinchInProgress = false }
+        }
+    }
+
+    private func clampPan(_ pan: CGSize, panLimit: CGFloat) -> CGSize {
+        CGSize(
+            width: min(max(pan.width, -panLimit), panLimit),
+            height: min(max(pan.height, -panLimit), panLimit)
+        )
     }
 
     // MARK: - Tap Handling
 
     private func handleTap(at point: CGPoint, center: CGPoint, radius: CGFloat,
                            arrowNormRadius: Double) {
-        let dx = point.x - center.x
-        let dy = center.y - point.y  // flip y for standard math coords
-        let dist = sqrt(dx * dx + dy * dy)
+        // Undo the zoom/pan applied to the inner ZStack so we recover the
+        // unscaled target-space coordinate of the tap. Screen y is positive-down.
+        let dxScreen = point.x - center.x
+        let dyScreen = point.y - center.y
+        let dxTarget = (dxScreen - panOffset.width)  / currentZoom
+        let dyTargetScreen = (dyScreen - panOffset.height) / currentZoom
+        // Math-y (positive = up) is the negation of screen-y.
+        let dyMath = -dyTargetScreen
+
+        let dist = sqrt(dxTarget * dxTarget + dyMath * dyMath)
         let normalizedDist = Double(dist / radius)
 
         // Shift inward by the dot radius: if any visible part of the dot touches a higher ring, score it.
@@ -227,12 +357,13 @@ struct TargetPlotView: View {
 
         guard let ring = geometry.ring(for: scoringDist) else { return }
 
-        let angle = atan2(Double(dy), Double(dx)) * 180 / .pi
+        let angle = atan2(Double(dyMath), Double(dxTarget)) * 180 / .pi
         let zone = geometry.zone(for: normalizedDist, angle: angle)
 
-        // Normalized position stored with the arrow (-1…1 relative to center)
-        let normX = Double(dx) / Double(radius)
-        let normY = Double(-dy) / Double(radius) // flip back: positive Y = down in screen coords
+        // Normalized position stored with the arrow (-1…1 relative to center);
+        // plotY is positive = down in screen coords (matches existing data).
+        let normX = Double(dxTarget) / Double(radius)
+        let normY = Double(dyTargetScreen) / Double(radius)
 
         // Show confirmation
         let ringLabel = ring == 11 ? "X" : "\(ring)"
