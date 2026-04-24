@@ -145,8 +145,10 @@ struct AnalyticsView: View {
         .accessibilityIdentifier("analytics_filter_summary")
     }
 
-    private var bowSummaryLabel: String { viewModel.selectedBowType?.label ?? "All" }
-    private var distanceSummaryLabel: String { viewModel.selectedDistance?.label ?? "All" }
+    /// Self-describing labels for the summary bar — "All" alone repeated twice
+    /// reads as ambiguous, so the nil cases get the noun attached.
+    private var bowSummaryLabel: String { viewModel.selectedBowType?.label ?? "All bows" }
+    private var distanceSummaryLabel: String { viewModel.selectedDistance?.label ?? "All distances" }
 
     // MARK: - Analytics content
 
