@@ -15,6 +15,8 @@ struct SessionView: View {
     @State private var showingPaywall = false
     @State private var selectedBow: Bow? = nil
     @State private var selectedArrow: ArrowConfiguration? = nil
+    @State private var selectedFaceType: TargetFaceType = .sixRing
+    @State private var userTouchedFace: Bool = false
     @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
 
     var body: some View {
@@ -81,6 +83,19 @@ struct SessionView: View {
                 }
             }
 
+            Section("Target Face") {
+                Picker("Target face", selection: $selectedFaceType) {
+                    ForEach(TargetFaceType.allCases, id: \.self) { face in
+                        Text(face.label).tag(face)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: selectedFaceType) { _, _ in
+                    userTouchedFace = true
+                }
+                .accessibilityIdentifier("session_face_picker")
+            }
+
             Section("Arrows") {
                 if appState.arrowConfigs.isEmpty {
                     Text("No arrow configs. Add one in the Configure tab.")
@@ -140,6 +155,13 @@ struct SessionView: View {
             }
             if selectedBow == nil { selectedBow = appState.bows.first }
             if selectedArrow == nil { selectedArrow = appState.arrowConfigs.first }
+            if !userTouchedFace, let bow = selectedBow {
+                selectedFaceType = TargetFaceType.defaultFor(bow.bowType)
+            }
+        }
+        .onChange(of: selectedBow?.id) { _, _ in
+            guard !userTouchedFace, let bow = selectedBow else { return }
+            selectedFaceType = TargetFaceType.defaultFor(bow.bowType)
         }
     }
 
@@ -161,7 +183,12 @@ struct SessionView: View {
                 ?? BowConfiguration.makeDefault(for: bow)
         }
         let freshArrow = appState.arrowConfigs.first(where: { $0.id == arrow.id }) ?? arrow
-        await viewModel.startSession(bow: bow, bowConfig: latestConfig, arrowConfig: freshArrow)
+        await viewModel.startSession(
+            bow: bow,
+            bowConfig: latestConfig,
+            arrowConfig: freshArrow,
+            targetFaceType: selectedFaceType
+        )
         isStarting = false
     }
 
