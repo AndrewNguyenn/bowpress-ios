@@ -121,4 +121,31 @@ final class MockAPIClient: BowPressAPIClient {
         if let impl = applySuggestionImpl { return try await impl(bowId, id) }
         throw URLError(.fileDoesNotExist)
     }
+
+    // MARK: - Wave 2 analytics stubs
+
+    var getAnalyticsTimelineImpl: ((AnalyticsPeriod, BowType?, ShootingDistance?) async throws -> TimelineResponse)?
+    var getAnalyticsDriftImpl: ((String, AnalyticsPeriod) async throws -> DriftResponse)?
+    var getAnalyticsTrendsImpl: ((AnalyticsPeriod, BowType?, ShootingDistance?) async throws -> TrendsResponse)?
+
+    func getAnalyticsTimeline(
+        period: AnalyticsPeriod, bowType: BowType?, distance: ShootingDistance?
+    ) async throws -> TimelineResponse {
+        if let impl = getAnalyticsTimelineImpl { return try await impl(period, bowType, distance) }
+        throw URLError(.fileDoesNotExist)
+    }
+
+    func getAnalyticsDrift(
+        bowId: String, period: AnalyticsPeriod
+    ) async throws -> DriftResponse {
+        if let impl = getAnalyticsDriftImpl { return try await impl(bowId, period) }
+        throw URLError(.fileDoesNotExist)
+    }
+
+    func getAnalyticsTrends(
+        period: AnalyticsPeriod, bowType: BowType?, distance: ShootingDistance?
+    ) async throws -> TrendsResponse {
+        if let impl = getAnalyticsTrendsImpl { return try await impl(period, bowType, distance) }
+        throw URLError(.fileDoesNotExist)
+    }
 }
