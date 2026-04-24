@@ -5,8 +5,15 @@ import Observation
 final class AnalyticsViewModel {
     static let bowTypeDefaultsKey = "analytics.selectedBowType"
     static let distanceDefaultsKey = "analytics.selectedDistance"
+    static let periodDefaultsKey = "analytics.selectedPeriod"
 
-    var selectedPeriod: AnalyticsPeriod = .threeDays
+    var selectedPeriod: AnalyticsPeriod = {
+        if let raw = UserDefaults.standard.string(forKey: AnalyticsViewModel.periodDefaultsKey),
+           let stored = AnalyticsPeriod(rawValue: raw) {
+            return stored
+        }
+        return .threeDays
+    }()
     /// nil = "All bows" (default).
     var selectedBowType: BowType? = {
         guard let raw = UserDefaults.standard.string(forKey: AnalyticsViewModel.bowTypeDefaultsKey) else { return nil }
@@ -74,9 +81,15 @@ final class AnalyticsViewModel {
         await load(period: selectedPeriod)
     }
 
+    func selectPeriod(_ period: AnalyticsPeriod) async {
+        guard period != selectedPeriod else { return }
+        await load(period: period)
+    }
+
     func load(period: AnalyticsPeriod) async {
         guard !isLoading, let engine else { return }
         selectedPeriod = period
+        UserDefaults.standard.set(period.rawValue, forKey: Self.periodDefaultsKey)
         isLoading = true
         error = nil
         do {

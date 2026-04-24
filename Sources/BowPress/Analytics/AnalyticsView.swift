@@ -6,8 +6,8 @@ struct AnalyticsView: View {
     @Environment(AppState.self) private var appState
     @Environment(LocalStore.self) private var store
     @State private var viewModel = AnalyticsViewModel()
-    @State private var selectedPeriod: AnalyticsPeriod = .threeDays
     @State private var highlightedSuggestionId: String?
+    @State private var filtersSheetPresented = false
 
     var body: some View {
         Group {
@@ -25,6 +25,11 @@ struct AnalyticsView: View {
         .onChange(of: appState.analyticsRefreshNonce) { _, _ in
             Task { await viewModel.refresh() }
         }
+        .sheet(isPresented: $filtersSheetPresented) {
+            FiltersSheet(viewModel: viewModel, store: store, appState: appState)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - Sub-views
@@ -34,14 +39,11 @@ struct AnalyticsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
 
-                    // Bow style filter (All / Compound / Recurve / Barebow)
-                    bowStyleSelector
-
-                    // Distance filter (All / 20yd / 50m / 70m) — hidden when ≤1 distance has been logged
-                    distanceSelector
-
-                    // Period selector
-                    periodSelector
+                    // Summary filter bar — taps open the FiltersSheet for editing.
+                    // Replaces the previous three separate chip rows so the dashboard
+                    // doesn't lose vertical space to controls.
+                    summaryFilterBar
+                        .padding(.horizontal, 16)
 
                     // Error banner
                     if let errorMessage = viewModel.error {
@@ -95,114 +97,56 @@ struct AnalyticsView: View {
         }
     }
 
-    // MARK: - Bow style selector
+    // MARK: - Summary filter bar
 
-    /// Filters all aggregates on the dashboard to sessions shot with bows of the
-    /// chosen style. `nil` = all bows. Hidden when the user owns at most one
-    /// distinct bow style — there's nothing to choose between.
-    private var bowStyleSelector: some View {
-        let stylesOwned = Set(appState.bows.map(\.bowType))
-        return Group {
-            if stylesOwned.count >= 2 {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        styleChip(label: "All", isSelected: viewModel.selectedBowType == nil) {
-                            await viewModel.selectBowType(nil)
-                        }
-                        ForEach(BowType.allCases, id: \.self) { type in
-                            if stylesOwned.contains(type) {
-                                styleChip(label: type.label, isSelected: viewModel.selectedBowType == type) {
-                                    await viewModel.selectBowType(type)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-            }
-        }
-    }
-
-    private func styleChip(label: String, isSelected: Bool, action: @escaping () async -> Void) -> some View {
+    /// Compact card showing the current bow / distance / period selection. Tapping
+    /// opens the `FiltersSheet` bottom sheet for editing. Replaces three separate
+    /// chip rows so the dashboard reclaims vertical space.
+    private var summaryFilterBar: some View {
         Button {
-            Task { await action() }
+            filtersSheetPresented = true
         } label: {
-            Text(label)
-                .font(.subheadline.weight(isSelected ? .semibold : .regular))
-                .foregroundStyle(isSelected ? .white : Color.appAccent)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(
-                    isSelected ? Color.appAccent : Color.appAccent.opacity(0.1),
-                    in: Capsule()
-                )
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(bowSummaryLabel)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Text("·").foregroundStyle(.tertiary)
+                        Text(distanceSummaryLabel)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Text("·").foregroundStyle(.tertiary)
+                        Text(viewModel.selectedPeriod.label)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                    }
+                    Text("Tap to change filters")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 8)
+                Text("Edit")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.appAccent)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.appSurface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.15), value: isSelected)
+        .accessibilityIdentifier("analytics_filter_summary")
     }
 
-    // MARK: - Distance selector
-
-    /// Filters all aggregates on the dashboard to sessions logged at the chosen
-    /// distance. `nil` = all distances. Hidden when ≤1 distinct distance has
-    /// ever been recorded — there's nothing meaningful to switch between.
-    private var distanceSelector: some View {
-        let distancesUsed: Set<ShootingDistance> = {
-            (try? store.fetchSessions()).map { Set($0.compactMap(\.distance)) } ?? []
-        }()
-        return Group {
-            if distancesUsed.count >= 2 {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        styleChip(label: "All", isSelected: viewModel.selectedDistance == nil) {
-                            await viewModel.selectDistance(nil)
-                        }
-                        ForEach(ShootingDistance.allCases, id: \.self) { distance in
-                            if distancesUsed.contains(distance) {
-                                styleChip(label: distance.label, isSelected: viewModel.selectedDistance == distance) {
-                                    await viewModel.selectDistance(distance)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-            }
-        }
-    }
-
-    // MARK: - Period selector
-
-    private var periodSelector: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(AnalyticsPeriod.allCases, id: \.self) { period in
-                    let selected = period == selectedPeriod
-                    Button {
-                        guard period != selectedPeriod else { return }
-                        selectedPeriod = period
-                        Task {
-                            viewModel.configure(store: store, appState: appState)
-                            await viewModel.load(period: period)
-                        }
-                    } label: {
-                        Text(period.label)
-                            .font(.subheadline.weight(selected ? .semibold : .regular))
-                            .foregroundStyle(selected ? .white : Color.appAccent)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(
-                                selected ? Color.appAccent : Color.appAccent.opacity(0.1),
-                                in: Capsule()
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .animation(.easeInOut(duration: 0.15), value: selectedPeriod)
-                }
-            }
-            .padding(.horizontal, 16)
-        }
-    }
+    private var bowSummaryLabel: String { viewModel.selectedBowType?.label ?? "All" }
+    private var distanceSummaryLabel: String { viewModel.selectedDistance?.label ?? "All" }
 
     // MARK: - Analytics content
 
@@ -333,7 +277,124 @@ struct AnalyticsView: View {
     private func initialLoad() async {
         guard viewModel.overview == nil else { return }
         viewModel.configure(store: store, appState: appState)
-        await viewModel.load(period: .threeDays)
+        // Use the persisted period (UserDefaults) — falls back to .threeDays.
+        await viewModel.load(period: viewModel.selectedPeriod)
+    }
+}
+
+// MARK: - FiltersSheet
+
+/// Bottom sheet with three sections — Bow type, Distance, Time range — each
+/// rendered as a horizontally-scrolling row of capsule pills. Mirrors the design
+/// in `bowpress-design-system/project/ui_kits/ios_app/AnalyticsScreen.jsx`.
+private struct FiltersSheet: View {
+    @Bindable var viewModel: AnalyticsViewModel
+    let store: LocalStore
+    let appState: AppState
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    if stylesOwned.count >= 2 {
+                        section(title: "Bow type") {
+                            pillRow {
+                                pill(label: "All", isSelected: viewModel.selectedBowType == nil) {
+                                    await viewModel.selectBowType(nil)
+                                }
+                                ForEach(BowType.allCases, id: \.self) { type in
+                                    if stylesOwned.contains(type) {
+                                        pill(label: type.label, isSelected: viewModel.selectedBowType == type) {
+                                            await viewModel.selectBowType(type)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if distancesUsed.count >= 2 {
+                        section(title: "Distance") {
+                            pillRow {
+                                pill(label: "All", isSelected: viewModel.selectedDistance == nil) {
+                                    await viewModel.selectDistance(nil)
+                                }
+                                ForEach(ShootingDistance.allCases, id: \.self) { distance in
+                                    if distancesUsed.contains(distance) {
+                                        pill(label: distance.label, isSelected: viewModel.selectedDistance == distance) {
+                                            await viewModel.selectDistance(distance)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    section(title: "Time range") {
+                        pillRow {
+                            ForEach(AnalyticsPeriod.allCases, id: \.self) { period in
+                                pill(label: period.label, isSelected: viewModel.selectedPeriod == period) {
+                                    await viewModel.selectPeriod(period)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
+            }
+            .navigationTitle("Filters")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    private var stylesOwned: Set<BowType> { Set(appState.bows.map(\.bowType)) }
+    private var distancesUsed: Set<ShootingDistance> {
+        (try? store.fetchSessions()).map { Set($0.compactMap(\.distance)) } ?? []
+    }
+
+    @ViewBuilder
+    private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title.uppercased())
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.secondary)
+                .tracking(0.5)
+            content()
+        }
+    }
+
+    @ViewBuilder
+    private func pillRow<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) { content() }
+        }
+    }
+
+    private func pill(label: String, isSelected: Bool, action: @escaping () async -> Void) -> some View {
+        Button {
+            Task { await action() }
+        } label: {
+            Text(label)
+                .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                .foregroundStyle(isSelected ? .white : Color.appAccent)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(
+                    isSelected ? Color.appAccent : Color.appAccent.opacity(0.1),
+                    in: Capsule()
+                )
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
 
