@@ -19,6 +19,9 @@ evolve together.
 | `09-config-persistence` | Maestro | ✅ | draw-length edit survives tab switch + re-open |
 | `10-end-session-log` | Maestro | ✅ | server-verified: session ends, appears in Log immediately |
 | `11-insights` | Maestro | ✅ | backend-driven Insights / Trend Analysis renders |
+| `12-analytics-kenrokuen` | Maestro | ✅ | Kenrokuen chrome: eyebrow + stat grid + trend ledger "i." (needs backend) |
+| `13-session-kenrokuen` | Maestro | ✅ | Kenrokuen session: setup chrome → begin → 2 arrows → end (writes) |
+| `14-log-ledger` | Maestro | ✅ | Kenrokuen Log: "This week" group header + BEST stamp (needs backend sessions) |
 
 ## Why two drivers
 
@@ -71,6 +74,13 @@ still fails closed.
 | `05-delete-bow.yaml` | DELETE /bows/:id round-trip |
 | `06-lapsed-subscription.yaml` | Server-forced lapse → re-subscribe |
 | `07-analytics-navigation.yaml` | Walk all five tabs (prod-safe) |
+| `08-arrow-crud.yaml` | Add + delete arrow config round-trip |
+| `09-config-persistence.yaml` | Draw-length edit survives tab switch + re-open |
+| `10-end-session-log.yaml` | Session ends, appears in Log immediately |
+| `11-insights.yaml` | Analytics pipeline hydration smoke |
+| `12-analytics-kenrokuen.yaml` | Kenrokuen analytics chrome: eyebrow + Average + ledger "i." |
+| `13-session-kenrokuen.yaml` | Kenrokuen session: setup → begin → 2 arrows → end |
+| `14-log-ledger.yaml` | Kenrokuen Log: "This week" group header + BEST stamp |
 
 ## How auth works
 

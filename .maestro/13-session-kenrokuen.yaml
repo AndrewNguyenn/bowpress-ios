@@ -1,0 +1,88 @@
+appId: com.andrewnguyen.bowpress
+name: 13-session-kenrokuen
+tags:
+  - regression
+  - writes
+  - kenrokuen
+---
+# Verifies the Kenrokuen SessionView chrome and write path:
+#
+#   Setup page  — eyebrow ("BOWPRESS · SETUP"), title ("Set the stage"),
+#                 distance-segment control (50m tapped), "Begin session" CTA.
+#   Active page — "IN SESSION" eyebrow pulse label, "CHANGE" config chip.
+#   Write path  — plots 2 arrows on the target canvas, ends the session.
+#
+# primeSetupState() auto-selects the first bow + arrow config from the local
+# store on .onAppear, so no manual bow/arrow picker interaction is needed.
+# The seeded e2e-test user must have at least one bow and one arrow config
+# in the backend to enable the "Begin session" CTA.
+
+- launchApp:
+    clearState: true
+    arguments:
+      AutoSignInEmail: "e2e-test@bowpress.dev"
+      AutoSignInPassword: "bowpress-e2e-pw-1234"
+
+- extendedWaitUntil:
+    notVisible: "Analyzing your data"
+    timeout: 20000
+
+# Navigate to the Session tab (tag 2 in MainTabView).
+- tapOn: "Session"
+
+# Wait for the Kenrokuen setup view to fully appear. primeSetupState() fires
+# on .onAppear and synchronously reads the local store to pre-select equipment.
+- extendedWaitUntil:
+    visible: "Set the stage"
+    timeout: 10000
+
+# --- Setup-page chrome ---
+# BPNavHeader eyebrow is the string "BOWPRESS · SETUP" (uppercase literal)
+# with .textCase(.uppercase) applied — asserting the substring "BOWPRESS".
+- assertVisible: "BOWPRESS"
+# BPNavHeader title — no .textCase modifier.
+- assertVisible: "Set the stage"
+
+# Distance segment control. Tap the 50m segment; its background flips to
+# appPondDk to indicate selection. accessibilityIdentifier is
+# "session_distance_row_\(distance.rawValue)" → "session_distance_row_50m".
+- tapOn:
+    id: "session_distance_row_50m"
+
+# BPPrimaryButton title "Begin session" — plain string, no .textCase modifier.
+- assertVisible: "Begin session"
+
+# --- Begin the session ---
+- tapOn: "Begin session"
+
+# Wait for the active-session layout (TargetPlotView canvas) to appear.
+- extendedWaitUntil:
+    visible:
+      id: "target_plot_canvas"
+    timeout: 12000
+
+# --- Active-session chrome ---
+# livePulseLabel: Text("IN SESSION") + .textCase(.uppercase) — the string is
+# already uppercase, so the assert and the display both read "IN SESSION".
+- assertVisible: "IN SESSION"
+
+# Config banner's BPEditLink("CHANGE") — uppercase string + .textCase(.uppercase).
+- assertVisible: "CHANGE"
+
+# --- Plot 2 arrows ---
+# Use slightly different centre points so the two events are distinguishable
+# in case the view de-dupes taps at the exact same coordinate.
+- tapOn:
+    id: "target_plot_canvas"
+    point: "50%,50%"
+- tapOn:
+    id: "target_plot_canvas"
+    point: "45%,48%"
+
+# --- End the session ---
+# "✓ Finish" (U+2713 + " Finish") is the finishActionButton in actionsRow.
+# Tapping "Finish" as a substring reliably matches without encoding the glyph.
+- tapOn: "Finish"
+
+# Alert: "End Session?" — tap the destructive "End Session" button to confirm.
+- tapOn: "End Session"
