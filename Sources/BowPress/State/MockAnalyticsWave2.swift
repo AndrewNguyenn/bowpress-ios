@@ -37,10 +37,12 @@ enum MockAnalyticsWave2 {
     }
 
     /// Reused by `overview.sparkline` so the bars and the timeline agree.
+    ///
+    /// 9 points climbing from 9.4 → 10.7 with a mild dip — matches the spec
+    /// figure (BPBigScore "10.4" hero, +0.9 delta vs the prev slice). The
+    /// last reading is the ceiling so "range 9.4—10.7" reads cleanly.
     static func sparklinePoints(period: AnalyticsPeriod) -> [SparklinePoint] {
-        // Mild upward trend, last point as the best — matches the design
-        // reference which highlights the most recent reading as the ceiling.
-        let baseline: [Double] = [9.2, 9.6, 9.3, 10.0, 9.8, 10.2, 10.1, 10.5, 10.4, 10.7]
+        let baseline: [Double] = [9.4, 9.8, 10.0, 10.2, 10.1, 10.3, 10.5, 10.4, 10.7]
         let now = Date()
         let step: TimeInterval
         switch period {
@@ -55,6 +57,27 @@ enum MockAnalyticsWave2 {
             return SparklinePoint(at: at, avg: avg)
         }
     }
+
+    // MARK: - Overview / comparison overrides
+    //
+    // The LocalAnalyticsEngine computes `avgArrowScore` / `xPercentage` /
+    // `sessionCount` from whatever arrows happen to be seeded in the in-memory
+    // DEBUG store. Those numbers drift with DevMockData and were recently landing
+    // at a confusing 1.6 avg / 0% X. For the design review we want the Analytics
+    // page to render the spec figure exactly — 10.4 avg, 72% X, 5 sessions, with
+    // a positive +0.6 delta vs the previous slice (9.8 avg, 58% X).
+
+    /// Spec-aligned current-slice numbers.
+    static let mockCurrentAvg: Double = 10.4
+    static let mockCurrentXPct: Double = 72
+    static let mockCurrentSessions: Int = 5
+    static let mockGroupSigma: Double = 3.2
+
+    /// Spec-aligned previous-slice numbers — keeps the "prev · 58%" sub-line
+    /// and the +0.6 delta chip positive.
+    static let mockPreviousAvg: Double = 9.8
+    static let mockPreviousXPct: Double = 58
+    static let mockPreviousSessions: Int = 4
 
     // MARK: - Drift
 

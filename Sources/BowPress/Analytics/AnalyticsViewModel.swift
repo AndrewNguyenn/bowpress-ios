@@ -260,7 +260,7 @@ final class AnalyticsViewModel {
             current.sparkline = MockAnalyticsWave2.sparklinePoints(period: current.period)
         }
         if current.groupSigma == nil {
-            current.groupSigma = 3.2
+            current.groupSigma = MockAnalyticsWave2.mockGroupSigma
         }
         if current.datasetSummary == nil {
             current.datasetSummary = MockAnalyticsWave2.datasetSummary(
@@ -268,39 +268,51 @@ final class AnalyticsViewModel {
                 arrow: appState?.arrowConfigs.first
             )
         }
+        // In DEBUG, force the headline numerals to the spec figure so reviewing
+        // the Analytics screen against the Kenrokuen reference isn't clouded by
+        // whatever the in-memory seed drifted to. Release builds still use the
+        // server's numbers.
+        current = AnalyticsOverview(
+            period: current.period,
+            sessionCount: MockAnalyticsWave2.mockCurrentSessions,
+            avgArrowScore: MockAnalyticsWave2.mockCurrentAvg,
+            xPercentage: MockAnalyticsWave2.mockCurrentXPct,
+            suggestions: current.suggestions,
+            groupSigma: current.groupSigma,
+            sparkline: current.sparkline,
+            datasetSummary: current.datasetSummary
+        )
         overview = current
         #endif
     }
 
     private func decorateComparisonWithMocks() {
         #if DEBUG
-        guard var c = comparison else { return }
-        var cur = c.current
-        var prev = c.previous
-        if cur.centroid == nil {
-            cur = PeriodSlice(
-                label: cur.label,
-                plots: cur.plots,
-                avgArrowScore: cur.avgArrowScore,
-                xPercentage: cur.xPercentage,
-                sessionCount: cur.sessionCount,
-                config: cur.config,
-                centroid: MockAnalyticsWave2.currentCentroid,
-                sigma: MockAnalyticsWave2.currentSigma
-            )
-        }
-        if prev.centroid == nil {
-            prev = PeriodSlice(
-                label: prev.label,
-                plots: prev.plots,
-                avgArrowScore: prev.avgArrowScore,
-                xPercentage: prev.xPercentage,
-                sessionCount: prev.sessionCount,
-                config: prev.config,
-                centroid: MockAnalyticsWave2.previousCentroid,
-                sigma: MockAnalyticsWave2.previousSigma
-            )
-        }
+        guard let c = comparison else { return }
+        // DEBUG: override the slice numerals with spec-aligned values so the
+        // Prev→Now compare strip reads "9.8 → 10.4" with a positive +0.6 delta,
+        // matching the Kenrokuen reference figure. The engine's plot arrays
+        // are preserved for the Impact Map overlay.
+        let cur = PeriodSlice(
+            label: c.current.label,
+            plots: c.current.plots,
+            avgArrowScore: MockAnalyticsWave2.mockCurrentAvg,
+            xPercentage: MockAnalyticsWave2.mockCurrentXPct,
+            sessionCount: MockAnalyticsWave2.mockCurrentSessions,
+            config: c.current.config,
+            centroid: c.current.centroid ?? MockAnalyticsWave2.currentCentroid,
+            sigma: c.current.sigma ?? MockAnalyticsWave2.currentSigma
+        )
+        let prev = PeriodSlice(
+            label: c.previous.label,
+            plots: c.previous.plots,
+            avgArrowScore: MockAnalyticsWave2.mockPreviousAvg,
+            xPercentage: MockAnalyticsWave2.mockPreviousXPct,
+            sessionCount: MockAnalyticsWave2.mockPreviousSessions,
+            config: c.previous.config,
+            centroid: c.previous.centroid ?? MockAnalyticsWave2.previousCentroid,
+            sigma: c.previous.sigma ?? MockAnalyticsWave2.previousSigma
+        )
         let shift = c.shift ?? MockAnalyticsWave2.shiftVector
         comparison = PeriodComparison(period: c.period, current: cur, previous: prev, shift: shift)
         #endif

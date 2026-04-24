@@ -21,13 +21,16 @@ struct BPBigScore: View {
             Text(parts[0])
                 .font(.bpDisplay(size, italic: false, weight: .medium))
                 .foregroundStyle(Color.appDeep)
+                .lineLimit(1)
             if parts.count == 2 {
                 Text(".")
                     .font(.bpDisplay(size, italic: false, weight: .medium))
                     .foregroundStyle(Color.appMaple)
+                    .lineLimit(1)
                 Text(parts[1])
                     .font(.bpDisplay(size, italic: false, weight: .medium))
                     .foregroundStyle(Color.appDeep)
+                    .lineLimit(1)
             }
             if let unit, !unit.isEmpty {
                 Text(unit)
@@ -36,8 +39,13 @@ struct BPBigScore: View {
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appInk3)
                     .padding(.leading, 4)
+                    .lineLimit(1)
             }
         }
+        // Keep the split numerals on one line inside a narrow stat-grid column.
+        // Without this, "10.3" wraps "10" → "1" + "0" on separate lines, and the
+        // stray "0" rides below the maple-dot'd "1.3" looking like a dangling stat.
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 

@@ -438,7 +438,10 @@ struct AnalyticsView: View {
                     if viewModel.selectedDistance == .twentyYards { return .sixRing }
                     return .tenRing
                 }()
-                BPTargetFace(face: face, size: 200, showCrosshair: true) {
+                // Impact Map uses the pond-gradient ring stack (NOT real WA
+                // paint). The spec wants the target to read as data, not
+                // decoration — the centroids + shift arrow overlay on top.
+                BPTargetFace(face: face, style: .impactMap, size: 200, showCrosshair: true) {
                     ImpactMapOverlay(
                         size: 200,
                         previous: viewModel.comparison?.previous,

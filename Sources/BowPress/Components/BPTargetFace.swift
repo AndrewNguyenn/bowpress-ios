@@ -1,27 +1,61 @@
 import SwiftUI
 
+/// Local hex helper — AppTheme's `hex(_:)` is fileprivate and the Impact-Map
+/// pond ramp needs a handful of specific fills that aren't token'd. Scoped
+/// `private` so it can't leak into the broader namespace.
+private func bpTgtHex(_ s: String) -> Color {
+    var h = s.trimmingCharacters(in: .init(charactersIn: "#"))
+    if h.count == 3 { h = h.map { "\($0)\($0)" }.joined() }
+    var rgb: UInt64 = 0
+    Scanner(string: h).scanHexInt64(&rgb)
+    let r = Double((rgb >> 16) & 0xFF) / 255
+    let g = Double((rgb >>  8) & 0xFF) / 255
+    let b = Double( rgb        & 0xFF) / 255
+    return Color(red: r, green: g, blue: b)
+}
+
 /// World Archery target face — flat, real ring colors, never reskinned.
 /// Ring radii match the analytics-japanese.html reference at ratios of
 /// 0.96, 0.86, 0.76, 0.66, 0.56, 0.46, 0.36, 0.26, 0.16, 0.08, 0.014 of
 /// the rendered radius (size / 2).
+///
+/// Two styles:
+///   • `.wa` (default) — real WA colors for the setup face picker + the
+///     active session target. Data should never be drawn ON this face.
+///   • `.impactMap` — pond-gradient quiet-rings variant used by the Analytics
+///     Impact Map. Follows the spec's "data, not decoration" rule so centroids
+///     and shift arrows read cleanly without clashing with WA paint.
 struct BPTargetFace<Overlay: View>: View {
     enum FaceType {
         case tenRing
         case sixRing
     }
 
+    enum Style {
+        /// Real World Archery paint — white/black/blue/red/yellow. The default,
+        /// used for every face-as-foreground-content surface.
+        case wa
+        /// Pond-gradient ring stack for the Impact Map — outer paper → deep
+        /// pond → lacquer ink, with moss at the exact center. See lines 476–488
+        /// of bowpress-design-system/project/explorations/analytics-japanese.html.
+        case impactMap
+    }
+
     let face: FaceType
+    let style: Style
     let size: CGFloat
     let showCrosshair: Bool
     let overlay: Overlay
 
     init(
         face: FaceType = .tenRing,
+        style: Style = .wa,
         size: CGFloat = 300,
         showCrosshair: Bool = false,
         @ViewBuilder overlay: () -> Overlay
     ) {
         self.face = face
+        self.style = style
         self.size = size
         self.showCrosshair = showCrosshair
         self.overlay = overlay()
@@ -38,6 +72,9 @@ struct BPTargetFace<Overlay: View>: View {
     /// radii 96, 86, 76, 66, 56, 46, 36, 26, 16, 8, 1.4 — divided by 100
     /// produces the ratios used below, applied to `size / 2`).
     private var rings: [Ring] {
+        if style == .impactMap {
+            return impactMapRings
+        }
         switch face {
         case .tenRing:
             return [
@@ -78,6 +115,29 @@ struct BPTargetFace<Overlay: View>: View {
                 Ring(ratio: 0.014, fill: .appInk,      strokeColor: nil,     strokeWidth: 0),
             ]
         }
+    }
+
+    /// Pond-gradient ring stack for the Impact Map. Ratios from
+    /// analytics-japanese.html lines 476–488 — outer paper mist → deep pond
+    /// → lacquer ink, with a moss hairline X-ring and a moss center dot so
+    /// the target reads as data, not decoration.
+    private var impactMapRings: [Ring] {
+        [
+            Ring(ratio: 0.94, fill: bpTgtHex("#d9e1d8"), strokeColor: nil, strokeWidth: 0),
+            Ring(ratio: 0.84, fill: bpTgtHex("#c9d4c9"), strokeColor: nil, strokeWidth: 0),
+            Ring(ratio: 0.74, fill: bpTgtHex("#b2c3c2"), strokeColor: nil, strokeWidth: 0),
+            Ring(ratio: 0.64, fill: bpTgtHex("#8fb3bf"), strokeColor: nil, strokeWidth: 0),
+            Ring(ratio: 0.54, fill: bpTgtHex("#6d9aa8"), strokeColor: nil, strokeWidth: 0),
+            Ring(ratio: 0.44, fill: bpTgtHex("#4a7989"), strokeColor: nil, strokeWidth: 0),
+            Ring(ratio: 0.34, fill: bpTgtHex("#3a6878"), strokeColor: nil, strokeWidth: 0),
+            Ring(ratio: 0.24, fill: bpTgtHex("#2d5a6b"), strokeColor: nil, strokeWidth: 0),
+            Ring(ratio: 0.14, fill: bpTgtHex("#1e3e4a"), strokeColor: nil, strokeWidth: 0),
+            Ring(ratio: 0.07, fill: bpTgtHex("#1f2a26"), strokeColor: nil, strokeWidth: 0),
+            // X-ring moss hairline (r=3.2 at viewBox 200 → ratio 0.032).
+            Ring(ratio: 0.032, fill: nil,  strokeColor: .appMoss, strokeWidth: 0.6),
+            // center moss dot (r=0.8 at viewBox 200 → ratio 0.008).
+            Ring(ratio: 0.008, fill: .appMoss, strokeColor: nil, strokeWidth: 0),
+        ]
     }
 
     var body: some View {
@@ -130,8 +190,13 @@ struct BPTargetFace<Overlay: View>: View {
 }
 
 extension BPTargetFace where Overlay == EmptyView {
-    init(face: FaceType = .tenRing, size: CGFloat = 300, showCrosshair: Bool = false) {
-        self.init(face: face, size: size, showCrosshair: showCrosshair) { EmptyView() }
+    init(
+        face: FaceType = .tenRing,
+        style: Style = .wa,
+        size: CGFloat = 300,
+        showCrosshair: Bool = false
+    ) {
+        self.init(face: face, style: style, size: size, showCrosshair: showCrosshair) { EmptyView() }
     }
 }
 
@@ -141,6 +206,7 @@ extension BPTargetFace where Overlay == EmptyView {
         VStack(spacing: 24) {
             BPTargetFace(showCrosshair: true)
             BPTargetFace(face: .sixRing, size: 160)
+            BPTargetFace(style: .impactMap, size: 200, showCrosshair: true)
         }
     }
 }

@@ -12,6 +12,11 @@ struct HistoricalSessionsView: View {
     @State private var pendingDeleteSession: ShootingSession?
     @State private var errorMessage: String?
     @State private var filtersSheetPresented = false
+    /// sessionId → plots, lazily hydrated once on appearance. `LocalStore.fetchSessions()`
+    /// intentionally skips populating `session.arrows` (it would be O(n²) on the wire);
+    /// SessionLogRow's per-arrow bar strip and avg calculations need those plots, so
+    /// we bulk-fetch here and pass them down.
+    @State private var plotsBySession: [String: [ArrowPlot]] = [:]
 
     // MARK: - Computed properties
 
@@ -102,6 +107,14 @@ struct HistoricalSessionsView: View {
             Button("OK", role: .cancel) { errorMessage = nil }
         } message: {
             Text(errorMessage ?? "")
+        }
+        .task {
+            // Hydrate plots once; fetchAllArrows() is cheap against the in-memory
+            // store and a single round-trip beats fetchArrows(sessionId:) per row.
+            guard plotsBySession.isEmpty, let store else { return }
+            if let all = try? store.fetchAllArrows() {
+                plotsBySession = Dictionary(grouping: all, by: \.sessionId)
+            }
         }
         // TODO: filter sheet — currently stub
         .sheet(isPresented: $filtersSheetPresented) {
@@ -252,7 +265,9 @@ struct HistoricalSessionsView: View {
                         session: session,
                         isBest: isBest,
                         previousAvg: prevSession.map { sessionAvg($0) },
-                        isLastInGroup: isLastInGroup
+                        isLastInGroup: isLastInGroup,
+                        plots: plots(for: session),
+                        bowName: bowName(for: session)
                     )
                 }
                 .buttonStyle(.plain)
@@ -470,10 +485,25 @@ struct HistoricalSessionsView: View {
     }
 
     private func sessionAvg(_ session: ShootingSession) -> Double {
-        guard let arrows = session.arrows, !arrows.isEmpty else {
-            return 0
+        let source = plots(for: session)
+        guard !source.isEmpty else { return 0 }
+        return Double(source.reduce(0) { $0 + min($1.ring, 10) }) / Double(source.count)
+    }
+
+    /// Returns pre-fetched plots for this session, falling back to
+    /// `session.arrows` for tests / mock DTOs that populate arrows inline.
+    private func plots(for session: ShootingSession) -> [ArrowPlot] {
+        if let hydrated = plotsBySession[session.id], !hydrated.isEmpty {
+            return hydrated
         }
-        return Double(arrows.reduce(0) { $0 + min($1.ring, 10) }) / Double(arrows.count)
+        return session.arrows ?? []
+    }
+
+    /// Resolves `session.bowId` to its user-facing name via `appState.bows`.
+    /// Falls back to "bow" when the bow hasn't been loaded (e.g. snapshot tests
+    /// without AppState seeded).
+    private func bowName(for session: ShootingSession) -> String {
+        appState.bows.first(where: { $0.id == session.bowId })?.name ?? "bow"
     }
 
     private func bestSessionInGroup(_ groupSessions: [ShootingSession]) -> ShootingSession? {
@@ -506,8 +536,20 @@ private struct SessionLogRow: View {
     let isBest: Bool
     let previousAvg: Double?
     let isLastInGroup: Bool
+    /// Pre-fetched arrow plots for this session. `fetchSessions()` doesn't
+    /// hydrate `session.arrows`, so the parent view loads plots from
+    /// `LocalStore.fetchAllArrows()` and hands them in here. Falls back to
+    /// `session.arrows` for call sites that still populate the DTO inline
+    /// (e.g. `mockSessions` in snapshot tests).
+    let plots: [ArrowPlot]
+    /// Resolved bow name for this session's `bowId`. Passed down from the
+    /// parent so snapshot tests that don't wire AppState still render.
+    let bowName: String
 
-    private var arrows: [ArrowPlot] { session.arrows ?? [] }
+    private var arrows: [ArrowPlot] {
+        if !plots.isEmpty { return plots }
+        return session.arrows ?? []
+    }
 
     private var avgRing: Double {
         guard !arrows.isEmpty else { return 0 }
@@ -664,8 +706,7 @@ private struct SessionLogRow: View {
     }
 
     private var bowNameForSession: String {
-        // Best-effort: use the session's first arrow's config if available
-        "bow"
+        bowName.isEmpty ? "bow" : bowName
     }
 
     private var bestDeltaChip: some View {
@@ -688,24 +729,26 @@ private struct ArrowBars: View {
     let arrows: [ArrowPlot]
     let arrowCount: Int
 
+    // NB: no GeometryReader here. `Rectangle` has zero intrinsic height, so
+    // wrapping it in a GeometryReader collapsed the strip to 0pt — only the
+    // row's underlying hairline was visible. The caller applies `.frame(height: 6)`
+    // externally; `maxHeight: .infinity` on the Rectangles lets them fill it.
     var body: some View {
-        GeometryReader { geo in
-            HStack(spacing: 1) {
-                if arrows.isEmpty {
-                    // Placeholder bars
-                    ForEach(0..<max(1, arrowCount), id: \.self) { _ in
-                        Rectangle()
-                            .fill(Color.appLine2)
-                            .frame(maxWidth: .infinity)
-                            .cornerRadius(1)
-                    }
-                } else {
-                    ForEach(Array(arrows.enumerated()), id: \.element.id) { _, arrow in
-                        Rectangle()
-                            .fill(barColor(for: arrow.ring))
-                            .frame(maxWidth: .infinity)
-                            .cornerRadius(1)
-                    }
+        HStack(spacing: 1) {
+            if arrows.isEmpty {
+                // Placeholder bars — arrows haven't loaded from the store yet.
+                ForEach(0..<max(1, arrowCount), id: \.self) { _ in
+                    Rectangle()
+                        .fill(Color.appLine2)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .cornerRadius(1)
+                }
+            } else {
+                ForEach(Array(arrows.enumerated()), id: \.element.id) { _, arrow in
+                    Rectangle()
+                        .fill(barColor(for: arrow.ring))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .cornerRadius(1)
                 }
             }
         }
