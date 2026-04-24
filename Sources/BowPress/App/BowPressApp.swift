@@ -34,8 +34,9 @@ struct BowPressApp: App {
                     PushRegistrar.shared.configure(appState: appState)
                     NotificationRouter.shared.configure(appState: appState)
                     SubscriptionManager.shared.configure(appState: appState)
-                    if appState.isAuthenticated {
-                        Task {
+                    Task {
+                        await AuthService(appState: appState).restoreIfPossible()
+                        if appState.isAuthenticated {
                             await SubscriptionManager.shared.loadProducts()
                             await SubscriptionManager.shared.refreshEntitlement()
                         }

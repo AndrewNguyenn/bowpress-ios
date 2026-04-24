@@ -101,6 +101,27 @@ struct MainTabView: View {
             appState.bows = (try? store.fetchBows()) ?? appState.bows
             appState.arrowConfigs = (try? store.fetchArrowConfigs()) ?? appState.arrowConfigs
             appState.completedSessions = (try? store.fetchSessions()) ?? appState.completedSessions
+
+            // Resume an in-progress session if the user closed the app mid-shoot.
+            // Archery practices can run long and phones die; the session row and
+            // its arrows/ends were written to LocalStore as they happened, so
+            // we can reconstruct ViewModel state from disk.
+            if !sessionViewModel.isSessionActive,
+               let active = try? store.fetchActiveSession(),
+               let bow = appState.bows.first(where: { $0.id == active.bowId }),
+               let arrowConfig = appState.arrowConfigs.first(where: { $0.id == active.arrowConfigId }) {
+                let configs = (try? store.fetchConfigurations(bowId: bow.id)) ?? []
+                if let bowConfig = configs.first(where: { $0.id == active.bowConfigId }) {
+                    sessionViewModel.resume(
+                        session: active,
+                        bow: bow,
+                        bowConfig: bowConfig,
+                        arrowConfig: arrowConfig,
+                        knownConfigs: configs
+                    )
+                }
+            }
+
             // Hydration ran in parallel with AnalyticsView.task's initial load,
             // so the first overview query against the store was empty. Bump the
             // refresh nonce — AnalyticsView listens for this and re-loads.
