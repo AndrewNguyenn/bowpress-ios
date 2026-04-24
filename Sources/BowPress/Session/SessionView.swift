@@ -256,6 +256,11 @@ struct SessionView: View {
                             .scrollContentBackground(.hidden)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
+                            .onChange(of: viewModel.sessionNotes) { _, new in
+                                // Persist mid-session edits so notes survive
+                                // an app kill before endSession() runs.
+                                viewModel.updateNotes(new)
+                            }
                     }
                     .background(Color.appSurface)
                     .clipShape(RoundedRectangle(cornerRadius: 10))

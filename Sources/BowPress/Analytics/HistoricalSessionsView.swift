@@ -197,12 +197,18 @@ struct SessionDetailSheet: View {
     let session: ShootingSession
     var allConfigs: [BowConfiguration] = []
 
+    @Environment(AppState.self) private var appState
     @Environment(LocalStore.self) private var store: LocalStore?
     @State private var selectedEnd: SessionEnd?
     @State private var loadedArrows: [ArrowPlot] = []
     @State private var loadedEnds: [SessionEnd] = []
     @State private var visibleCount: Int = 0
     @State private var didInitScrub: Bool = false
+    @State private var showEditSheet: Bool = false
+    /// Latest edited copy so the detail view reflects saves without a re-fetch.
+    @State private var liveSession: ShootingSession?
+
+    private var displaySession: ShootingSession { liveSession ?? session }
 
     private var sessionEnds: [SessionEnd] {
         loadedEnds.isEmpty ? (session.ends ?? []) : loadedEnds
@@ -427,10 +433,19 @@ struct SessionDetailSheet: View {
                     }
                 }
 
+                // Notes (editable via toolbar Edit button)
+                if !displaySession.notes.isEmpty {
+                    Section("Notes") {
+                        Text(displaySession.notes)
+                            .font(.body)
+                            .padding(.vertical, 4)
+                    }
+                }
+
                 // Feel tags
-                if !session.feelTags.isEmpty {
+                if !displaySession.feelTags.isEmpty {
                     Section("Feel") {
-                        WrappingTagRow(tags: session.feelTags, maxVisible: 20)
+                        WrappingTagRow(tags: displaySession.feelTags, maxVisible: 20)
                             .padding(.vertical, 4)
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
@@ -477,6 +492,22 @@ struct SessionDetailSheet: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Session Detail")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Edit") { showEditSheet = true }
+                    .accessibilityIdentifier("edit_session_button")
+            }
+        }
+        .sheet(isPresented: $showEditSheet) {
+            EditSessionSheet(session: displaySession) { updated in
+                liveSession = updated
+                // Sync the row in AppState so the log list reflects the edit
+                // without waiting for a re-fetch.
+                if let idx = appState.completedSessions.firstIndex(where: { $0.id == updated.id }) {
+                    appState.completedSessions[idx] = updated
+                }
+            }
+        }
         .task {
             guard let store else { return }
             if loadedArrows.isEmpty {

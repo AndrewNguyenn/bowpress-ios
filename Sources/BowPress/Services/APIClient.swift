@@ -77,6 +77,7 @@ protocol BowPressAPIClient: AnyObject {
     func fetchSessions() async throws -> [ShootingSession]
     func createSession(_ session: ShootingSession) async throws -> ShootingSession
     func endSession(id: String, notes: String) async throws
+    func updateSession(id: String, notes: String, feelTags: [String]) async throws
     func deleteSession(id: String) async throws
     func fetchPlots(sessionId: String) async throws -> [ArrowPlot]
     func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot
@@ -118,6 +119,7 @@ final class APIClient: BowPressAPIClient {
 
     init(session: URLSession = .shared) {
         self.session = session
+        self.authToken = TokenStore.load()
         let decoder = JSONDecoder()
         // Backend emits ISO8601 with fractional seconds (e.g. "2026-04-18T12:00:00.000Z").
         // Swift's default .iso8601 strategy rejects fractional seconds; accept both.
@@ -143,7 +145,15 @@ final class APIClient: BowPressAPIClient {
         self.encoder = encoder
     }
 
-    func setToken(_ token: String) { self.authToken = token.isEmpty ? nil : token }
+    func setToken(_ token: String) {
+        let trimmed = token.isEmpty ? nil : token
+        self.authToken = trimmed
+        if let trimmed {
+            TokenStore.save(trimmed)
+        } else {
+            TokenStore.clear()
+        }
+    }
     var hasToken: Bool { authToken?.isEmpty == false }
 
     // MARK: - Auth
@@ -373,6 +383,25 @@ final class APIClient: BowPressAPIClient {
             let notes: String
         }
         let body = EndSessionBody(endedAt: Date(), notes: notes)
+        let (data, response) = try await request(method: "PUT", path: "/sessions/\(encoded)", body: body)
+        try ensureSuccess(response: response, data: data)
+    }
+
+    /// Edit a completed session's notes and feel tags. Server reuses the PUT
+    /// handler and only enqueues the analytics workflow on the null→set
+    /// `endedAt` transition, so edits won't double-fire the pipeline.
+    func updateSession(id: String, notes: String, feelTags: [String]) async throws {
+        #if DEBUG
+        if APIClient.useMocks { return }
+        #endif
+        guard let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        struct UpdateSessionBody: Encodable {
+            let notes: String
+            let feelTags: [String]
+        }
+        let body = UpdateSessionBody(notes: notes, feelTags: feelTags)
         let (data, response) = try await request(method: "PUT", path: "/sessions/\(encoded)", body: body)
         try ensureSuccess(response: response, data: data)
     }

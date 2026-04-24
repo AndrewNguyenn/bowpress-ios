@@ -197,6 +197,28 @@ final class LocalStore {
             }
     }
 
+    /// Most recent session with no `endedAt` — an in-progress session that
+    /// should be resumed on app launch. Nil if the last session is complete.
+    func fetchActiveSession() throws -> ShootingSession? {
+        let descriptor = FetchDescriptor<PersistentSession>(
+            predicate: #Predicate { $0.endedAt == nil },
+            sortBy: [SortDescriptor(\.startedAt, order: .reverse)]
+        )
+        var fetch = descriptor
+        fetch.fetchLimit = 1
+        return try context.fetch(fetch).first?.toDTO()
+    }
+
+    func updateSessionNotes(id: String, notes: String) throws {
+        let predicate = #Predicate<PersistentSession> { $0.id == id }
+        let descriptor = FetchDescriptor<PersistentSession>(predicate: predicate)
+        if let existing = try context.fetch(descriptor).first {
+            existing.notes = notes
+            existing.pendingSync = true
+            try context.save()
+        }
+    }
+
     func fetchArrows(sessionId: String) throws -> [ArrowPlot] {
         let predicate = #Predicate<PersistentArrowPlot> { $0.sessionId == sessionId }
         let descriptor = FetchDescriptor<PersistentArrowPlot>(

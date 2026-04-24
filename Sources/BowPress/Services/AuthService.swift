@@ -53,5 +53,30 @@ final class AuthService: NSObject {
         appState.isAuthenticated = false
         appState.pendingVerificationEmail = nil
         GIDSignIn.sharedInstance.signOut()
+        if let apiClient = client as? APIClient {
+            apiClient.clearToken()
+        }
+    }
+
+    /// Restore auth state from a persisted Keychain token on launch.
+    /// Optimistically flips `isAuthenticated` so the UI doesn't flash the
+    /// sign-in screen, then validates with the server. Only clears the
+    /// token on an explicit auth failure (401/403) — transient network
+    /// errors leave the cached session intact so offline launches still
+    /// land on MainTabView.
+    func restoreIfPossible() async {
+        guard let apiClient = client as? APIClient, apiClient.hasToken else { return }
+        appState.isAuthenticated = true
+        do {
+            let user = try await apiClient.fetchProfile()
+            appState.currentUser = user
+        } catch let error as NSError {
+            if error.domain == "APIClient" && (error.code == 401 || error.code == 403) {
+                apiClient.clearToken()
+                appState.currentUser = nil
+                appState.isAuthenticated = false
+            }
+            // Other errors (offline, 5xx): keep the cached session.
+        }
     }
 }

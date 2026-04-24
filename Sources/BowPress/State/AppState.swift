@@ -7,7 +7,11 @@ final class AppState {
     var isAuthenticated: Bool = true
     var currentUser: User? = User(id: "dev", email: "dev@bowpress.app", name: "Dev Archer", createdAt: Date())
     #else
-    var isAuthenticated: Bool = false
+    // Pre-flip based on a persisted Keychain token so release launches
+    // don't flash AuthView before `AuthService.restoreIfPossible()`
+    // validates the session. If the server later rejects the token,
+    // restoreIfPossible clears it and flips isAuthenticated back.
+    var isAuthenticated: Bool = TokenStore.load() != nil
     var currentUser: User?
     #endif
     var pendingVerificationEmail: String? = nil

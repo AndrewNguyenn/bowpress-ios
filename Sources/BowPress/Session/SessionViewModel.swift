@@ -388,4 +388,45 @@ import Observation
         try? store?.deleteArrow(id: removed.id)
         Task { try? await apiClient.deletePlot(sessionId: removed.sessionId, id: removed.id) }
     }
+
+    /// Rehydrate an in-progress session from LocalStore. Called on launch
+    /// when `LocalStore.fetchActiveSession()` returns a session. Restores
+    /// arrows, ends, notes, and the active configs so the archer can pick
+    /// up exactly where they left off after an app kill or phone reboot.
+    func resume(
+        session: ShootingSession,
+        bow: Bow,
+        bowConfig: BowConfiguration,
+        arrowConfig: ArrowConfiguration,
+        knownConfigs: [BowConfiguration]
+    ) {
+        guard let store else { return }
+        let arrows = (try? store.fetchArrows(sessionId: session.id)) ?? []
+        let ends = (try? store.fetchEnds(sessionId: session.id)) ?? []
+
+        currentSession = session
+        selectedBow = bow
+        activeBowConfig = bowConfig
+        activeArrowConfig = arrowConfig
+        knownBowConfigs = knownConfigs.isEmpty ? [bowConfig] : knownConfigs
+        sessionNotes = session.notes
+        completedEnds = ends
+        // Reconstruct per-end arrow counts from plot endIds; arrows without
+        // an endId belong to the in-progress current end.
+        endArrowCounts = ends.map { end in arrows.filter { $0.endId == end.id }.count }
+        allArrows = arrows
+        let completedCount = endArrowCounts.reduce(0, +)
+        currentArrows = Array(arrows.dropFirst(completedCount))
+        pendingBowConfig = nil
+        pendingArrowConfig = nil
+        isSessionActive = true
+    }
+
+    /// Persist session notes to LocalStore as they're edited so they
+    /// survive app kill mid-session. Reads `sessionNotes` directly —
+    /// the caller mutates it via the view's TextEditor binding.
+    func updateNotes(_ notes: String) {
+        guard let session = currentSession else { return }
+        try? store?.updateSessionNotes(id: session.id, notes: notes)
+    }
 }

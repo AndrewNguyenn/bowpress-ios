@@ -85,6 +85,7 @@ final class MockAPIClient: BowPressAPIClient {
     func fetchSessions() async throws -> [ShootingSession] { [] }
     func createSession(_ session: ShootingSession) async throws -> ShootingSession { session }
     func endSession(id: String, notes: String) async throws {}
+    func updateSession(id: String, notes: String, feelTags: [String]) async throws {}
     func deleteSession(id: String) async throws {}
     func fetchPlots(sessionId: String) async throws -> [ArrowPlot] { [] }
     func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot { plot }
