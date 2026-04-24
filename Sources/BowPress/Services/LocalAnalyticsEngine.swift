@@ -10,9 +10,13 @@ final class LocalAnalyticsEngine {
 
     // MARK: - Overview
 
-    func overview(period: AnalyticsPeriod) throws -> AnalyticsOverview {
+    func overview(period: AnalyticsPeriod, bowType: BowType? = nil) throws -> AnalyticsOverview {
         let periodStart = period.startDate
-        let sessions = try store.fetchSessions().filter { $0.startedAt >= periodStart }
+        var sessions = try store.fetchSessions().filter { $0.startedAt >= periodStart }
+        if let bowType {
+            let ids = try bowIdsForStyle(bowType)
+            sessions = sessions.filter { ids.contains($0.bowId) }
+        }
         let arrows = try store.fetchArrows(since: periodStart)
             .filter { !$0.excluded }
         let sessionIds = Set(sessions.map(\.id))
@@ -28,14 +32,18 @@ final class LocalAnalyticsEngine {
 
     // MARK: - Comparison
 
-    func comparison(period: AnalyticsPeriod) throws -> PeriodComparison {
+    func comparison(period: AnalyticsPeriod, bowType: BowType? = nil) throws -> PeriodComparison {
         let now = Date()
         let duration = period.duration
         let currentStart = now.addingTimeInterval(-duration)
         let previousStart = now.addingTimeInterval(-duration * 2)
 
-        let allSessions = try store.fetchSessions()
+        var allSessions = try store.fetchSessions()
         let allArrows = try store.fetchAllArrows().filter { !$0.excluded }
+        if let bowType {
+            let ids = try bowIdsForStyle(bowType)
+            allSessions = allSessions.filter { ids.contains($0.bowId) }
+        }
 
         let currentSessions = allSessions.filter { $0.startedAt >= currentStart }
         let previousSessions = allSessions.filter { $0.startedAt >= previousStart && $0.startedAt < currentStart }
@@ -270,6 +278,10 @@ final class LocalAnalyticsEngine {
     // MARK: - Helpers
 
     private let mmPerNorm: Double = 20.0 / (119.0 / 735.0)
+
+    private func bowIdsForStyle(_ bowType: BowType) throws -> Set<String> {
+        Set(try store.fetchBows().filter { $0.bowType == bowType }.map(\.id))
+    }
 
     private func avgScore(_ plots: [ArrowPlot]) -> Double {
         let active = plots.filter { !$0.excluded }

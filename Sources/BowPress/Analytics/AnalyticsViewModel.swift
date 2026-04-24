@@ -3,7 +3,14 @@ import Observation
 
 @Observable @MainActor
 final class AnalyticsViewModel {
+    static let bowTypeDefaultsKey = "analytics.selectedBowType"
+
     var selectedPeriod: AnalyticsPeriod = .threeDays
+    /// nil = "All bows" (default).
+    var selectedBowType: BowType? = {
+        guard let raw = UserDefaults.standard.string(forKey: AnalyticsViewModel.bowTypeDefaultsKey) else { return nil }
+        return BowType(rawValue: raw)
+    }()
     var overview: AnalyticsOverview?
     var comparison: PeriodComparison?
     var suggestions: [AnalyticsSuggestion] = []
@@ -39,14 +46,25 @@ final class AnalyticsViewModel {
 
     // MARK: - Public API
 
+    func selectBowType(_ type: BowType?) async {
+        guard type != selectedBowType else { return }
+        selectedBowType = type
+        if let type {
+            UserDefaults.standard.set(type.rawValue, forKey: Self.bowTypeDefaultsKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: Self.bowTypeDefaultsKey)
+        }
+        await load(period: selectedPeriod)
+    }
+
     func load(period: AnalyticsPeriod) async {
         guard !isLoading, let engine else { return }
         selectedPeriod = period
         isLoading = true
         error = nil
         do {
-            overview = try engine.overview(period: period)
-            comparison = try engine.comparison(period: period)
+            overview = try engine.overview(period: period, bowType: selectedBowType)
+            comparison = try engine.comparison(period: period, bowType: selectedBowType)
             extraInsights = (try? engine.multiSessionInsights()) ?? []
             let readIds = Set(suggestions.filter(\.wasRead).map(\.id))
             // Carry over any locally-applied state too — the server is the

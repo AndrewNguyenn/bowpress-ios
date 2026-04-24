@@ -439,32 +439,36 @@ final class APIClient: BowPressAPIClient {
         return []
     }
     func markSuggestionRead(id: String) async throws {}
-    func fetchAnalyticsOverview(period: AnalyticsPeriod) async throws -> AnalyticsOverview {
+    func fetchAnalyticsOverview(period: AnalyticsPeriod, bowType: BowType? = nil) async throws -> AnalyticsOverview {
         #if DEBUG
         if APIClient.useMocks { return DevMockData.overview(period: period) }
         #endif
         guard let encoded = period.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
             throw URLError(.badURL)
         }
+        var path = "/analytics/overview?period=\(encoded)"
+        if let bowType { path += "&bowType=\(bowType.rawValue)" }
         let (data, response) = try await request(
             method: "GET",
-            path: "/analytics/overview?period=\(encoded)",
+            path: path,
             body: Optional<[String: String]>.none
         )
         try ensureSuccess(response: response, data: data)
         return try decoder.decode(AnalyticsOverview.self, from: data)
     }
 
-    func fetchComparison(period: AnalyticsPeriod) async throws -> PeriodComparison {
+    func fetchComparison(period: AnalyticsPeriod, bowType: BowType? = nil) async throws -> PeriodComparison {
         #if DEBUG
         if APIClient.useMocks { return DevMockData.comparison(period: period) }
         #endif
         guard let encoded = period.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
             throw URLError(.badURL)
         }
+        var path = "/analytics/comparison?period=\(encoded)"
+        if let bowType { path += "&bowType=\(bowType.rawValue)" }
         let (data, response) = try await request(
             method: "GET",
-            path: "/analytics/comparison?period=\(encoded)",
+            path: path,
             body: Optional<[String: String]>.none
         )
         try ensureSuccess(response: response, data: data)
