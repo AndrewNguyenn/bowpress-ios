@@ -108,10 +108,16 @@ struct HistoricalSessionsView: View {
         } message: {
             Text(errorMessage ?? "")
         }
-        .task {
-            // Hydrate plots once; fetchAllArrows() is cheap against the in-memory
-            // store and a single round-trip beats fetchArrows(sessionId:) per row.
-            guard plotsBySession.isEmpty, let store else { return }
+        .task(id: appState.analyticsRefreshNonce) {
+            // Hydrate plots keyed on sessionId. The refresh-nonce id makes this
+            // task re-run after `MainTabView` finishes its `LocalHydration.
+            // hydrateFromAPI` round-trip and bumps `analyticsRefreshNonce` — a
+            // plain `.task { ... }` fired once on appearance lost the race with
+            // hydration, leaving `plotsBySession` empty and every row reading
+            // "— avg · 0% X · <bow>" forever. `fetchAllArrows()` is a single
+            // read against the in-memory store, so re-running on each nonce
+            // bump is cheap.
+            guard let store else { return }
             if let all = try? store.fetchAllArrows() {
                 plotsBySession = Dictionary(grouping: all, by: \.sessionId)
             }
@@ -682,14 +688,44 @@ private struct SessionLogRow: View {
         }
     }
 
+    /// `<avg with maple dot> avg · <x%>% X · <bow name>` per spec
+    /// (analytics-japanese.html line ~756 — `<b>10.7</b> avg · <b>78%</b> X`).
+    /// When arrow plots haven't loaded yet (or the session has no plots),
+    /// fall back to just the bow name rather than misleading with "0% X"
+    /// or "— avg".
     private var metaLine: some View {
-        let avgFmt = avgRing > 0 ? String(format: "%.1f", avgRing) : "—"
+        metaLineText
+    }
 
-        return (
-            Text(avgFmt)
+    /// Returns a concatenated `Text` so the integer / decimal / fractional
+    /// portions of the avg can carry different foreground styles (the decimal
+    /// point picks up `appMaple` to echo the hero BPBigScore treatment).
+    private var metaLineText: Text {
+        let bowSuffix = Text(bowNameForSession)
+            .font(.bpMono(10))
+            .foregroundStyle(Color.appInk3)
+            .tracking(10 * 0.04)
+        guard !arrows.isEmpty else {
+            return bowSuffix
+        }
+        let avgStr = String(format: "%.1f", avgRing)
+        let avgParts = avgStr.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+        let intNumeral = Text(avgParts[0])
+            .font(.bpMono(10, weight: .medium))
+            .foregroundStyle(Color.appInk2)
+            .tracking(10 * 0.04)
+        let decimalPiece: Text = {
+            guard avgParts.count == 2 else { return Text("") }
+            return Text(".")
                 .font(.bpMono(10, weight: .medium))
-                .foregroundStyle(Color.appInk2)
-                .tracking(10 * 0.04)
+                .foregroundStyle(Color.appMaple)
+                + Text(avgParts[1])
+                    .font(.bpMono(10, weight: .medium))
+                    .foregroundStyle(Color.appInk2)
+                    .tracking(10 * 0.04)
+        }()
+        return intNumeral
+            + decimalPiece
             + Text(" avg · ")
                 .font(.bpMono(10))
                 .foregroundStyle(Color.appInk3)
@@ -698,11 +734,11 @@ private struct SessionLogRow: View {
                 .font(.bpMono(10, weight: .medium))
                 .foregroundStyle(Color.appInk2)
                 .tracking(10 * 0.04)
-            + Text(" X · \(bowNameForSession)")
+            + Text(" X · ")
                 .font(.bpMono(10))
                 .foregroundStyle(Color.appInk3)
                 .tracking(10 * 0.04)
-        )
+            + bowSuffix
     }
 
     private var bowNameForSession: String {
