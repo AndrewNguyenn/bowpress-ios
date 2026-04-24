@@ -190,7 +190,9 @@ struct SessionView: View {
                         let current = viewModel.pendingArrowConfig ?? viewModel.activeArrowConfig
                         let live = appState.arrowConfigs.first(where: { $0.id == current?.id })
                         return (live ?? current)?.shaftDiameter?.rawValue ?? 5.0
-                    }()
+                    }(),
+                    faceType: viewModel.currentSession?.targetFaceType
+                        ?? (viewModel.selectedBow.map { TargetFaceType.defaultFor($0.bowType) } ?? .sixRing)
                 )
                 .frame(maxWidth: 380)
                 .padding(.horizontal, 24)

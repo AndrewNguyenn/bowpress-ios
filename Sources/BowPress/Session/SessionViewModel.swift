@@ -88,10 +88,12 @@ import Observation
         bow: Bow,
         bowConfig: BowConfiguration,
         arrowConfig: ArrowConfiguration,
-        knownConfigs: [BowConfiguration] = []
+        knownConfigs: [BowConfiguration] = [],
+        targetFaceType: TargetFaceType? = nil
     ) async {
         isLoading = true
         error = nil
+        let resolvedFaceType = targetFaceType ?? TargetFaceType.defaultFor(bow.bowType)
         let session = ShootingSession(
             id: UUID().uuidString,
             bowId: bow.id,
@@ -101,7 +103,8 @@ import Observation
             endedAt: nil,
             notes: "",
             feelTags: [],
-            arrowCount: 0
+            arrowCount: 0,
+            targetFaceType: resolvedFaceType
         )
         // Persist locally first — session exists even if server is unreachable
         try? store?.save(session: session)
@@ -182,7 +185,8 @@ import Observation
                 endedAt: nil,
                 notes: "",
                 feelTags: [],
-                arrowCount: 0
+                arrowCount: 0,
+                targetFaceType: currentSession?.targetFaceType ?? TargetFaceType.defaultFor(bow.bowType)
             )
             try? store?.save(session: newSession)
             currentSession = newSession
@@ -214,7 +218,8 @@ import Observation
                 endedAt: nil,
                 notes: "",
                 feelTags: [],
-                arrowCount: 0
+                arrowCount: 0,
+                targetFaceType: TargetFaceType.defaultFor(bow.bowType)
             )
             try? store?.save(session: firstSession)
             currentSession = firstSession
@@ -287,7 +292,8 @@ import Observation
             endedAt: endedAt,
             notes: notes,
             feelTags: session.feelTags,
-            arrowCount: allArrows.count
+            arrowCount: allArrows.count,
+            targetFaceType: session.targetFaceType
         )
         onSessionCompleted?(completed)
         // Trigger analytics pipeline immediately — spec: "Every time a session closes".

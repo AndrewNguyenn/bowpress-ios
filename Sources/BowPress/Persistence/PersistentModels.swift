@@ -366,6 +366,10 @@ final class PersistentSession {
     var notes: String
     var feelTagsJSON: String        // JSON-encoded [String]
     var arrowCount: Int
+    /// Raw value of `TargetFaceType`. Defaulted to `sixRing` so existing rows
+    /// decode with the same 6-ring geometry they were originally recorded
+    /// against — no data migration required.
+    var targetFaceTypeStr: String = TargetFaceType.sixRing.rawValue
     var pendingSync: Bool = false
 
     init(
@@ -377,7 +381,8 @@ final class PersistentSession {
         endedAt: Date?,
         notes: String,
         feelTagsJSON: String,
-        arrowCount: Int
+        arrowCount: Int,
+        targetFaceTypeStr: String = TargetFaceType.sixRing.rawValue
     ) {
         self.id = id
         self.bowId = bowId
@@ -388,6 +393,7 @@ final class PersistentSession {
         self.notes = notes
         self.feelTagsJSON = feelTagsJSON
         self.arrowCount = arrowCount
+        self.targetFaceTypeStr = targetFaceTypeStr
     }
 
     func toDTO() -> ShootingSession {
@@ -411,7 +417,8 @@ final class PersistentSession {
             conditions: nil,
             arrowCount: arrowCount,
             ends: nil,
-            arrows: nil
+            arrows: nil,
+            targetFaceType: TargetFaceType(rawValue: targetFaceTypeStr) ?? .sixRing
         )
     }
 
@@ -433,7 +440,8 @@ final class PersistentSession {
             endedAt: dto.endedAt,
             notes: dto.notes,
             feelTagsJSON: tagsJSON,
-            arrowCount: dto.arrowCount
+            arrowCount: dto.arrowCount,
+            targetFaceTypeStr: dto.targetFaceType.rawValue
         )
     }
 }
