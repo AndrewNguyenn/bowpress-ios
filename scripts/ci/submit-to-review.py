@@ -25,6 +25,7 @@ Environment:
 import argparse
 import hashlib
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -38,6 +39,22 @@ BUNDLE_ID_DEFAULT = "com.andrewnguyen.bowpress"
 DEMO_EMAIL = "applereview@bowpresssupport.test"
 DEMO_PASSWORD = "AppleRev2026-Bow"
 CANCELLABLE_STATES = {"WAITING_FOR_REVIEW", "IN_REVIEW", "UNRESOLVED_ISSUES"}
+
+# Apple's validator rejects anything it reads as markup (HTML tags, e.g.
+# `<name@host>` in Co-Authored-By lines). Strip angle-bracket segments +
+# bare angles + ASCII control chars so commit-message-derived whats-new
+# doesn't 409 the localization PATCH.
+_ANGLE_RE = re.compile(r"<[^>]*>")
+_CTRL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+_BLANK_RUN_RE = re.compile(r"\n{3,}")
+
+
+def sanitize_for_asc(text: str) -> str:
+    s = _ANGLE_RE.sub("", text)
+    s = s.replace("<", "").replace(">", "")
+    s = _CTRL_RE.sub("", s)
+    s = _BLANK_RUN_RE.sub("\n\n", s)
+    return s.strip()
 
 
 def log(msg):
@@ -134,7 +151,14 @@ def copy_localization(app_id, target_version_id, whats_new):
             for k in ("description", "keywords", "promotionalText", "supportUrl", "marketingUrl")
             if source["attributes"].get(k)
         }
-        attrs["whatsNew"] = whats_new
+        # If a sibling whats_new.txt exists, prefer that over the raw commit
+        # message — the commit message tends to contain `<noreply@...>`
+        # Co-Authored-By lines that Apple rejects as markup.
+        whats_new_txt = Path(__file__).parent.parent / "asc" / "metadata" / "whats_new.txt"
+        if whats_new_txt.exists() and whats_new_txt.read_text().strip():
+            attrs["whatsNew"] = sanitize_for_asc(whats_new_txt.read_text())
+        else:
+            attrs["whatsNew"] = sanitize_for_asc(whats_new)
         api("PATCH", f"/appStoreVersionLocalizations/{target['id']}", json={
             "data": {"type": "appStoreVersionLocalizations", "id": target["id"], "attributes": attrs},
         })
