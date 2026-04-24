@@ -1,191 +1,330 @@
 import SwiftUI
 
-/// Launch splash shown while `LocalHydration` seeds the store. Animates a
-/// sequence of arrows landing on the target face — starting in the outer
-/// rings and tightening toward the center — with a heatmap blur growing
-/// underneath. Lives as a `ZStack` overlay on `MainTabView` in ContentView;
-/// fades out when `AppState.isHydrating` flips to false.
+// MARK: - Local hex helper
+//
+// AppTheme.swift owns the canonical `hex(_:)` but it's fileprivate. The two
+// outermost ring fills (#d9e1d8 mist, #b8cdd0 haze) aren't exposed as named
+// tokens, so we duplicate the helper here for the few one-off colors the
+// splash needs.
+
+private func splashHex(_ s: String) -> Color {
+    var h = s.trimmingCharacters(in: .init(charactersIn: "#"))
+    if h.count == 3 { h = h.map { "\($0)\($0)" }.joined() }
+    var rgb: UInt64 = 0
+    Scanner(string: h).scanHexInt64(&rgb)
+    let r = Double((rgb >> 16) & 0xFF) / 255
+    let g = Double((rgb >>  8) & 0xFF) / 255
+    let b = Double( rgb        & 0xFF) / 255
+    return Color(red: r, green: g, blue: b)
+}
+
+// MARK: - HydrationSplashView
+//
+// Native SwiftUI port of the splash spec at
+// bowpress-design-system/project/explorations/splash/index.html. Mirrors the
+// 2.4s plot-in sequence: pond-gradient rings scale in, hairlines fade over,
+// 12 arrows plot one-by-one (last is a maple-outlined flier), pond-dk
+// crosshair settles on the centroid, wordmark fades up with a hairline rule,
+// "ANALYZING YOUR DATA" + a pulsing maple dot, and bottom telemetry ticks in.
+//
+// ContentView keeps this view mounted while either AppState.isHydrating is
+// true OR the splash hasn't reached its minimum-display gate (~2.6s), then
+// fades it out with a 450ms opacity transition.
+
 struct HydrationSplashView: View {
 
-    @State private var arrowsLanded: Int = 0
-    @State private var titleOpacity: Double = 0
-    @State private var targetScale: CGFloat = 0.88
+    /// Called once the animation has played long enough to "land" — ContentView
+    /// uses this to gate dismissal so a fast hydrate doesn't truncate the motion.
+    var onMinimumElapsed: (() -> Void)? = nil
 
-    /// 16 arrows in narrative "learning journey" order — wide/outer early,
-    /// tightening toward center-X by the end. Each entry is (ring, zone,
-    /// plotX, plotY) in the normalized -1…1 target space the heatmap uses.
-    private static let arrowSequence: [ArrowPlot] = {
-        func plot(_ id: Int, _ ring: Int, _ zone: ArrowPlot.Zone, _ x: Double, _ y: Double) -> ArrowPlot {
-            ArrowPlot(
-                id: "splash_\(id)",
-                sessionId: "splash",
-                bowConfigId: "splash",
-                arrowConfigId: "splash",
-                ring: ring,
-                zone: zone,
-                plotX: x,
-                plotY: y,
-                shotAt: Date(),
-                excluded: false,
-                notes: nil
-            )
-        }
-        return [
-            // Outer rings first — slightly chaotic spread
-            plot( 0, 8, .nw, -0.42,  0.38),
-            plot( 1, 8, .ne,  0.40, -0.28),
-            plot( 2, 9, .w,  -0.32,  0.05),
-            plot( 3, 8, .s,   0.08, -0.45),
-            plot( 4, 9, .n,   0.05,  0.36),
-            // Pulling toward center
-            plot( 5, 9, .ne,  0.22,  0.18),
-            plot( 6, 10, .nw, -0.18,  0.20),
-            plot( 7, 9, .e,   0.26, -0.08),
-            plot( 8, 10, .n,   0.02,  0.22),
-            plot( 9, 10, .w, -0.18, -0.02),
-            // Tight final group — 10s and Xs
-            plot(10, 10, .center,  0.06,  0.10),
-            plot(11, 11, .center, -0.04,  0.08),
-            plot(12, 10, .center,  0.10, -0.05),
-            plot(13, 11, .center,  0.02, -0.02),
-            plot(14, 11, .center, -0.02,  0.04),
-            plot(15, 11, .center,  0.04,  0.02),
-        ]
-    }()
+    // Single-trigger flags. Each animated element applies its own
+    // `.animation(... .delay(N), value: started)` so flipping `started` once
+    // fans out into the staggered timeline.
+    @State private var started = false
 
-    private var visibleArrows: [ArrowPlot] {
-        Array(Self.arrowSequence.prefix(arrowsLanded))
+    // Spec coordinates live in a 200×200 viewBox; we render into a
+    // `targetSize`pt square and scale uniformly.
+    private let targetSize: CGFloat = 320
+    private var scale: CGFloat { targetSize / 200 }
+    private var center: CGPoint { CGPoint(x: targetSize / 2, y: targetSize / 2) }
+
+    // MARK: Ring + arrow specs
+
+    private struct RingSpec: Identifiable {
+        let id: Int
+        let r: CGFloat
+        let fill: Color
+        let delay: Double
     }
+
+    private let rings: [RingSpec] = [
+        .init(id: 0, r: 96, fill: splashHex("#d9e1d8"), delay: 0.00),
+        .init(id: 1, r: 76, fill: splashHex("#b8cdd0"), delay: 0.08),
+        .init(id: 2, r: 56, fill: .appPondLt,          delay: 0.16),
+        .init(id: 3, r: 36, fill: .appPond,            delay: 0.24),
+        .init(id: 4, r: 16, fill: .appPondDk,          delay: 0.32),
+    ]
+
+    private let hairlineRadii: [CGFloat] = [96, 86, 76, 66, 56, 46, 36, 26, 16, 8]
+
+    private struct ArrowSpec: Identifiable {
+        let id: Int
+        let x: CGFloat
+        let y: CGFloat
+        let flier: Bool
+    }
+
+    private let arrows: [ArrowSpec] = [
+        .init(id: 0,  x:  98, y:  96, flier: false),
+        .init(id: 1,  x: 104, y: 102, flier: false),
+        .init(id: 2,  x: 100, y: 108, flier: false),
+        .init(id: 3,  x:  92, y: 103, flier: false),
+        .init(id: 4,  x: 106, y:  93, flier: false),
+        .init(id: 5,  x:  95, y:  88, flier: false),
+        .init(id: 6,  x: 112, y: 109, flier: false),
+        .init(id: 7,  x:  88, y: 112, flier: false),
+        .init(id: 8,  x: 102, y:  84, flier: false),
+        .init(id: 9,  x: 117, y:  96, flier: false),
+        .init(id: 10, x:  85, y:  94, flier: false),
+        .init(id: 11, x: 148, y:  72, flier: true),
+    ]
+
+    // MARK: Body
 
     var body: some View {
         ZStack {
-            Color.appBackground.ignoresSafeArea()
+            Color.appPaper.ignoresSafeArea()
 
-            VStack(spacing: 24) {
-                // Target sits where the Analytics comparison heat map sits
-                // post-launch (~100pt below safe-area-top: inline nav ~44pt
-                // + content padding 8pt + period selector ~35pt + spacing),
-                // so the cross-fade is an in-place dissolve rather than a
-                // visual jump.
-                SplashTargetView(arrows: visibleArrows)
-                    .frame(maxWidth: 340)
-                    .aspectRatio(1, contentMode: .fit)
-                    .scaleEffect(targetScale)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 130)
+            // Centered stack: target + wordmark
+            VStack(spacing: 36) {
+                target
+                    .frame(width: targetSize, height: targetSize)
+                wordmark
+            }
 
-                VStack(spacing: 6) {
-                    Text("BowPress")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.appAccent)
-                    AnalyzingDotsLabel()
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .opacity(titleOpacity)
-
+            // Top header — absolute, paired with bottom telemetry
+            VStack {
+                header
+                    .padding(.horizontal, 32)
+                    .padding(.top, 44)
                 Spacer()
+                telemetry
+                    .padding(.horizontal, 32)
+                    .padding(.bottom, 40)
             }
         }
-        .task { await runAnimation() }
-    }
+        .task {
+            // Single trigger fans out into all per-element staggered animations.
+            started = true
 
-    private func runAnimation() async {
-        withAnimation(.easeOut(duration: 0.5)) { titleOpacity = 1 }
-        withAnimation(.spring(response: 0.7, dampingFraction: 0.75)) { targetScale = 1.0 }
-
-        // Slight initial pause so the target can settle before arrows land.
-        try? await Task.sleep(for: .milliseconds(180))
-
-        for i in 1...Self.arrowSequence.count {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                arrowsLanded = i
-            }
-            // Arrows land slightly faster as the group tightens — builds rhythm.
-            let delayMs = i < 5 ? 110 : (i < 10 ? 85 : 65)
-            try? await Task.sleep(for: .milliseconds(delayMs))
+            // 2.6s buys us through arrow 12 (≈2.12s + 0.5s plot) and the
+            // centroid pulse-in at 2.3s, with a small grace pad so the
+            // motion lands before MainTabView crossfades in.
+            try? await Task.sleep(for: .milliseconds(2600))
+            onMinimumElapsed?()
         }
     }
-}
 
-/// Target face + heatmap blur + animated arrow dots. Small, self-contained
-/// cousin of `SessionHeatMapView` — duplicated rather than hoisted because
-/// the splash has its own sizing/styling needs and we want zero risk of
-/// coupling the real heatmap to launch-time animation concerns.
-private struct SplashTargetView: View {
-    let arrows: [ArrowPlot]
+    // MARK: Header
 
-    var body: some View {
-        Image("target_face")
-            .resizable()
-            .scaledToFit()
-            .overlay {
-                GeometryReader { geo in
-                    ForEach(Array(arrows.enumerated()), id: \.element.id) { idx, arrow in
-                        let pt = position(for: arrow, index: idx, in: geo.size)
-                        ArrowLandingDot(ring: arrow.ring)
-                            .position(pt)
-                            .transition(.scale(scale: 0.2).combined(with: .opacity))
-                    }
-                }
-            }
-            .clipShape(Circle())
-            .shadow(color: Color.appAccent.opacity(0.25), radius: 24, y: 6)
-    }
-
-    private func position(for arrow: ArrowPlot, index: Int, in size: CGSize) -> CGPoint {
-        let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        guard let x = arrow.plotX, let y = arrow.plotY else { return center }
-        // plot space is -1…1; target visible radius is ~90% of half-width.
-        let halfW = size.width / 2
-        return CGPoint(
-            x: center.x + CGFloat(x) * halfW,
-            y: center.y - CGFloat(y) * halfW
-        )
-    }
-}
-
-/// "Analyzing your data" with three trailing dots that cycle 1→2→3→1…
-/// at ~0.4s per step. Uses `TimelineView` so the animation is driven by
-/// the system clock — no state timer to manage, nothing to tear down.
-private struct AnalyzingDotsLabel: View {
-    private let stepSeconds: Double = 0.4
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: stepSeconds)) { context in
-            let phase = Int(context.date.timeIntervalSinceReferenceDate / stepSeconds) % 3
-            HStack(spacing: 1) {
-                Text("Analyzing your data")
-                ForEach(0..<3, id: \.self) { i in
-                    Text(".")
-                        .opacity(phase >= i ? 1 : 0)
-                }
-            }
+    private var header: some View {
+        HStack(alignment: .lastTextBaseline) {
+            Text("BOWPRESS")
+                .font(.bpUI(10.5, weight: .semibold))
+                .tracking(10.5 * 0.32)
+                .foregroundStyle(Color.appPondDk)
+            Spacer()
+            Text("v2.4 · SYNC")
+                .font(.bpMono(9))
+                .tracking(9 * 0.06)
+                .foregroundStyle(Color.appInk3)
         }
+        .opacity(started ? 1 : 0)
+        .animation(.easeOut(duration: 0.45).delay(0.1), value: started)
     }
-}
 
-private struct ArrowLandingDot: View {
-    let ring: Int
+    // MARK: Target
 
-    var body: some View {
+    private var target: some View {
         ZStack {
+            // Concentric pond-gradient rings, scale-in staggered 80ms.
+            ForEach(rings) { ring in
+                Circle()
+                    .fill(ring.fill)
+                    .frame(width: ring.r * 2 * scale, height: ring.r * 2 * scale)
+                    .scaleEffect(started ? 1.0 : 0.1)
+                    .opacity(started ? 1 : 0)
+                    .animation(
+                        .timingCurve(0.2, 0.7, 0.2, 1.0, duration: 1.4)
+                            .delay(ring.delay),
+                        value: started
+                    )
+            }
+
+            // Hairline scoring-ring overlay — fades in over 0.5s starting at 0.5s.
+            ZStack {
+                ForEach(Array(hairlineRadii.enumerated()), id: \.offset) { _, r in
+                    Circle()
+                        .stroke(Color.appInk, lineWidth: 0.4)
+                        .frame(width: r * 2 * scale, height: r * 2 * scale)
+                }
+            }
+            .opacity(started ? 1 : 0)
+            .animation(.easeOut(duration: 0.5).delay(0.5), value: started)
+
+            // Plotted arrows — bouncy plot, staggered 120ms starting at 0.8s.
+            ForEach(arrows) { arrow in
+                arrowDot(arrow)
+                    .position(point(arrow.x, arrow.y))
+                    .scaleEffect(started ? 1.0 : 2.6)
+                    .opacity(started ? 1 : 0)
+                    .animation(
+                        .spring(response: 0.42, dampingFraction: 0.62)
+                            .delay(0.80 + 0.12 * Double(arrow.id)),
+                        value: started
+                    )
+            }
+
+            // Centroid crosshair — pulses in at 2.3s.
+            crosshair
+                .position(point(100, 99))
+                .scaleEffect(started ? 1.0 : 0.2)
+                .opacity(started ? 1 : 0)
+                .animation(.easeOut(duration: 1.0).delay(2.3), value: started)
+        }
+        .frame(width: targetSize, height: targetSize)
+    }
+
+    private func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+        CGPoint(x: x * scale, y: y * scale)
+    }
+
+    @ViewBuilder
+    private func arrowDot(_ arrow: ArrowSpec) -> some View {
+        let d: CGFloat = (arrow.flier ? 2.6 : 2.4) * 2 * scale
+        if arrow.flier {
             Circle()
-                .fill(dotColor)
-                .frame(width: 13, height: 13)
-                .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                .stroke(Color.appMaple, lineWidth: 1.2)
+                .frame(width: d, height: d)
+        } else {
             Circle()
-                .strokeBorder(Color.white.opacity(0.85), lineWidth: 1.5)
-                .frame(width: 13, height: 13)
+                .fill(Color.appInk)
+                .frame(width: d, height: d)
         }
     }
 
-    private var dotColor: Color {
-        switch ring {
-        case 11: return Color(red: 1.0, green: 0.85, blue: 0.0)
-        case 10, 9: return Color(red: 1.0, green: 0.95, blue: 0.25)
-        case 8, 7: return Color(red: 0.88, green: 0.28, blue: 0.22)
-        default: return .gray
+    private var crosshair: some View {
+        let r: CGFloat = 6 * scale
+        let arm: CGFloat = 7 * scale
+        return ZStack {
+            Circle()
+                .stroke(Color.appPondDk, lineWidth: 0.9)
+                .frame(width: r * 2, height: r * 2)
+            Path { p in
+                p.move(to: CGPoint(x: 0, y: -arm))
+                p.addLine(to: CGPoint(x: 0, y: arm))
+                p.move(to: CGPoint(x: -arm, y: 0))
+                p.addLine(to: CGPoint(x: arm, y: 0))
+            }
+            .stroke(Color.appPondDk, lineWidth: 0.9)
+            .frame(width: arm * 2, height: arm * 2)
+        }
+    }
+
+    // MARK: Wordmark + sub
+
+    private var wordmark: some View {
+        VStack(spacing: 12) {
+            BPWordmark(size: 36)
+                .opacity(started ? 1 : 0)
+                .offset(y: started ? 0 : 6)
+                .animation(
+                    .timingCurve(0.2, 0.7, 0.2, 1.0, duration: 0.7).delay(0.4),
+                    value: started
+                )
+
+            // 48×1 hairline rule — scaleX 0→1 at 1.0s.
+            Rectangle()
+                .fill(Color.appPondDk)
+                .frame(width: 48, height: 1)
+                .scaleEffect(x: started ? 1 : 0, y: 1, anchor: .center)
+                .animation(.easeOut(duration: 0.6).delay(1.0), value: started)
+
+            HStack(spacing: 8) {
+                PulsingMapleDot(size: 5)
+                Text("ANALYZING YOUR DATA")
+                    .font(.bpUI(10, weight: .semibold))
+                    .tracking(10 * 0.26)
+                    .foregroundStyle(Color.appInk3)
+            }
+            .opacity(started ? 1 : 0)
+            .offset(y: started ? 0 : 6)
+            .animation(.easeOut(duration: 0.6).delay(1.1), value: started)
+        }
+    }
+
+    // MARK: Telemetry
+
+    private var telemetry: some View {
+        HStack(alignment: .lastTextBaseline) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("LAST SESSION")
+                    .font(.bpUI(9, weight: .semibold))
+                    .tracking(9 * 0.22)
+                    .foregroundStyle(Color.appPondDk)
+                HStack(spacing: 4) {
+                    Text("10.4 avg")
+                        .font(.bpDisplay(13, italic: true, weight: .medium))
+                        .foregroundStyle(Color.appInk)
+                    Text("· 72% X")
+                        .font(.bpMono(9))
+                        .tracking(9 * 0.06)
+                        .foregroundStyle(Color.appInk3)
+                }
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                Text("LOADING")
+                    .font(.bpUI(9, weight: .semibold))
+                    .tracking(9 * 0.22)
+                    .foregroundStyle(Color.appPondDk)
+                HStack(spacing: 4) {
+                    Text("342 arrows")
+                        .font(.bpDisplay(13, italic: true, weight: .medium))
+                        .foregroundStyle(Color.appInk)
+                    Text("· 14 sess")
+                        .font(.bpMono(9))
+                        .tracking(9 * 0.06)
+                        .foregroundStyle(Color.appInk3)
+                }
+            }
+        }
+        .opacity(started ? 1 : 0)
+        .offset(y: started ? 0 : 6)
+        .animation(.easeOut(duration: 0.6).delay(1.8), value: started)
+    }
+}
+
+// MARK: - PulsingMapleDot
+//
+// 5pt maple square that loops opacity 0.25 ⇄ 1.0 every 1.1s. Driven by
+// TimelineView so we don't keep state ourselves.
+
+private struct PulsingMapleDot: View {
+    let size: CGFloat
+    private let period: Double = 1.1
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 0.05)) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate
+            let phase = (t.truncatingRemainder(dividingBy: period)) / period
+            // Sine wave oscillator centered on (0.25 + 1.0)/2 = 0.625
+            // amplitude (1.0 - 0.25)/2 = 0.375
+            let opacity = 0.625 + 0.375 * sin(phase * 2 * .pi)
+            Rectangle()
+                .fill(Color.appMaple)
+                .frame(width: size, height: size)
+                .opacity(opacity)
         }
     }
 }
