@@ -50,6 +50,14 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Fraunces[SOFT,WONK,opsz,wght].ttf</string>
+		<string>Fraunces-Italic[SOFT,WONK,opsz,wght].ttf</string>
+		<string>InterVariable.ttf</string>
+		<string>JetBrainsMono-Regular.ttf</string>
+		<string>JetBrainsMono-Medium.ttf</string>
+	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

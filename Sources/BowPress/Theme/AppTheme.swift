@@ -1,153 +1,143 @@
 import SwiftUI
 
-// MARK: - Brand Colors
-//
-// Tokens mirror bowpress-design-system/project/colors_and_type.css so the
-// iOS surface and any web/prototype surface stay in lockstep.
-
 #if canImport(UIKit)
 import UIKit
-
-private extension UIColor {
-    convenience init(hex: String) {
-        var h = hex.trimmingCharacters(in: .init(charactersIn: "#"))
-        if h.count == 3 { h = h.map { "\($0)\($0)" }.joined() }
-        var rgb: UInt64 = 0
-        Scanner(string: h).scanHexInt64(&rgb)
-        let r = CGFloat((rgb >> 16) & 0xFF) / 255
-        let g = CGFloat((rgb >>  8) & 0xFF) / 255
-        let b = CGFloat( rgb        & 0xFF) / 255
-        self.init(red: r, green: g, blue: b, alpha: 1)
-    }
-}
-
-private func dynamic(light: String, dark: String) -> Color {
-    Color(UIColor { t in
-        t.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light)
-    })
-}
-
-private func dynamic(light: UIColor, dark: UIColor) -> Color {
-    Color(UIColor { t in t.userInterfaceStyle == .dark ? dark : light })
-}
-
-extension Color {
-    // Neutrals / surfaces
-    static let appBackground   = dynamic(light: "#f5f5f5", dark: "#1c1c1c")
-    static let appSurface      = dynamic(light: "#f3f4f6", dark: "#1f2937")
-    static let appSurface2     = dynamic(light: "#ffffff", dark: "#111827")
-    static let appBorder       = dynamic(light: "#e5e7eb", dark: "#374151")
-    static let appBorderStrong = dynamic(light: "#d1d5db", dark: "#4b5563")
-
-    // Text
-    static let appText          = dynamic(light: "#374151", dark: "#9ca3af")
-    static let appTextPrimary   = dynamic(light: "#111827", dark: "#f3f4f6")
-    static let appTextSecondary = dynamic(light: "#6b7280", dark: "#9ca3af")
-    static let appTextTertiary  = dynamic(light: "#9ca3af", dark: "#6b7280")
-
-    // Brand accents
-    static let appAccent    = dynamic(light: "#4d7c5e", dark: "#7dd4a0")
-    static let appAccentInk = dynamic(light: "#2f5a3d", dark: "#4ade80")
-    static let appAccentAlt = Color(UIColor(hex: "#2a9d8f"))
-    static let appAccentSubtle = dynamic(
-        light: UIColor(hex: "#4d7c5e").withAlphaComponent(0.35),
-        dark:  UIColor(hex: "#7dd4a0").withAlphaComponent(0.15)
-    )
-    static let appAccentWash = dynamic(
-        light: UIColor(hex: "#4d7c5e").withAlphaComponent(0.10),
-        dark:  UIColor(hex: "#7dd4a0").withAlphaComponent(0.10)
-    )
-
-    // Target / scoring palette — flat across light + dark (data, not chrome)
-    static let appTargetGold   = Color(UIColor(hex: "#ffd900"))
-    static let appTargetYellow = Color(UIColor(hex: "#fff233"))
-    static let appTargetRed    = Color(UIColor(hex: "#e04738"))
-    static let appTargetBlue   = Color(UIColor(hex: "#00bae3"))
-    static let appTargetBlack  = Color(UIColor(hex: "#1a1a1a"))
-    static let appTargetWhite  = Color(UIColor(hex: "#fafaf2"))
-    static let appTargetInk    = Color(UIColor(hex: "#1f2937"))
-
-    // Semantic status
-    static let appSuccess = Color.appAccent
-    static let appWarning = Color(UIColor(hex: "#f59e0b"))
-    static let appDanger  = Color(UIColor(hex: "#dc2626"))
-    static let appInfo    = Color.appAccentAlt
-}
-
-#else
-
-// macOS fallback — light-mode static values (app is iOS-primary)
-extension Color {
-    static let appBackground   = Color(red: 0.961, green: 0.961, blue: 0.961)
-    static let appSurface      = Color(red: 0.953, green: 0.957, blue: 0.965)
-    static let appSurface2     = Color.white
-    static let appBorder       = Color(red: 0.898, green: 0.906, blue: 0.918)
-    static let appBorderStrong = Color(red: 0.820, green: 0.835, blue: 0.859)
-
-    static let appText          = Color(red: 0.216, green: 0.255, blue: 0.318)
-    static let appTextPrimary   = Color(red: 0.067, green: 0.094, blue: 0.153)
-    static let appTextSecondary = Color(red: 0.420, green: 0.447, blue: 0.502)
-    static let appTextTertiary  = Color(red: 0.612, green: 0.639, blue: 0.686)
-
-    static let appAccent    = Color(red: 0.302, green: 0.486, blue: 0.369)
-    static let appAccentInk = Color(red: 0.184, green: 0.353, blue: 0.239)
-    static let appAccentAlt = Color(red: 0.165, green: 0.616, blue: 0.561)
-    static let appAccentSubtle = Color(red: 0.302, green: 0.486, blue: 0.369, opacity: 0.35)
-    static let appAccentWash   = Color(red: 0.302, green: 0.486, blue: 0.369, opacity: 0.10)
-
-    static let appTargetGold   = Color(red: 1.0,   green: 0.851, blue: 0.0)
-    static let appTargetYellow = Color(red: 1.0,   green: 0.949, blue: 0.2)
-    static let appTargetRed    = Color(red: 0.878, green: 0.278, blue: 0.22)
-    static let appTargetBlue   = Color(red: 0.0,   green: 0.729, blue: 0.890)
-    static let appTargetBlack  = Color(red: 0.102, green: 0.102, blue: 0.102)
-    static let appTargetWhite  = Color(red: 0.980, green: 0.980, blue: 0.949)
-    static let appTargetInk    = Color(red: 0.122, green: 0.161, blue: 0.216)
-
-    static let appSuccess = Color.appAccent
-    static let appWarning = Color(red: 0.961, green: 0.620, blue: 0.043)
-    static let appDanger  = Color(red: 0.863, green: 0.149, blue: 0.149)
-    static let appInfo    = Color.appAccentAlt
-}
-
 #endif
+
+// MARK: - Brand Colors (Kenrokuen)
+//
+// Tokens mirror bowpress-design-system/project/colors_and_type.css verbatim.
+// Light-mode only; dark mode deferred per spec. Kenrokuen is quiet by default —
+// color is data. Hairlines replace shadows. Cards are rectangles.
+
+private func hex(_ hex: String, _ a: Double = 1) -> Color {
+    var h = hex.trimmingCharacters(in: .init(charactersIn: "#"))
+    if h.count == 3 { h = h.map { "\($0)\($0)" }.joined() }
+    var rgb: UInt64 = 0
+    Scanner(string: h).scanHexInt64(&rgb)
+    let r = Double((rgb >> 16) & 0xFF) / 255
+    let g = Double((rgb >>  8) & 0xFF) / 255
+    let b = Double( rgb        & 0xFF) / 255
+    return Color(red: r, green: g, blue: b, opacity: a)
+}
+
+extension Color {
+    // ── Surfaces (paper) ──────────────────────────────────
+    static let appPaper   = hex("#eef2ec")
+    static let appPaper2  = hex("#e4ebe3")
+    static let appCream   = hex("#f6f8f3")
+
+    // ── Ink (text + hairlines) ────────────────────────────
+    static let appInk     = hex("#1f2a26")
+    static let appInk2    = hex("#4a5752")
+    static let appInk3    = hex("#8a9690")
+
+    static let appLine    = hex("#c7d2c9")
+    static let appLine2   = hex("#d9e1d8")
+
+    // ── Brand accents (water + garden) ────────────────────
+    static let appPond    = hex("#4a7989")
+    static let appPondDk  = hex("#2d5a6b")
+    static let appPondLt  = hex("#8fb3bf")
+    static let appDeep    = hex("#1e3e4a")
+
+    static let appMoss    = hex("#6d8551")
+    static let appPine    = hex("#4a5f3a")
+    static let appMaple   = hex("#b5614a")
+    static let appStone   = hex("#9aa3a0")
+
+    // ── Target / scoring palette ──────────────────────────
+    // Real World Archery face. Never reskinned. Never tinted.
+    static let appTgtWhite  = hex("#f6f8f3")
+    static let appTgtBlack  = hex("#1f2a26")
+    static let appTgtBlue   = hex("#4ea8c9")
+    static let appTgtRed    = hex("#d94b3b")
+    static let appTgtYellow = hex("#f0d04a")
+
+    // ── Semantic status ───────────────────────────────────
+    static let appSuccess = Color.appPine
+    static let appWarning = Color.appMaple
+    static let appDanger  = hex("#a0392a")
+    static let appInfo    = Color.appPond
+
+    // ── Backward-compat aliases (kept so Wave 1 doesn't break
+    //    the existing screens that Wave 2 will rewrite). ────
+    static let appBackground    = Color.appPaper
+    static let appSurface       = Color.appPaper
+    static let appSurface2      = Color.appCream
+    static let appBorder        = Color.appLine
+    static let appBorderStrong  = hex("#a7b6ab")
+
+    static let appText          = Color.appInk2
+    static let appTextPrimary   = Color.appInk
+    static let appTextSecondary = Color.appInk2
+    static let appTextTertiary  = Color.appInk3
+
+    static let appAccent       = Color.appPond
+    static let appAccentInk    = Color.appPondDk
+    static let appAccentAlt    = Color.appMoss
+    // Approximation of rgba(74,121,137,.24) — low-opacity neutral.
+    static let appAccentSubtle = Color(white: 0, opacity: 0.24)
+    static let appAccentWash   = Color.appPond.opacity(0.08)
+
+    // Old target aliases → map to new appTgt*.
+    static let appTargetGold   = Color.appTgtYellow
+    static let appTargetYellow = Color.appTgtYellow
+    static let appTargetRed    = Color.appTgtRed
+    static let appTargetBlue   = Color.appTgtBlue
+    static let appTargetBlack  = Color.appTgtBlack
+    static let appTargetWhite  = Color.appTgtWhite
+    static let appTargetInk    = Color.appInk
+}
 
 // MARK: - Design Tokens
 
 enum AppTheme {
+    /// Kenrokuen is flat-edged. No rounded cards.
     enum Radius {
-        static let small:  CGFloat = 4
-        static let medium: CGFloat = 8
-        static let large:  CGFloat = 14
-        static let card:   CGFloat = 18
-        static let pill:   CGFloat = 999
+        static let sm:   CGFloat = 0
+        static let md:   CGFloat = 1    // chips — barely perceptible
+        static let lg:   CGFloat = 2
+        static let card: CGFloat = 0    // CARDS ARE RECTANGLES
+        static let pill: CGFloat = 0    // pills are flat stamps, not capsules
+
+        // Legacy aliases so existing callsites compile.
+        static let small:  CGFloat = 0
+        static let medium: CGFloat = 1
+        static let large:  CGFloat = 2
     }
 
+    /// 8pt grid, tighter overall.
     enum Spacing {
         static let xs:  CGFloat = 4
         static let sm:  CGFloat = 8
-        static let md:  CGFloat = 16
-        static let lg:  CGFloat = 24
+        static let md:  CGFloat = 14
+        static let lg:  CGFloat = 22
         static let xl:  CGFloat = 32
         static let xxl: CGFloat = 48
     }
 
-    /// Elevation tokens — radius/y values mirror the CSS blur/offset from
-    /// `--shadow-*` so on-device shadows match the prototype 1:1.
+    /// Elevation tokens — Kenrokuen is flat. Hairlines replace shadows.
+    /// Kept here only for the rare third-party surface (modal sheet, toast).
     enum Shadow {
         struct Params {
             let opacity: Double
             let radius: CGFloat
             let y: CGFloat
         }
-        static let sm      = Params(opacity: 0.04, radius: 2, y: 1)
-        static let md      = Params(opacity: 0.08, radius: 8, y: 4)
-        static let lg      = Params(opacity: 0.12, radius: 24, y: 8)
-        static let card    = Params(opacity: 0.08, radius: 8, y: 4)
-        static let cardSm  = Params(opacity: 0.07, radius: 6, y: 3)
+        static let modalSheet = Params(opacity: 0.25, radius: 30, y: 30)
+        static let card       = Params(opacity: 0,    radius: 0,  y: 0)
+        static let sm         = Params(opacity: 0,    radius: 0,  y: 0)
+        static let md         = Params(opacity: 0,    radius: 0,  y: 0)
+        static let lg         = Params(opacity: 0,    radius: 0,  y: 0)
+        // Legacy alias.
+        static let cardSm     = Params(opacity: 0,    radius: 0,  y: 0)
     }
 }
 
 extension View {
+    /// Applies a shadow using the given params. For the flat Kenrokuen cards
+    /// this is a no-op (opacity 0); the helper survives for `modalSheet`.
     func appShadow(_ params: AppTheme.Shadow.Params) -> some View {
         shadow(color: .black.opacity(params.opacity),
                radius: params.radius, x: 0, y: params.y)
@@ -155,27 +145,126 @@ extension View {
 }
 
 // MARK: - Card Style ViewModifier
+//
+// Signature preserved so existing `.appCardStyle()` callers keep compiling.
+// Body rewritten for Kenrokuen — flat rectangle, 1px hairline, no radius,
+// no shadow.
 
 struct AppCardStyle: ViewModifier {
-    var accent: Color = .appBorder
+    var accent: Color = .appLine
     var strokeWidth: CGFloat = 1
 
     func body(content: Content) -> some View {
         content
-            .background(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-                    .fill(Color.appSurface)
-                    .appShadow(AppTheme.Shadow.card)
-            )
+            .background(Color.appPaper)
             .overlay(
-                RoundedRectangle(cornerRadius: AppTheme.Radius.card, style: .continuous)
-                    .strokeBorder(accent, lineWidth: strokeWidth)
+                Rectangle().strokeBorder(accent, lineWidth: strokeWidth)
             )
     }
 }
 
 extension View {
-    func appCardStyle(accent: Color = .appBorder, strokeWidth: CGFloat = 1) -> some View {
+    func appCardStyle(accent: Color = .appLine, strokeWidth: CGFloat = 1) -> some View {
         modifier(AppCardStyle(accent: accent, strokeWidth: strokeWidth))
+    }
+}
+
+// MARK: - Typography
+//
+// Three families, each with a distinct job:
+// - Fraunces (serif, italic for display): titles, big numerals, scores
+// - Inter (sans): UI, micro-labels (UPPERCASE w/ wide tracking)
+// - JetBrains Mono: data, timestamps, telemetry, delta values
+//
+// Resolution strategy: the Font extensions below try the most common registered
+// names. If iOS hasn't registered that name (e.g. font bundle missing or the
+// variable-font PostScript name differs), SwiftUI silently falls back to the
+// system typeface — which is the same behavior our explicit fallback produces.
+// We additionally probe UIFont at runtime to pick a known-registered name.
+
+#if canImport(UIKit)
+private func hasFont(_ name: String) -> Bool {
+    UIFont(name: name, size: 12) != nil
+}
+#else
+private func hasFont(_ name: String) -> Bool { false }
+#endif
+
+/// Resolves the first registered PostScript/family name from `candidates`,
+/// returning nil if none are registered.
+private func firstRegistered(_ candidates: [String]) -> String? {
+    candidates.first(where: hasFont)
+}
+
+extension Font {
+    /// Fraunces serif — display type. Italic by default (per spec; hero
+    /// numerals pass `italic: false` so they render upright).
+    ///
+    /// Name resolution: the Fraunces variable font gets registered on iOS
+    /// under several candidate names depending on the build. We probe common
+    /// ones; otherwise we fall back to the system serif.
+    static func bpDisplay(_ size: CGFloat, italic: Bool = true, weight: Font.Weight = .medium) -> Font {
+        let candidates: [String]
+        if italic {
+            candidates = [
+                "Fraunces-Italic",
+                "Fraunces-9ptBlackItalic",
+                "FrauncesRoman-Italic",
+            ]
+        } else {
+            candidates = [
+                "Fraunces",
+                "Fraunces-9ptBlack",
+                "FrauncesRoman-Regular",
+            ]
+        }
+        if let n = firstRegistered(candidates) {
+            return .custom(n, size: size).weight(weight)
+        }
+        return .system(size: size, weight: weight, design: .serif)
+    }
+
+    /// Inter sans — UI, labels, body.
+    static func bpUI(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        let candidates = ["Inter", "InterVariable", "Inter-Regular"]
+        if let n = firstRegistered(candidates) {
+            return .custom(n, size: size).weight(weight)
+        }
+        return .system(size: size, weight: weight, design: .default)
+    }
+
+    /// JetBrains Mono — telemetry.
+    static func bpMono(_ size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        let base: String
+        switch weight {
+        case .medium, .semibold, .bold, .heavy, .black:
+            base = "JetBrainsMono-Medium"
+        default:
+            base = "JetBrainsMono-Regular"
+        }
+        if hasFont(base) {
+            return .custom(base, size: size)
+        }
+        return .system(size: size, weight: weight, design: .monospaced)
+    }
+
+    /// Uppercase-label style (11pt by default). Callers apply `.tracking`
+    /// and `.textCase(.uppercase)` themselves via `appTracking` + textCase.
+    static func bpLabel(_ size: CGFloat = 11) -> Font {
+        bpUI(size, weight: .semibold)
+    }
+
+    /// Eyebrow micro-label (9pt). Callers apply `.tracking(size * 0.22)`
+    /// and `.textCase(.uppercase)`.
+    static func bpEyebrow(_ size: CGFloat = 9) -> Font {
+        bpUI(size, weight: .semibold)
+    }
+}
+
+extension View {
+    /// Applies CSS-style letter-spacing expressed in em. For example,
+    /// `letter-spacing: 0.22em` at font-size 11pt is `tracking(11 * 0.22)`.
+    func appTracking(_ em: CGFloat, at fontSize: CGFloat) -> some View {
+        self.tracking(em * fontSize)
     }
 }

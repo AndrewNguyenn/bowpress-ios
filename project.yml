@@ -81,6 +81,7 @@ targets:
     resources:
       - Sources/BowPress/Resources/BowCatalog.json
       - Sources/BowPress/Resources/Assets.xcassets
+      - Sources/BowPress/Resources/Fonts
       - Sources/BowPress/Subscriptions/Products.storekit
     dependencies:
       - package: GoogleSignIn-iOS
@@ -114,6 +115,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - Tests/BowPressTests
+    resources:
+      - Sources/BowPress/Resources/Fonts
     dependencies:
       - target: BowPress
       - package: swift-snapshot-testing

@@ -1,6 +1,9 @@
 import SwiftUI
 import SwiftData
 import GoogleSignIn
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @main
 struct BowPressApp: App {
@@ -22,11 +25,29 @@ struct BowPressApp: App {
         let container = try! ModelContainer(for: schema, configurations: [config])
         self.container = container
         self.store = LocalStore(context: container.mainContext)
+
+        // Kenrokuen global chrome — paper tab bar, pondDk selection, ink3 idle.
+        #if canImport(UIKit)
+        UITabBar.appearance().barTintColor = UIColor(Color.appPaper)
+        UITabBar.appearance().backgroundColor = UIColor(Color.appPaper)
+        UITabBarItem.appearance().setTitleTextAttributes(
+            [
+                .foregroundColor: UIColor(Color.appInk3),
+                .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
+            ],
+            for: .normal
+        )
+        UITabBarItem.appearance().setTitleTextAttributes(
+            [.foregroundColor: UIColor(Color.appPondDk)],
+            for: .selected
+        )
+        #endif
     }
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(.light)
                 .environment(appState)
                 .environment(store)
                 .modelContainer(container)
