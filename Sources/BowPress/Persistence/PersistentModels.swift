@@ -370,6 +370,9 @@ final class PersistentSession {
     /// decode with the same 6-ring geometry they were originally recorded
     /// against — no data migration required.
     var targetFaceTypeStr: String = TargetFaceType.sixRing.rawValue
+    /// Raw value of `ShootingDistance`. Optional — existing rows decode as nil.
+    /// SwiftData lightweight-migrates this since it's added with a default.
+    var distanceStr: String? = nil
     var pendingSync: Bool = false
 
     init(
@@ -382,7 +385,8 @@ final class PersistentSession {
         notes: String,
         feelTagsJSON: String,
         arrowCount: Int,
-        targetFaceTypeStr: String = TargetFaceType.sixRing.rawValue
+        targetFaceTypeStr: String = TargetFaceType.sixRing.rawValue,
+        distanceStr: String? = nil
     ) {
         self.id = id
         self.bowId = bowId
@@ -394,6 +398,7 @@ final class PersistentSession {
         self.feelTagsJSON = feelTagsJSON
         self.arrowCount = arrowCount
         self.targetFaceTypeStr = targetFaceTypeStr
+        self.distanceStr = distanceStr
     }
 
     func toDTO() -> ShootingSession {
@@ -418,7 +423,8 @@ final class PersistentSession {
             arrowCount: arrowCount,
             ends: nil,
             arrows: nil,
-            targetFaceType: TargetFaceType(rawValue: targetFaceTypeStr) ?? .sixRing
+            targetFaceType: TargetFaceType(rawValue: targetFaceTypeStr) ?? .sixRing,
+            distance: distanceStr.flatMap { ShootingDistance(rawValue: $0) }
         )
     }
 
@@ -441,7 +447,8 @@ final class PersistentSession {
             notes: dto.notes,
             feelTagsJSON: tagsJSON,
             arrowCount: dto.arrowCount,
-            targetFaceTypeStr: dto.targetFaceType.rawValue
+            targetFaceTypeStr: dto.targetFaceType.rawValue,
+            distanceStr: dto.distance?.rawValue
         )
     }
 }

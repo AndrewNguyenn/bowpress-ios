@@ -10,12 +10,19 @@ final class LocalAnalyticsEngine {
 
     // MARK: - Overview
 
-    func overview(period: AnalyticsPeriod, bowType: BowType? = nil) throws -> AnalyticsOverview {
+    func overview(
+        period: AnalyticsPeriod,
+        bowType: BowType? = nil,
+        distance: ShootingDistance? = nil
+    ) throws -> AnalyticsOverview {
         let periodStart = period.startDate
         var sessions = try store.fetchSessions().filter { $0.startedAt >= periodStart }
         if let bowType {
             let ids = try bowIdsForStyle(bowType)
             sessions = sessions.filter { ids.contains($0.bowId) }
+        }
+        if let distance {
+            sessions = sessions.filter { $0.distance == distance }
         }
         let arrows = try store.fetchArrows(since: periodStart)
             .filter { !$0.excluded }
@@ -32,7 +39,11 @@ final class LocalAnalyticsEngine {
 
     // MARK: - Comparison
 
-    func comparison(period: AnalyticsPeriod, bowType: BowType? = nil) throws -> PeriodComparison {
+    func comparison(
+        period: AnalyticsPeriod,
+        bowType: BowType? = nil,
+        distance: ShootingDistance? = nil
+    ) throws -> PeriodComparison {
         let now = Date()
         let duration = period.duration
         let currentStart = now.addingTimeInterval(-duration)
@@ -43,6 +54,9 @@ final class LocalAnalyticsEngine {
         if let bowType {
             let ids = try bowIdsForStyle(bowType)
             allSessions = allSessions.filter { ids.contains($0.bowId) }
+        }
+        if let distance {
+            allSessions = allSessions.filter { $0.distance == distance }
         }
 
         let currentSessions = allSessions.filter { $0.startedAt >= currentStart }

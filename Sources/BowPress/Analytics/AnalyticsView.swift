@@ -37,6 +37,9 @@ struct AnalyticsView: View {
                     // Bow style filter (All / Compound / Recurve / Barebow)
                     bowStyleSelector
 
+                    // Distance filter (All / 20yd / 50m / 70m) — hidden when ≤1 distance has been logged
+                    distanceSelector
+
                     // Period selector
                     periodSelector
 
@@ -136,6 +139,36 @@ struct AnalyticsView: View {
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
+    }
+
+    // MARK: - Distance selector
+
+    /// Filters all aggregates on the dashboard to sessions logged at the chosen
+    /// distance. `nil` = all distances. Hidden when ≤1 distinct distance has
+    /// ever been recorded — there's nothing meaningful to switch between.
+    private var distanceSelector: some View {
+        let distancesUsed: Set<ShootingDistance> = {
+            (try? store.fetchSessions()).map { Set($0.compactMap(\.distance)) } ?? []
+        }()
+        return Group {
+            if distancesUsed.count >= 2 {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        styleChip(label: "All", isSelected: viewModel.selectedDistance == nil) {
+                            await viewModel.selectDistance(nil)
+                        }
+                        ForEach(ShootingDistance.allCases, id: \.self) { distance in
+                            if distancesUsed.contains(distance) {
+                                styleChip(label: distance.label, isSelected: viewModel.selectedDistance == distance) {
+                                    await viewModel.selectDistance(distance)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+            }
+        }
     }
 
     // MARK: - Period selector
