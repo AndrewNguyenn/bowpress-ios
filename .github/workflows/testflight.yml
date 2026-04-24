@@ -65,10 +65,22 @@ jobs:
           echo "build=$N" >> $GITHUB_OUTPUT
           echo "Next CFBundleVersion: $N"
 
-      - name: Pin CURRENT_PROJECT_VERSION in project.yml
+      - name: Compute next MARKETING_VERSION
+        # Apple closes a version train once approved (READY_FOR_SALE); uploading a
+        # new build against it fails with ITMS 90186 "train closed". Ask ASC for
+        # the correct open train (reuse a pending version if one exists, else
+        # bump patch from the most recent live version).
+        id: mktver
         run: |
+          V=$(python3 scripts/ci/next-marketing-version.py)
+          echo "version=$V" >> $GITHUB_OUTPUT
+          echo "MARKETING_VERSION: $V"
+
+      - name: Pin version + build in project.yml
+        run: |
+          sed -i '' "s/MARKETING_VERSION: \"[^\"]*\"/MARKETING_VERSION: \"${{ steps.mktver.outputs.version }}\"/" project.yml
           sed -i '' "s/CURRENT_PROJECT_VERSION: \"[0-9]*\"/CURRENT_PROJECT_VERSION: \"${{ steps.buildnum.outputs.build }}\"/" project.yml
-          grep CURRENT_PROJECT_VERSION project.yml
+          grep -E "MARKETING_VERSION|CURRENT_PROJECT_VERSION" project.yml
 
       - name: Generate xcodeproj
         run: xcodegen generate
@@ -127,7 +139,8 @@ jobs:
       - name: Summary
         run: |
           echo "### TestFlight upload succeeded" >> $GITHUB_STEP_SUMMARY
+          echo "- Version: ${{ steps.mktver.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "- Build: ${{ steps.buildnum.outputs.build }}" >> $GITHUB_STEP_SUMMARY
           echo "- Commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "- Review queue: **NOT TOUCHED** — this is a TestFlight-only upload." >> $GITHUB_STEP_SUMMARY
-          echo "- To submit to App Review, push a tag: \`git tag v1.0.X && git push --tags\`" >> $GITHUB_STEP_SUMMARY
+          echo "- To submit to App Review, push a tag: \`git tag v${{ steps.mktver.outputs.version }} && git push --tags\`" >> $GITHUB_STEP_SUMMARY
