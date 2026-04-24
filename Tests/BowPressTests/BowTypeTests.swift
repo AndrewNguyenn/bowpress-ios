@@ -107,8 +107,8 @@ final class BowTypeTests: XCTestCase {
         // V-bar shared angles (recurve now has them, like compound)
         XCTAssertNotNil(cfg.rearStabVertAngle)
         XCTAssertNotNil(cfg.rearStabHorizAngle)
-        // Sight is no longer part of recurve
-        XCTAssertNil(cfg.sightPosition)
+        // Recurve has a sight (unlike barebow)
+        XCTAssertNotNil(cfg.sightPosition)
         // Compound-only fields must be nil
         XCTAssertNil(cfg.letOffPct)
         XCTAssertNil(cfg.peepHeight)
@@ -129,6 +129,8 @@ final class BowTypeTests: XCTestCase {
         XCTAssertNotNil(cfg.plungerTension)
         // Clicker must be nil for barebow
         XCTAssertNil(cfg.clickerPosition)
+        // No sight for barebow
+        XCTAssertNil(cfg.sightPosition)
         // No stabilizers for barebow
         XCTAssertNil(cfg.frontStabWeight)
         XCTAssertNil(cfg.rearStabLeftWeight)
