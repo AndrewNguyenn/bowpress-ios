@@ -6,154 +6,384 @@ import UIKit
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @AppStorage("notificationsEnabled") private var notificationsEnabled: Bool = true
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
     var subscriptionManager: SubscriptionManager = .shared
 
+    @State private var showSignOutConfirm: Bool = false
+    @State private var isSigningOut: Bool = false
+
     var body: some View {
-        Form {
-            accountSection
-            subscriptionSection
-            preferencesSection
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                // Header
+                BPNavHeader(eyebrow: "BOWPRESS \u{00B7} ACCOUNT", title: "Settings") {
+                    EmptyView()
+                }
+
+                VStack(alignment: .leading, spacing: 0) {
+                    profileBlock
+                        .padding(.horizontal, 16)
+                        .padding(.top, 14)
+
+                    // Group 1: Subscription, Notifications, Units
+                    settingsGroup1
+                        .padding(.horizontal, 16)
+                        .padding(.top, 14)
+
+                    // Group 2: Privacy, Terms, Sign out
+                    settingsGroup2
+                        .padding(.horizontal, 16)
+                        .padding(.top, 14)
+
+                    // Subscription / restore row (below groups, preserved)
+                    subscriptionAccessRow
+                        .padding(.horizontal, 16)
+                        .padding(.top, 14)
+
+                    // Colophon
+                    colophon
+                        .padding(.top, 26)
+                        .padding(.bottom, 32)
+                }
+            }
         }
-        .navigationTitle("Settings")
+        .background(Color.appPaper)
+        .navigationBarHidden(true)
         .task {
             await subscriptionManager.refreshEntitlement()
         }
+        .confirmationDialog(
+            "Sign out of BowPress?",
+            isPresented: $showSignOutConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Sign Out", role: .destructive, action: confirmSignOut)
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
-    // MARK: - Account
+    // MARK: - Profile block
 
     @ViewBuilder
-    private var accountSection: some View {
-        Section("Account") {
+    private var profileBlock: some View {
+        VStack(alignment: .leading, spacing: 0) {
             if let user = appState.currentUser {
-                NavigationLink {
-                    AccountView()
+                HStack(alignment: .center, spacing: 14) {
+                    // Square avatar
+                    ZStack {
+                        Rectangle()
+                            .fill(Color.appPondDk)
+                            .frame(width: 54, height: 54)
+                        Text(initials(for: user.name))
+                            .font(.bpDisplay(22, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appPaper)
+                    }
+
+                    // Name + email
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(user.name)
+                            .font(.bpDisplay(20, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appInk)
+                            .lineLimit(1)
+                        Text(user.email.uppercased())
+                            .font(.bpMono(10))
+                            .tracking(10 * 0.04)
+                            .foregroundStyle(Color.appInk3)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: 8)
+
+                    NavigationLink {
+                        AccountView()
+                    } label: {
+                        HStack(spacing: 2) {
+                            Text("EDIT")
+                                .font(.bpUI(11, weight: .semibold))
+                                .tracking(11 * 0.18)
+                                .textCase(.uppercase)
+                            Text("\u{203A}")
+                                .font(.bpDisplay(11, italic: true, weight: .medium))
+                        }
+                        .foregroundStyle(Color.appPondDk)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.bottom, 18)
+
+                Rectangle()
+                    .fill(Color.appLine)
+                    .frame(height: 1)
+            } else {
+                Text("Not signed in")
+                    .font(.bpUI(14))
+                    .foregroundStyle(Color.appInk3)
+                    .padding(.bottom, 18)
+                Rectangle()
+                    .fill(Color.appLine)
+                    .frame(height: 1)
+            }
+        }
+    }
+
+    // MARK: - Settings group 1: Subscription, Notifications, Units
+
+    private var settingsGroup1: some View {
+        BPCard(padding: 0) {
+            VStack(spacing: 0) {
+                settingsRow(
+                    label: "Subscription",
+                    value: subscriptionPlanName,
+                    isDestructive: false,
+                    destination: AnyView(PaywallView())
+                )
+
+                Rectangle().fill(Color.appLine2).frame(height: 1)
+
+                // Notifications toggle row
+                HStack(alignment: .center) {
+                    Text("Push notifications")
+                        .font(.bpDisplay(14, italic: true, weight: .medium))
+                        .foregroundStyle(Color.appInk)
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Text(notificationsEnabled ? "ON" : "OFF")
+                            .font(.bpMono(10))
+                            .tracking(10 * 0.04)
+                            .foregroundStyle(Color.appInk3)
+                        Toggle("", isOn: $notificationsEnabled)
+                            .labelsHidden()
+                            .tint(Color.appPond)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 14)
+
+                Rectangle().fill(Color.appLine2).frame(height: 1)
+
+                // Units row — toggles between Imperial and Metric
+                Button {
+                    unitSystem = unitSystem == .imperial ? .metric : .imperial
                 } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "person.crop.circle.fill")
-                            .resizable()
-                            .frame(width: 44, height: 44)
-                            .foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(user.name).font(.headline)
-                            Text(user.email)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                    HStack(alignment: .center) {
+                        Text("Units")
+                            .font(.bpDisplay(14, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appInk)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Text((unitSystem == .imperial ? "IMPERIAL" : "METRIC"))
+                                .font(.bpMono(10))
+                                .tracking(10 * 0.04)
+                                .foregroundStyle(Color.appInk3)
+                            Text("\u{203A}")
+                                .font(.bpDisplay(16, italic: true, weight: .medium))
+                                .foregroundStyle(Color.appPond)
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
                 }
-            } else {
-                Text("Not signed in").foregroundStyle(.secondary)
+                .buttonStyle(.plain)
             }
         }
     }
 
-    // MARK: - Subscription
+    // MARK: - Settings group 2: Privacy, Terms, Sign out
 
-    @ViewBuilder
-    private var subscriptionSection: some View {
-        Section("Subscription") {
-            if let entitlement = appState.entitlement, entitlement.isActive {
-                SubscriptionStatusCard(entitlement: entitlement)
-            }
-
-            // Always reachable, even on an active subscription, so users (and
-            // App Review) can see pricing, switch plans, or read the terms.
-            NavigationLink {
-                PaywallView()
-            } label: {
-                Label {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(appState.entitlement?.isActive == true ? "View Subscription Plans" : "Upgrade to Pro")
-                            .font(.body.weight(.semibold))
-                        Text("Unlock the full tuning engine")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+    private var settingsGroup2: some View {
+        BPCard(padding: 0) {
+            VStack(spacing: 0) {
+                // Privacy policy
+                Link(destination: URL(string: "https://bowpress.app/privacy")!) {
+                    HStack(alignment: .center) {
+                        Text("Privacy policy")
+                            .font(.bpDisplay(14, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appInk)
+                        Spacer()
+                        Text("\u{203A}")
+                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appPond)
                     }
-                } icon: {
-                    Image(systemName: "sparkles")
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
                 }
-            }
 
-            Button {
-                Task { await subscriptionManager.restorePurchases() }
-            } label: {
-                Label("Restore Purchases", systemImage: "arrow.clockwise")
-            }
+                Rectangle().fill(Color.appLine2).frame(height: 1)
 
-            Button {
-                if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
-                    #if canImport(UIKit)
-                    UIApplication.shared.open(url)
-                    #endif
+                // Terms of service
+                Link(destination: URL(string: "https://bowpress.app/terms")!) {
+                    HStack(alignment: .center) {
+                        Text("Terms of service")
+                            .font(.bpDisplay(14, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appInk)
+                        Spacer()
+                        Text("\u{203A}")
+                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appPond)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
                 }
-            } label: {
-                Label("Manage Subscription", systemImage: "creditcard")
+
+                Rectangle().fill(Color.appLine2).frame(height: 1)
+
+                // Sign out
+                Button {
+                    showSignOutConfirm = true
+                } label: {
+                    HStack(alignment: .center) {
+                        Text("Sign out")
+                            .font(.bpDisplay(14, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appMaple)
+                        Spacer()
+                        Text("\u{203A}")
+                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appPond)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
+                .disabled(isSigningOut)
             }
         }
     }
 
-    // MARK: - Preferences
+    // MARK: - Subscription / restore access row (preserved from original)
 
-    private var preferencesSection: some View {
-        Section("Preferences") {
-            NavigationLink {
-                AboutView()
-            } label: {
-                settingsRow(title: "About", systemImage: "info.circle")
-            }
+    @ViewBuilder
+    private var subscriptionAccessRow: some View {
+        BPCard(padding: 0) {
+            VStack(spacing: 0) {
+                NavigationLink {
+                    PaywallView()
+                } label: {
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(appState.entitlement?.isActive == true ? "View subscription plans" : "Upgrade to Pro")
+                                .font(.bpDisplay(14, italic: true, weight: .medium))
+                                .foregroundStyle(Color.appInk)
+                            Text("unlock the full tuning engine")
+                                .font(.bpUI(10))
+                                .tracking(10 * 0.04)
+                                .foregroundStyle(Color.appInk3)
+                        }
+                        Spacer()
+                        Text("\u{203A}")
+                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appPond)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
+                }
 
-            Link(destination: URL(string: "https://bowpress.app/privacy")!) {
-                settingsRow(title: "Privacy Policy", systemImage: "hand.raised", trailing: "arrow.up.right.square")
-            }
-            .foregroundStyle(.primary)
+                Rectangle().fill(Color.appLine2).frame(height: 1)
 
-            Link(destination: URL(string: "https://bowpress.app/terms")!) {
-                settingsRow(title: "Terms of Service", systemImage: "doc.text", trailing: "arrow.up.right.square")
+                Button {
+                    Task { await subscriptionManager.restorePurchases() }
+                } label: {
+                    HStack(alignment: .center) {
+                        Text("Restore purchases")
+                            .font(.bpDisplay(14, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appInk)
+                        Spacer()
+                        Text("\u{203A}")
+                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appPond)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
             }
-            .foregroundStyle(.primary)
+        }
+    }
 
-            Toggle(isOn: $notificationsEnabled) {
-                Label("Notifications", systemImage: "bell")
-            }
+    // MARK: - Colophon
+
+    private var colophon: some View {
+        HStack(spacing: 0) {
+            Spacer()
+            Text("est. arch")
+                .font(.bpDisplay(11, italic: true, weight: .regular))
+                .tracking(11 * 0.08)
+                .foregroundStyle(Color.appInk3)
+            Spacer().frame(width: 8)
+            Rectangle()
+                .fill(Color.appPond)
+                .frame(width: 5, height: 5)
+            Spacer().frame(width: 8)
+            Text("kanazawa")
+                .font(.bpDisplay(11, italic: true, weight: .regular))
+                .tracking(11 * 0.08)
+                .foregroundStyle(Color.appInk3)
+            Spacer()
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func initials(for name: String) -> String {
+        let parts = name.split(separator: " ")
+        if parts.count >= 2 {
+            let first = parts[0].prefix(1)
+            let last = parts[parts.count - 1].prefix(1)
+            return "\(first)\(last)".uppercased()
+        }
+        return String(name.prefix(2)).uppercased()
+    }
+
+    private var subscriptionPlanName: String {
+        guard let entitlement = appState.entitlement, entitlement.isActive else {
+            return "FREE"
+        }
+        switch entitlement.productId {
+        case BowPressProduct.monthly: return "PRO MONTHLY"
+        case BowPressProduct.annual:  return "PRO ANNUAL"
+        default:                      return "BOWPRESS PRO"
         }
     }
 
     @ViewBuilder
-    private func settingsRow(title: String, systemImage: String, trailing: String? = nil) -> some View {
-        HStack {
-            Label(title, systemImage: systemImage)
-            Spacer()
-            if let trailing {
-                Image(systemName: trailing).font(.footnote).foregroundStyle(.secondary)
+    private func settingsRow(
+        label: String,
+        value: String,
+        isDestructive: Bool,
+        destination: AnyView
+    ) -> some View {
+        NavigationLink {
+            destination
+        } label: {
+            HStack(alignment: .center) {
+                Text(label)
+                    .font(.bpDisplay(14, italic: true, weight: .medium))
+                    .foregroundStyle(isDestructive ? Color.appMaple : Color.appInk)
+                Spacer()
+                HStack(spacing: 4) {
+                    if !value.isEmpty {
+                        Text(value.uppercased())
+                            .font(.bpMono(10))
+                            .tracking(10 * 0.04)
+                            .foregroundStyle(Color.appInk3)
+                    }
+                    Text("\u{203A}")
+                        .font(.bpDisplay(16, italic: true, weight: .medium))
+                        .foregroundStyle(Color.appPond)
+                }
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
         }
+    }
+
+    private func confirmSignOut() {
+        isSigningOut = true
+        AuthService(appState: appState).signOut()
+        isSigningOut = false
     }
 }
 
-// MARK: - About
-
-private struct AboutView: View {
-    var body: some View {
-        Form {
-            Section("BowPress") {
-                LabeledContent("Version", value: Self.version)
-                LabeledContent("Build", value: Self.build)
-            }
-        }
-        .navigationTitle("About")
-        .navigationBarTitleDisplayMode(.inline)
-    }
-
-    private static var version: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "–"
-    }
-
-    private static var build: String {
-        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "–"
-    }
-}
+// MARK: - Preview
 
 #Preview {
     let state = AppState()
