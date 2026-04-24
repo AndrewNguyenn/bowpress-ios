@@ -149,41 +149,49 @@ private struct ActiveSessionBanner: View {
     var viewModel: SessionViewModel
     var onTap: () -> Void
 
+    /// Drives the pulsing maple dot. Flips every second so the animation
+    /// has a value to interpolate on.
+    @State private var pulseOn: Bool = false
+    private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 10) {
                 Circle()
-                    .fill(.green)
+                    .fill(Color.appMaple)
                     .frame(width: 8, height: 8)
+                    .opacity(pulseOn ? 1.0 : 0.35)
+                    .animation(.easeInOut(duration: 1.0), value: pulseOn)
 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Session in progress")
-                        .font(.subheadline).fontWeight(.semibold)
-                    if let bow = viewModel.selectedBow {
-                        Text(bow.name)
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                }
+                Text("IN SESSION")
+                    .font(.bpUI(10, weight: .semibold))
+                    .appTracking(0.22, at: 10)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.appPondDk)
+
+                Text("· \(viewModel.selectedBow?.name ?? "session") · \(viewModel.allArrows.count) arrow\(viewModel.allArrows.count == 1 ? "" : "s")")
+                    .font(.bpUI(9))
+                    .foregroundStyle(Color.appInk3)
+                    .lineLimit(1)
 
                 Spacer()
 
-                Text("\(viewModel.allArrows.count) arrow\(viewModel.allArrows.count == 1 ? "" : "s")")
-                    .font(.caption).foregroundStyle(.secondary)
-
-                Image(systemName: "chevron.right")
-                    .font(.caption).foregroundStyle(.tertiary)
+                Text("\u{203A}")
+                    .font(.bpDisplay(14, italic: true, weight: .medium))
+                    .foregroundStyle(Color.appPondDk)
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(.regularMaterial)
+            .background(Color.appPaper2)
             .overlay(
                 Rectangle()
-                    .frame(height: 0.5)
-                    .foregroundStyle(.separator),
+                    .fill(Color.appLine)
+                    .frame(height: 1),
                 alignment: .bottom
             )
         }
         .buttonStyle(.plain)
+        .onReceive(tick) { _ in pulseOn.toggle() }
     }
 }
 

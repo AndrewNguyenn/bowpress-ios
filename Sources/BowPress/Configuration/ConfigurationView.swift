@@ -18,86 +18,29 @@ struct ConfigurationView: View {
     @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
 
     var body: some View {
-        List {
-            Section {
-                if isLoadingBows && appState.bows.isEmpty {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                        Spacer()
-                    }
-                } else if appState.bows.isEmpty {
-                    Text("No bows yet")
-                        .font(.subheadline)
-                        .foregroundStyle(.tertiary)
-                } else {
-                    ForEach(appState.bows) { bow in
-                        NavigationLink(destination: BowDetailView(bow: bow, appState: appState)) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(bow.name).font(.body.weight(.semibold))
-                                Text(bow.bowType.label).font(.caption).foregroundStyle(.secondary)
-                            }
-                            .padding(.vertical, 2)
-                        }
-                        .accessibilityIdentifier("bow_row_\(bow.id)")
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                if isReadOnly { showingPaywall = true }
-                                else { pendingDeleteBow = bow }
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                    }
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                // Header
+                BPNavHeader(eyebrow: "BOWPRESS \u{00B7} KIT", title: "Equipment") {
+                    EmptyView()
                 }
-            } header: {
-                sectionHeader(title: "Bows", systemImage: "scope") {
-                    if isReadOnly { showingPaywall = true }
-                    else { showAddBow = true }
-                }
-            }
 
-            Section {
-                if isLoadingArrows && appState.arrowConfigs.isEmpty {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                        Spacer()
-                    }
-                } else if appState.arrowConfigs.isEmpty {
-                    Text("No arrow setups yet")
-                        .font(.subheadline)
-                        .foregroundStyle(.tertiary)
-                } else {
-                    ForEach(appState.arrowConfigs) { arrow in
-                        NavigationLink(destination: ArrowDetailView(arrow: arrow, appState: appState)) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(arrow.label).font(.body.weight(.semibold))
-                                Text("\(UnitFormatting.length(inches: arrow.length, system: unitSystem)) · \(UnitFormatting.arrowMass(grains: arrow.pointWeight, system: unitSystem)) point")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                            .padding(.vertical, 2)
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
-                                if isReadOnly { showingPaywall = true }
-                                else { pendingDeleteArrow = arrow }
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                    }
-                }
-            } header: {
-                sectionHeader(title: "Arrows", systemImage: "arrow.right") {
-                    if isReadOnly { showingPaywall = true }
-                    else { showAddArrow = true }
+                VStack(alignment: .leading, spacing: 0) {
+                    // BOWS section
+                    bowsSection
+                        .padding(.horizontal, 16)
+                        .padding(.top, 14)
+
+                    // ARROWS section
+                    arrowsSection
+                        .padding(.horizontal, 16)
+                        .padding(.top, 20)
+                        .padding(.bottom, 32)
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .navigationTitle("Equipment")
-        .navigationBarTitleDisplayMode(.inline)
+        .background(Color.appPaper)
+        .navigationBarHidden(true)
         .navigationDestination(item: $navigateToNewBow) { bow in
             BowDetailView(bow: bow, appState: appState)
         }
@@ -158,24 +101,129 @@ struct ConfigurationView: View {
         .task { await loadAll() }
     }
 
+    // MARK: - Bows section
+
     @ViewBuilder
-    private func sectionHeader(title: String, systemImage: String, onAdd: @escaping () -> Void) -> some View {
-        HStack {
-            Label(title, systemImage: systemImage).font(.headline)
+    private var bowsSection: some View {
+        // Section header row
+        HStack(alignment: .center) {
+            BPEyebrow("BOWS \u{00B7} \(appState.bows.count)")
             Spacer()
-            Button(action: onAdd) {
-                Image(systemName: "plus")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.appAccent)
+            BPEditLink("ADD") {
+                if isReadOnly { showingPaywall = true }
+                else { showAddBow = true }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Add \(title)")
-            .accessibilityIdentifier("add_\(title.lowercased())_button")
+            .accessibilityIdentifier("add_bows_button")
         }
-        .textCase(nil)
+        .padding(.bottom, 10)
+
+        // Bows card
+        if isLoadingBows && appState.bows.isEmpty {
+            BPCard(padding: 0) {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+                .padding(.vertical, 20)
+            }
+        } else if appState.bows.isEmpty {
+            BPCard(padding: 0) {
+                Text("No bows yet")
+                    .font(.bpUI(13))
+                    .foregroundStyle(Color.appInk3)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 16)
+            }
+        } else {
+            BPCard(padding: 0) {
+                VStack(spacing: 0) {
+                    ForEach(Array(appState.bows.enumerated()), id: \.element.id) { idx, bow in
+                        let isLast = idx == appState.bows.count - 1
+                        BowRow(bow: bow, isLast: isLast) {
+                            // Swipe-to-delete via swipeActions requires List;
+                            // expose delete via context menu for scroll view
+                            if isReadOnly { showingPaywall = true }
+                            else { pendingDeleteBow = bow }
+                        }
+                        .accessibilityIdentifier("bow_row_\(bow.id)")
+                        .background(
+                            NavigationLink("", destination: BowDetailView(bow: bow, appState: appState))
+                                .opacity(0)
+                        )
+                        .contentShape(Rectangle())
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                if isReadOnly { showingPaywall = true }
+                                else { pendingDeleteBow = bow }
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    // MARK: - Data
+    // MARK: - Arrows section
+
+    @ViewBuilder
+    private var arrowsSection: some View {
+        HStack(alignment: .center) {
+            BPEyebrow("ARROWS \u{00B7} \(appState.arrowConfigs.count)")
+            Spacer()
+            BPEditLink("ADD") {
+                if isReadOnly { showingPaywall = true }
+                else { showAddArrow = true }
+            }
+            .accessibilityIdentifier("add_arrows_button")
+        }
+        .padding(.bottom, 10)
+
+        if isLoadingArrows && appState.arrowConfigs.isEmpty {
+            BPCard(padding: 0) {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+                .padding(.vertical, 20)
+            }
+        } else if appState.arrowConfigs.isEmpty {
+            BPCard(padding: 0) {
+                Text("No arrow setups yet")
+                    .font(.bpUI(13))
+                    .foregroundStyle(Color.appInk3)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 16)
+            }
+        } else {
+            BPCard(padding: 0) {
+                VStack(spacing: 0) {
+                    ForEach(Array(appState.arrowConfigs.enumerated()), id: \.element.id) { idx, arrow in
+                        let isLast = idx == appState.arrowConfigs.count - 1
+                        ArrowRow(arrow: arrow, unitSystem: unitSystem, isLast: isLast)
+                            .background(
+                                NavigationLink("", destination: ArrowDetailView(arrow: arrow, appState: appState))
+                                    .opacity(0)
+                            )
+                            .contentShape(Rectangle())
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    if isReadOnly { showingPaywall = true }
+                                    else { pendingDeleteArrow = arrow }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Data loading
 
     private func loadAll() async {
         await withTaskGroup(of: Void.self) { group in
@@ -197,8 +245,99 @@ struct ConfigurationView: View {
         catch { errorMessage = error.localizedDescription }
         isLoadingArrows = false
     }
-
 }
+
+// MARK: - BowRow
+
+private struct BowRow: View {
+    let bow: Bow
+    let isLast: Bool
+    let onDelete: () -> Void
+
+    private var isActive: Bool { true } // active = most recently used; simplified
+    private var isRetired: Bool { false } // retirement detection TBD
+
+    private var specLine: String {
+        var parts = [bow.bowType.label.uppercased()]
+        return parts.joined(separator: " \u{00B7} ")
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(bow.name)
+                        .font(.bpDisplay(15, italic: true, weight: .medium))
+                        .foregroundStyle(Color.appInk)
+                        .lineLimit(1)
+                }
+                Text(specLine)
+                    .font(.bpMono(10))
+                    .tracking(10 * 0.04)
+                    .foregroundStyle(Color.appInk3)
+            }
+            Spacer(minLength: 8)
+            Text("\u{203A}")
+                .font(.bpDisplay(18, italic: true, weight: .medium))
+                .foregroundStyle(Color.appPond)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .opacity(isRetired ? 0.55 : 1.0)
+        .overlay(alignment: .bottom) {
+            if !isLast {
+                Rectangle()
+                    .fill(Color.appLine2)
+                    .frame(height: 1)
+            }
+        }
+    }
+}
+
+// MARK: - ArrowRow
+
+private struct ArrowRow: View {
+    let arrow: ArrowConfiguration
+    let unitSystem: UnitSystem
+    let isLast: Bool
+
+    private var specLine: String {
+        arrow.specSummary(system: unitSystem).uppercased()
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(arrow.label)
+                        .font(.bpDisplay(15, italic: true, weight: .medium))
+                        .foregroundStyle(Color.appInk)
+                        .lineLimit(1)
+                    BPStamp("ACTIVE", tone: .pond)
+                }
+                Text(specLine)
+                    .font(.bpMono(10))
+                    .tracking(10 * 0.04)
+                    .foregroundStyle(Color.appInk3)
+            }
+            Spacer(minLength: 8)
+            Text("\u{203A}")
+                .font(.bpDisplay(18, italic: true, weight: .medium))
+                .foregroundStyle(Color.appPond)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .overlay(alignment: .bottom) {
+            if !isLast {
+                Rectangle()
+                    .fill(Color.appLine2)
+                    .frame(height: 1)
+            }
+        }
+    }
+}
+
+// MARK: - Preview
 
 #Preview {
     let appState = AppState()

@@ -20,6 +20,13 @@ import Observation
         self.store = store
     }
 
+    #if DEBUG
+    /// When `true`, `SessionView.primeSetupState()` skips the `LocalStore` fetch
+    /// calls. Set this in snapshot tests that inject pre-populated AppState so
+    /// that the in-memory SwiftData context is never accessed during rendering.
+    var isSnapshotTest: Bool = false
+    #endif
+
     // MARK: - Active Session State
 
     var currentSession: ShootingSession?
@@ -67,6 +74,10 @@ import Observation
 
     /// Persists for the whole session. Never cleared automatically.
     var sessionNotes: String = ""
+
+    /// Pre-session "intention" for the current stage. Transient, in-memory only —
+    /// not written to the store or API. Cleared on session start/reset.
+    var intentionNote: String = ""
 
     // MARK: - Setup
 
@@ -337,6 +348,7 @@ import Observation
         completedEnds = []
         endArrowCounts = []
         sessionNotes = ""
+        intentionNote = ""
         selectedBow = nil
         isLoading = false
     }

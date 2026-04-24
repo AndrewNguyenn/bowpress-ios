@@ -1,0 +1,54 @@
+appId: com.andrewnguyen.bowpress
+name: 14-log-ledger
+tags:
+  - smoke
+  - read-only
+  - kenrokuen
+---
+# Verifies the Kenrokuen HistoricalSessionsView (Log tab) chrome:
+#
+#   - "BOWPRESS" eyebrow header
+#   - "Session log" title
+#   - "This week" week-bucket group header
+#   - "BEST" stamp on the highest-avg session in the group
+#
+# "This week" appears when at least one completed session falls in the current
+# calendar week. "BEST" requires ≥ 2 sessions in the group (or a single
+# session that also equals the historical best). Both require the backend to
+# have seeded sessions for the e2e-test user within the current week.
+
+- launchApp:
+    clearState: true
+    arguments:
+      AutoSignInEmail: "e2e-test@bowpress.dev"
+      AutoSignInPassword: "bowpress-e2e-pw-1234"
+
+- extendedWaitUntil:
+    notVisible: "Analyzing your data"
+    timeout: 20000
+
+# Navigate to the Log tab (tag 1 in MainTabView).
+- tapOn: "Log"
+
+# Wait for the HistoricalSessionsView header to render. With seeded data the
+# log is non-empty and shows the header immediately after hydration.
+- extendedWaitUntil:
+    visible: "Session log"
+    timeout: 10000
+
+# --- Kenrokuen Log header ---
+# Text("BOWPRESS") in headerView: uppercase string literal + .textCase(.uppercase).
+- assertVisible: "BOWPRESS"
+# Text("Session log") — no .textCase modifier; assert exact mixed-case string.
+- assertVisible: "Session log"
+
+# --- Week-bucket group header ---
+# weekBucket() returns "This week" for sessions within the current calendar
+# week. The header is rendered via Text(group.header) + .textCase(.uppercase).
+# assertVisible is case-insensitive so "This week" matches "THIS WEEK".
+- assertVisible: "This week"
+
+# --- BEST stamp ---
+# SessionLogRow shows BPStamp("BEST", tone: .pine) on the highest-avg session
+# in the group. String "BEST" + .textCase(.uppercase) — uppercase in both.
+- assertVisible: "BEST"

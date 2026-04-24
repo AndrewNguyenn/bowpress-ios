@@ -1,0 +1,61 @@
+appId: com.andrewnguyen.bowpress
+name: 12-analytics-kenrokuen
+tags:
+  - smoke
+  - read-only
+  - kenrokuen
+---
+# Verifies the Kenrokuen AnalyticsView chrome end-to-end:
+#   BPNavHeader eyebrow + title, 3-col stat grid (Average / X rate), and the
+#   Trend analysis ledger's first roman-numeral row ("i.").
+#
+# Requires the local backend (`./scripts/e2e.sh --target local`) for the
+# trend-findings that produce the ledger rows. If the backend is offline,
+# the flow will fail at `assertVisible: "i."` — the preceding stat-grid
+# assertions still prove the Kenrokuen chrome rendered correctly.
+#
+# Analytics is the default tab (tag 0); no tab-navigation is needed.
+
+- launchApp:
+    clearState: true
+    arguments:
+      AutoSignInEmail: "e2e-test@bowpress.dev"
+      AutoSignInPassword: "bowpress-e2e-pw-1234"
+
+# HydrationSplashView shows "ANALYZING YOUR DATA". extendedWaitUntil is
+# case-insensitive so "Analyzing your data" matches it.
+- extendedWaitUntil:
+    notVisible: "Analyzing your data"
+    timeout: 20000
+
+# --- Kenrokuen chrome: BPNavHeader ---
+# Eyebrow string is "Bowpress" rendered via .textCase(.uppercase). Maestro's
+# assertVisible matches case-insensitively so "Bowpress" finds "BOWPRESS".
+- assertVisible: "Bowpress"
+# BPNavHeader title has no .textCase modifier.
+- assertVisible: "Analytics"
+
+# --- 3-col stat grid ---
+# Wait for the analytics overview API response before asserting the grid cells.
+- extendedWaitUntil:
+    visible: "Average"
+    timeout: 15000
+
+# BPStatGridCell labels are rendered via BPEyebrow (.textCase(.uppercase));
+# case-insensitive assertVisible matches in both cases.
+- assertVisible: "Average"
+- assertVisible: "X rate"
+
+# --- Trend analysis ledger ---
+# Scroll until the "Trend analysis" section header is visible. The heading
+# always renders (even when data is absent — "not enough data yet"), so this
+# is a reliable scroll anchor regardless of backend state.
+- scrollUntilVisible:
+    element: "Trend analysis"
+    direction: DOWN
+    timeout: 15000
+
+# TrendLedgerRow numerals: Text(roman(finding.index) + ".") → "i."
+# Plain lowercase string with no .textCase modifier — assert exact value.
+# Requires the backend trends endpoint to return at least one finding.
+- assertVisible: "i."

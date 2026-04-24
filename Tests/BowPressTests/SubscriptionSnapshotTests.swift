@@ -11,17 +11,12 @@ import UIKit
 @MainActor
 final class SubscriptionSnapshotTests: XCTestCase {
 
-    override func setUp() {
-        super.setUp()
-        // isRecording = false
-    }
-
     // MARK: - SubscriptionStatusCard
 
     func testStatusCard_expired_rendersEmpty() {
         // Safety: the card must render no visible content when `isActive == false`.
         let e = Entitlement.inactive
-        assertSnapshot(of: hosting(SubscriptionStatusCard(entitlement: e)), as: .image)
+        assertSnapshot(of: hosting(SubscriptionStatusCard(entitlement: e)), as: .image, record: false)
     }
 
     // MARK: - Helpers

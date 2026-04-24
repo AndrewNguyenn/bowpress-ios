@@ -91,6 +91,17 @@ protocol BowPressAPIClient: AnyObject {
     // Suggestions
     func fetchSuggestion(bowId: String, id: String) async throws -> AnalyticsSuggestion
     func applySuggestion(bowId: String, id: String) async throws -> ApplyResult
+
+    // Wave 2 — extended analytics endpoints.
+    func getAnalyticsTimeline(
+        period: AnalyticsPeriod, bowType: BowType?, distance: ShootingDistance?
+    ) async throws -> TimelineResponse
+    func getAnalyticsDrift(
+        bowId: String, period: AnalyticsPeriod
+    ) async throws -> DriftResponse
+    func getAnalyticsTrends(
+        period: AnalyticsPeriod, bowType: BowType?, distance: ShootingDistance?
+    ) async throws -> TrendsResponse
 }
 
 // MARK: - APIClient
@@ -709,6 +720,85 @@ enum AnalyticsPeriod: String, Codable, CaseIterable {
         case .sixMonths:   "6 Months"
         case .year:        "1 Year"
         }
+    }
+}
+
+// MARK: - Wave 2 analytics endpoints
+//
+// Each of these is a thin GET with filters passed via query string. They all
+// 404-tolerate (older backends pre-Wave-2 will 404 — callers should treat
+// that as "no data yet" and hide the corresponding section rather than
+// surfacing an error). When the DEBUG mock path is active we return
+// `MockAnalyticsWave2` fixtures so previews + offline UI still render.
+
+extension APIClient {
+    func getAnalyticsTimeline(
+        period: AnalyticsPeriod,
+        bowType: BowType? = nil,
+        distance: ShootingDistance? = nil
+    ) async throws -> TimelineResponse {
+        #if DEBUG
+        if APIClient.useMocks { return MockAnalyticsWave2.timeline(period: period) }
+        #endif
+        guard let encoded = period.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            throw URLError(.badURL)
+        }
+        var path = "/analytics/timeline?period=\(encoded)"
+        if let bowType { path += "&bowType=\(bowType.rawValue)" }
+        if let distance, let enc = distance.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "&distance=\(enc)"
+        }
+        let (data, response) = try await request(
+            method: "GET",
+            path: path,
+            body: Optional<[String: String]>.none
+        )
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(TimelineResponse.self, from: data)
+    }
+
+    func getAnalyticsDrift(
+        bowId: String,
+        period: AnalyticsPeriod
+    ) async throws -> DriftResponse {
+        #if DEBUG
+        if APIClient.useMocks { return MockAnalyticsWave2.drift(period: period) }
+        #endif
+        guard let bowEnc = bowId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let perEnc = period.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)
+        else { throw URLError(.badURL) }
+        let (data, response) = try await request(
+            method: "GET",
+            path: "/analytics/drift?bowId=\(bowEnc)&period=\(perEnc)",
+            body: Optional<[String: String]>.none
+        )
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(DriftResponse.self, from: data)
+    }
+
+    func getAnalyticsTrends(
+        period: AnalyticsPeriod,
+        bowType: BowType? = nil,
+        distance: ShootingDistance? = nil
+    ) async throws -> TrendsResponse {
+        #if DEBUG
+        if APIClient.useMocks { return MockAnalyticsWave2.trends(period: period) }
+        #endif
+        guard let encoded = period.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            throw URLError(.badURL)
+        }
+        var path = "/analytics/trends?period=\(encoded)"
+        if let bowType { path += "&bowType=\(bowType.rawValue)" }
+        if let distance, let enc = distance.rawValue.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "&distance=\(enc)"
+        }
+        let (data, response) = try await request(
+            method: "GET",
+            path: path,
+            body: Optional<[String: String]>.none
+        )
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(TrendsResponse.self, from: data)
     }
 }
 

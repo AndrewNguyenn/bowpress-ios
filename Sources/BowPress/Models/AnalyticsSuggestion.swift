@@ -38,6 +38,10 @@ struct AnalyticsSuggestion: Identifiable, Codable {
     var wasApplied: Bool = false
     var appliedAt: Date?
     var appliedConfigId: String?
+    // Wave 2 — optional server-supplied summary + stamp text the ledger UI
+    // prefers when present. Nullable so pre-Wave-2 responses decode cleanly.
+    var inlineSummary: String?
+    var statusStamp: String?
 
     enum DeliveryType: String, Codable {
         case push, inApp, reinforcement
@@ -47,6 +51,7 @@ struct AnalyticsSuggestion: Identifiable, Codable {
         case id, bowId, createdAt, parameter, suggestedValue, currentValue
         case reasoning, confidence, qualifier, wasRead, wasDismissed, deliveryType
         case evidence, wasApplied, appliedAt, appliedConfigId
+        case inlineSummary, statusStamp
     }
 
     init(
@@ -57,7 +62,9 @@ struct AnalyticsSuggestion: Identifiable, Codable {
         evidence: SuggestionEvidence? = nil,
         wasApplied: Bool = false,
         appliedAt: Date? = nil,
-        appliedConfigId: String? = nil
+        appliedConfigId: String? = nil,
+        inlineSummary: String? = nil,
+        statusStamp: String? = nil
     ) {
         self.id = id; self.bowId = bowId; self.createdAt = createdAt
         self.parameter = parameter; self.suggestedValue = suggestedValue
@@ -69,6 +76,8 @@ struct AnalyticsSuggestion: Identifiable, Codable {
         self.wasApplied = wasApplied
         self.appliedAt = appliedAt
         self.appliedConfigId = appliedConfigId
+        self.inlineSummary = inlineSummary
+        self.statusStamp = statusStamp
     }
 
     init(from decoder: Decoder) throws {
@@ -91,6 +100,9 @@ struct AnalyticsSuggestion: Identifiable, Codable {
         wasApplied = try c.decodeIfPresent(Bool.self, forKey: .wasApplied) ?? false
         appliedAt = try c.decodeIfPresent(Date.self, forKey: .appliedAt)
         appliedConfigId = try c.decodeIfPresent(String.self, forKey: .appliedConfigId)
+        // Wave 2 — optional ledger fields; pre-Wave-2 servers omit them.
+        inlineSummary = try c.decodeIfPresent(String.self, forKey: .inlineSummary)
+        statusStamp = try c.decodeIfPresent(String.self, forKey: .statusStamp)
     }
 
     // MARK: - Mock-only helpers
