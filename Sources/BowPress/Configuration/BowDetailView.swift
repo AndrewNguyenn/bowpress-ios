@@ -72,6 +72,8 @@ struct BowDetailView: View {
     @State private var rearStabLeftWeight: Double = 6
     @State private var rearStabRightWeight: Double = 6
 
+    @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
+
     private var currentConfig: BowConfiguration? {
         configurations.max(by: { $0.createdAt < $1.createdAt })
     }
@@ -107,6 +109,8 @@ struct BowDetailView: View {
 
     var body: some View {
         Form {
+            Section { UnitToggle(system: $unitSystem) }
+
             Section("Bow Info") {
                 LabeledContent("Name") {
                     TextField("Name", text: $name).multilineTextAlignment(.trailing)
@@ -210,6 +214,13 @@ struct BowDetailView: View {
             NavigationStack { PaywallView() }
         }
         .task { await loadConfigurations() }
+        .onChange(of: unitSystem) { _, new in
+            // Re-render the mirrored text fields so the number matches the new system.
+            drawLengthText  = UnitFormatting.lengthValue(inches: drawLength,  system: new, digits: 2)
+            peepHeightText  = UnitFormatting.lengthValue(inches: peepHeight,  system: new, digits: 2)
+            dLoopText       = UnitFormatting.lengthValue(inches: dLoopLength, system: new, digits: 3)
+            braceHeightText = UnitFormatting.lengthValue(inches: braceHeight, system: new, digits: 3)
+        }
     }
 
     // MARK: - Reference pin
@@ -301,7 +312,7 @@ struct BowDetailView: View {
         Section("Setup") {
             drawLengthRow
             Stepper(value: $letOffPct, in: 40...99, step: 1) {
-                LabeledContent("Let-off", value: "\(Int(letOffPct))%")
+                LabeledContent("Let-off", value: UnitFormatting.percent(letOffPct))
             }
             peepHeightRow
             dLoopLengthRow
@@ -338,19 +349,26 @@ struct BowDetailView: View {
                 LabeledContent("Sight Position", value: sightPosition == 0 ? "0" : "\(sightPosition > 0 ? "+" : "")\(sightPosition)")
             }
             Stepper(value: $gripAngle, in: 0.0...90.0, step: 0.5) {
-                LabeledContent("Grip Angle", value: "\(String(format: "%.1f", gripAngle))°")
+                LabeledContent("Grip Angle", value: UnitFormatting.degrees(gripAngle))
             }
             Stepper(value: $nockingHeight, in: -80...80) {
-                LabeledContent("Nocking Height", value: sixteenthLabel(nockingHeight))
+                LabeledContent("Nocking Height",
+                               value: UnitFormatting.sixteenths(nockingHeight, system: unitSystem))
             }
         }
 
         Section("Front Stabilizer") {
-            Stepper(value: $frontStabWeight, in: 0...60, step: 0.5) {
-                LabeledContent("Weight", value: frontStabWeight == 0 ? "None" : "\(String(format: "%g", frontStabWeight)) oz")
+            Stepper(
+                value: $frontStabWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                in: UnitRange.frontStabWeight.displayRange(unitSystem),
+                step: UnitRange.frontStabWeight.displayStep(unitSystem)
+            ) {
+                LabeledContent("Weight",
+                               value: frontStabWeight == 0 ? "None"
+                                                           : UnitFormatting.stabWeight(ounces: frontStabWeight, system: unitSystem))
             }
             Stepper(value: $frontStabAngle, in: 0...10, step: 1) {
-                LabeledContent("Angle", value: "\(Int(frontStabAngle))°")
+                LabeledContent("Angle", value: UnitFormatting.degrees(frontStabAngle, digits: 0))
             }
         }
 
@@ -359,27 +377,42 @@ struct BowDetailView: View {
                 ForEach(RearStabSide.allCases, id: \.self) { Text($0.label).tag($0) }
             }
             if rearStabSide == .both {
-                Stepper(value: $rearStabLeftWeight, in: 0...60, step: 0.5) {
-                    LabeledContent("Left Weight", value: "\(String(format: "%g", rearStabLeftWeight)) oz")
+                Stepper(
+                    value: $rearStabLeftWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                    in: UnitRange.rearStabWeight.displayRange(unitSystem),
+                    step: UnitRange.rearStabWeight.displayStep(unitSystem)
+                ) {
+                    LabeledContent("Left Weight",
+                                   value: UnitFormatting.stabWeight(ounces: rearStabLeftWeight, system: unitSystem))
                 }
-                Stepper(value: $rearStabRightWeight, in: 0...60, step: 0.5) {
-                    LabeledContent("Right Weight", value: "\(String(format: "%g", rearStabRightWeight)) oz")
+                Stepper(
+                    value: $rearStabRightWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                    in: UnitRange.rearStabWeight.displayRange(unitSystem),
+                    step: UnitRange.rearStabWeight.displayStep(unitSystem)
+                ) {
+                    LabeledContent("Right Weight",
+                                   value: UnitFormatting.stabWeight(ounces: rearStabRightWeight, system: unitSystem))
                 }
                 Stepper(value: $rearStabVertAngle, in: -90...90, step: 5) {
-                    LabeledContent("Vertical Angle", value: "\(Int(rearStabVertAngle))°")
+                    LabeledContent("Vertical Angle", value: UnitFormatting.degrees(rearStabVertAngle, digits: 0))
                 }
                 Stepper(value: $rearStabHorizAngle, in: 0...90, step: 5) {
-                    LabeledContent("Horizontal Angle", value: "\(Int(rearStabHorizAngle))°")
+                    LabeledContent("Horizontal Angle", value: UnitFormatting.degrees(rearStabHorizAngle, digits: 0))
                 }
             } else if rearStabSide != .none {
-                Stepper(value: $rearStabWeight, in: 0...60, step: 0.5) {
-                    LabeledContent("Weight", value: "\(String(format: "%g", rearStabWeight)) oz")
+                Stepper(
+                    value: $rearStabWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                    in: UnitRange.rearStabWeight.displayRange(unitSystem),
+                    step: UnitRange.rearStabWeight.displayStep(unitSystem)
+                ) {
+                    LabeledContent("Weight",
+                                   value: UnitFormatting.stabWeight(ounces: rearStabWeight, system: unitSystem))
                 }
                 Stepper(value: $rearStabVertAngle, in: -90...90, step: 5) {
-                    LabeledContent("Vertical Angle", value: "\(Int(rearStabVertAngle))°")
+                    LabeledContent("Vertical Angle", value: UnitFormatting.degrees(rearStabVertAngle, digits: 0))
                 }
                 Stepper(value: $rearStabHorizAngle, in: 0...90, step: 5) {
-                    LabeledContent("Horizontal Angle", value: "\(Int(rearStabHorizAngle))°")
+                    LabeledContent("Horizontal Angle", value: UnitFormatting.degrees(rearStabHorizAngle, digits: 0))
                 }
             }
         }
@@ -395,11 +428,21 @@ struct BowDetailView: View {
         }
 
         Section("Tiller") {
-            Stepper(value: $tillerTop, in: -10.0...10.0, step: 0.5) {
-                LabeledContent("Top Tiller", value: String(format: "%+.1f mm", tillerTop))
+            Stepper(
+                value: $tillerTop.displayed(in: unitSystem, scale: .mmToInch),
+                in: UnitRange.tiller.displayRange(unitSystem),
+                step: UnitRange.tiller.displayStep(unitSystem)
+            ) {
+                LabeledContent("Top Tiller",
+                               value: UnitFormatting.mmLength(tillerTop, system: unitSystem))
             }
-            Stepper(value: $tillerBottom, in: -10.0...10.0, step: 0.5) {
-                LabeledContent("Bottom Tiller", value: String(format: "%+.1f mm", tillerBottom))
+            Stepper(
+                value: $tillerBottom.displayed(in: unitSystem, scale: .mmToInch),
+                in: UnitRange.tiller.displayRange(unitSystem),
+                step: UnitRange.tiller.displayStep(unitSystem)
+            ) {
+                LabeledContent("Bottom Tiller",
+                               value: UnitFormatting.mmLength(tillerBottom, system: unitSystem))
             }
         }
 
@@ -410,41 +453,62 @@ struct BowDetailView: View {
         }
 
         Section("Clicker") {
-            Stepper(value: $clickerPosition, in: -50...50, step: 1) {
-                LabeledContent("Position", value: String(format: "%+.0f mm", clickerPosition))
+            Stepper(
+                value: $clickerPosition.displayed(in: unitSystem, scale: .mmToInch),
+                in: UnitRange.clicker.displayRange(unitSystem),
+                step: UnitRange.clicker.displayStep(unitSystem)
+            ) {
+                LabeledContent("Position",
+                               value: UnitFormatting.mmLength(clickerPosition, system: unitSystem, digits: 0))
             }
         }
 
         Section("Grip & Nock") {
             Stepper(value: $gripAngle, in: 0.0...90.0, step: 0.5) {
-                LabeledContent("Grip Angle", value: "\(String(format: "%.1f", gripAngle))°")
+                LabeledContent("Grip Angle", value: UnitFormatting.degrees(gripAngle))
             }
             Stepper(value: $nockingHeight, in: -80...80) {
-                LabeledContent("Nocking Height", value: sixteenthLabel(nockingHeight))
+                LabeledContent("Nocking Height",
+                               value: UnitFormatting.sixteenths(nockingHeight, system: unitSystem))
             }
         }
 
         Section("Front Stabilizer") {
-            Stepper(value: $frontStabWeight, in: 0...30, step: 0.5) {
-                LabeledContent("Weight", value: "\(String(format: "%g", frontStabWeight)) oz")
+            Stepper(
+                value: $frontStabWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                in: UnitRange.vbarWeight.displayRange(unitSystem),
+                step: UnitRange.vbarWeight.displayStep(unitSystem)
+            ) {
+                LabeledContent("Weight",
+                               value: UnitFormatting.stabWeight(ounces: frontStabWeight, system: unitSystem))
             }
             Stepper(value: $frontStabAngle, in: 0...10, step: 1) {
-                LabeledContent("Angle", value: "\(Int(frontStabAngle))°")
+                LabeledContent("Angle", value: UnitFormatting.degrees(frontStabAngle, digits: 0))
             }
         }
 
         Section("V-Bar (Rear Stabilizer)") {
-            Stepper(value: $rearStabLeftWeight, in: 0...30, step: 0.5) {
-                LabeledContent("Left Weight", value: "\(String(format: "%g", rearStabLeftWeight)) oz")
+            Stepper(
+                value: $rearStabLeftWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                in: UnitRange.vbarWeight.displayRange(unitSystem),
+                step: UnitRange.vbarWeight.displayStep(unitSystem)
+            ) {
+                LabeledContent("Left Weight",
+                               value: UnitFormatting.stabWeight(ounces: rearStabLeftWeight, system: unitSystem))
             }
-            Stepper(value: $rearStabRightWeight, in: 0...30, step: 0.5) {
-                LabeledContent("Right Weight", value: "\(String(format: "%g", rearStabRightWeight)) oz")
+            Stepper(
+                value: $rearStabRightWeight.displayed(in: unitSystem, scale: .ounceToGram),
+                in: UnitRange.vbarWeight.displayRange(unitSystem),
+                step: UnitRange.vbarWeight.displayStep(unitSystem)
+            ) {
+                LabeledContent("Right Weight",
+                               value: UnitFormatting.stabWeight(ounces: rearStabRightWeight, system: unitSystem))
             }
             Stepper(value: $rearStabVertAngle, in: -90...90, step: 5) {
-                LabeledContent("Vertical Angle", value: "\(Int(rearStabVertAngle))°")
+                LabeledContent("Vertical Angle", value: UnitFormatting.degrees(rearStabVertAngle, digits: 0))
             }
             Stepper(value: $rearStabHorizAngle, in: 0...90, step: 5) {
-                LabeledContent("Horizontal Angle", value: "\(Int(rearStabHorizAngle))°")
+                LabeledContent("Horizontal Angle", value: UnitFormatting.degrees(rearStabHorizAngle, digits: 0))
             }
         }
     }
@@ -459,11 +523,21 @@ struct BowDetailView: View {
         }
 
         Section("Tiller") {
-            Stepper(value: $tillerTop, in: -10.0...10.0, step: 0.5) {
-                LabeledContent("Top Tiller", value: String(format: "%+.1f mm", tillerTop))
+            Stepper(
+                value: $tillerTop.displayed(in: unitSystem, scale: .mmToInch),
+                in: UnitRange.tiller.displayRange(unitSystem),
+                step: UnitRange.tiller.displayStep(unitSystem)
+            ) {
+                LabeledContent("Top Tiller",
+                               value: UnitFormatting.mmLength(tillerTop, system: unitSystem))
             }
-            Stepper(value: $tillerBottom, in: -10.0...10.0, step: 0.5) {
-                LabeledContent("Bottom Tiller", value: String(format: "%+.1f mm", tillerBottom))
+            Stepper(
+                value: $tillerBottom.displayed(in: unitSystem, scale: .mmToInch),
+                in: UnitRange.tiller.displayRange(unitSystem),
+                step: UnitRange.tiller.displayStep(unitSystem)
+            ) {
+                LabeledContent("Bottom Tiller",
+                               value: UnitFormatting.mmLength(tillerBottom, system: unitSystem))
             }
         }
 
@@ -475,10 +549,11 @@ struct BowDetailView: View {
 
         Section("Grip & Nock") {
             Stepper(value: $gripAngle, in: 0.0...90.0, step: 0.5) {
-                LabeledContent("Grip Angle", value: "\(String(format: "%.1f", gripAngle))°")
+                LabeledContent("Grip Angle", value: UnitFormatting.degrees(gripAngle))
             }
             Stepper(value: $nockingHeight, in: -80...80) {
-                LabeledContent("Nocking Height", value: sixteenthLabel(nockingHeight))
+                LabeledContent("Nocking Height",
+                               value: UnitFormatting.sixteenths(nockingHeight, system: unitSystem))
             }
         }
     }
@@ -489,144 +564,122 @@ struct BowDetailView: View {
     private var restSection: some View {
         Section("Rest") {
             Stepper(value: $restVertical, in: -16...16) {
-                LabeledContent("Vertical", value: sixteenthLabel(restVertical))
+                LabeledContent("Vertical",
+                               value: UnitFormatting.sixteenths(restVertical, system: unitSystem))
             }
             Stepper(value: $restHorizontal, in: -16...16) {
-                LabeledContent("Horizontal", value: sixteenthLabel(restHorizontal))
+                LabeledContent("Horizontal",
+                               value: UnitFormatting.sixteenths(restHorizontal, system: unitSystem))
             }
-            Stepper(value: $restDepth, in: -5.0...5.0, step: 0.25) {
-                LabeledContent("Depth", value: "\(String(format: "%.2f", restDepth))\"")
+            Stepper(
+                value: $restDepth.displayed(in: unitSystem, scale: .inchToCm),
+                in: UnitRange.restDepth.displayRange(unitSystem),
+                step: UnitRange.restDepth.displayStep(unitSystem)
+            ) {
+                LabeledContent("Depth",
+                               value: UnitFormatting.length(inches: restDepth, system: unitSystem))
             }
         }
     }
 
     // MARK: - Input rows
 
-    private var peepHeightRow: some View {
-        LabeledContent("Peep Height") {
-            HStack(spacing: 8) {
-                Button {
-                    let next = max(3.0, (peepHeight * 10 - 1) / 10)
-                    peepHeight = next
-                    peepHeightText = String(format: "%g", next)
-                } label: { Image(systemName: "minus.circle") }
-                .buttonStyle(.plain).foregroundStyle(Color.appAccent)
-
-                HStack(spacing: 2) {
-                    TextField("in", text: $peepHeightText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.center)
-                        .frame(width: 60)
-                        .onChange(of: peepHeightText) { _, val in
-                            if let v = Double(val) { peepHeight = v }
-                        }
-                    Text("\"").foregroundStyle(.secondary)
-                }
-
-                Button {
-                    let next = min(17.0, (peepHeight * 10 + 1) / 10)
-                    peepHeight = next
-                    peepHeightText = String(format: "%g", next)
-                } label: { Image(systemName: "plus.circle") }
-                .buttonStyle(.plain).foregroundStyle(Color.appAccent)
-            }
-        }
+    private var drawLengthRow: some View {
+        mirroredLengthRow(
+            label: "Draw Length",
+            binding: $drawLength,
+            text: $drawLengthText,
+            range: .drawLength,
+            digits: 2,
+            accessibilityIdentifier: "bow_draw_length_field"
+        )
     }
 
-    private var drawLengthRow: some View {
-        LabeledContent("Draw Length") {
-            HStack(spacing: 8) {
-                Button {
-                    let next = max(17.0, (drawLength * 4 - 1) / 4)
-                    drawLength = next
-                    drawLengthText = String(format: "%g", next)
-                } label: {
-                    Image(systemName: "minus.circle")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.appAccent)
-
-                HStack(spacing: 2) {
-                    TextField("in", text: $drawLengthText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.center)
-                        .frame(width: 60)
-                        .accessibilityIdentifier("bow_draw_length_field")
-                        .onChange(of: drawLengthText) { _, val in
-                            if let v = Double(val) { drawLength = v }
-                        }
-                    Text("\"").foregroundStyle(.secondary)
-                }
-
-                Button {
-                    let next = min(37.0, (drawLength * 4 + 1) / 4)
-                    drawLength = next
-                    drawLengthText = String(format: "%g", next)
-                } label: {
-                    Image(systemName: "plus.circle")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(Color.appAccent)
-            }
-        }
+    private var peepHeightRow: some View {
+        mirroredLengthRow(
+            label: "Peep Height",
+            binding: $peepHeight,
+            text: $peepHeightText,
+            range: .peepHeight,
+            digits: 2
+        )
     }
 
     private var dLoopLengthRow: some View {
-        LabeledContent("D-Loop") {
+        mirroredLengthRow(
+            label: "D-Loop",
+            binding: $dLoopLength,
+            text: $dLoopText,
+            range: .dLoopLength,
+            digits: 3
+        )
+    }
+
+    private var braceHeightRow: some View {
+        mirroredLengthRow(
+            label: "Brace Height",
+            binding: $braceHeight,
+            text: $braceHeightText,
+            range: .braceHeight,
+            digits: 3
+        )
+    }
+
+    @ViewBuilder
+    private func mirroredLengthRow(
+        label: String,
+        binding: Binding<Double>,
+        text: Binding<String>,
+        range: UnitRange,
+        digits: Int,
+        accessibilityIdentifier: String? = nil
+    ) -> some View {
+        LabeledContent(label) {
             HStack(spacing: 8) {
                 Button {
-                    dLoopLength = max(0.1, (dLoopLength * 16 - 1) / 16)
-                    dLoopText = String(format: "%g", dLoopLength)
+                    bump(binding, range: range, direction: .down)
+                    text.wrappedValue = UnitFormatting.lengthValue(inches: binding.wrappedValue, system: unitSystem, digits: digits)
                 } label: { Image(systemName: "minus.circle") }
                 .buttonStyle(.plain).foregroundStyle(Color.appAccent)
 
                 HStack(spacing: 2) {
-                    TextField("in", text: $dLoopText)
+                    let field = TextField(UnitFormatting.lengthSuffix(unitSystem), text: text)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.center)
-                        .frame(width: 60)
-                        .onChange(of: dLoopText) { _, val in
-                            if let v = Double(val) { dLoopLength = v }
+                        .frame(width: 72)
+                        .onChange(of: text.wrappedValue) { _, val in
+                            if let v = UnitFormatting.parseLength(val, system: unitSystem) {
+                                binding.wrappedValue = v
+                            }
                         }
-                    Text("\"").foregroundStyle(.secondary)
+                    if let id = accessibilityIdentifier {
+                        field.accessibilityIdentifier(id)
+                    } else {
+                        field
+                    }
+                    Text(UnitFormatting.lengthSuffix(unitSystem)).foregroundStyle(.secondary)
                 }
 
                 Button {
-                    dLoopLength = min(5.0, (dLoopLength * 16 + 1) / 16)
-                    dLoopText = String(format: "%g", dLoopLength)
+                    bump(binding, range: range, direction: .up)
+                    text.wrappedValue = UnitFormatting.lengthValue(inches: binding.wrappedValue, system: unitSystem, digits: digits)
                 } label: { Image(systemName: "plus.circle") }
                 .buttonStyle(.plain).foregroundStyle(Color.appAccent)
             }
         }
     }
 
-    private var braceHeightRow: some View {
-        LabeledContent("Brace Height") {
-            HStack(spacing: 8) {
-                Button {
-                    braceHeight = max(5.0, (braceHeight * 16 - 1) / 16)
-                    braceHeightText = String(format: "%g", braceHeight)
-                } label: { Image(systemName: "minus.circle") }
-                .buttonStyle(.plain).foregroundStyle(Color.appAccent)
+    private enum Bump { case up, down }
 
-                HStack(spacing: 2) {
-                    TextField("in", text: $braceHeightText)
-                        .keyboardType(.decimalPad)
-                        .multilineTextAlignment(.center)
-                        .frame(width: 60)
-                        .onChange(of: braceHeightText) { _, val in
-                            if let v = Double(val) { braceHeight = v }
-                        }
-                    Text("\"").foregroundStyle(.secondary)
-                }
-
-                Button {
-                    braceHeight = min(12.0, (braceHeight * 16 + 1) / 16)
-                    braceHeightText = String(format: "%g", braceHeight)
-                } label: { Image(systemName: "plus.circle") }
-                .buttonStyle(.plain).foregroundStyle(Color.appAccent)
-            }
-        }
+    /// Nudges an inches-stored binding by one step in the active system, clamped.
+    private func bump(_ binding: Binding<Double>, range: UnitRange, direction: Bump) {
+        let bounds = range.displayRange(unitSystem)
+        let step = range.displayStep(unitSystem)
+        let display = UnitScale.inchToCm.toDisplay(binding.wrappedValue, system: unitSystem)
+        let next = direction == .up
+            ? min(bounds.upperBound, display + step)
+            : max(bounds.lowerBound, display - step)
+        binding.wrappedValue = UnitScale.inchToCm.toCanonical(next, system: unitSystem)
     }
 
     // MARK: - State
@@ -640,7 +693,7 @@ struct BowDetailView: View {
         let fallback = BowConfiguration.makeDefault(for: bow)
 
         drawLength = c?.drawLength ?? fallback.drawLength
-        drawLengthText = String(format: "%g", drawLength)
+        drawLengthText = UnitFormatting.lengthValue(inches: drawLength, system: unitSystem, digits: 2)
         restVertical = c?.restVertical ?? fallback.restVertical
         restHorizontal = c?.restHorizontal ?? fallback.restHorizontal
         restDepth = c?.restDepth ?? fallback.restDepth
@@ -651,9 +704,9 @@ struct BowDetailView: View {
         // Compound
         letOffPct = c?.letOffPct ?? fallback.letOffPct ?? 80
         peepHeight = c?.peepHeight ?? fallback.peepHeight ?? 9.0
-        peepHeightText = String(format: "%g", peepHeight)
+        peepHeightText = UnitFormatting.lengthValue(inches: peepHeight, system: unitSystem, digits: 2)
         dLoopLength = c?.dLoopLength ?? fallback.dLoopLength ?? 2.0
-        dLoopText = String(format: "%g", dLoopLength)
+        dLoopText = UnitFormatting.lengthValue(inches: dLoopLength, system: unitSystem, digits: 3)
         topCableTwists = c?.topCableTwists ?? 0
         bottomCableTwists = c?.bottomCableTwists ?? 0
         mainStringTopTwists = c?.mainStringTopTwists ?? 0
@@ -669,7 +722,7 @@ struct BowDetailView: View {
 
         // Recurve / barebow
         braceHeight = c?.braceHeight ?? fallback.braceHeight ?? 8.5
-        braceHeightText = String(format: "%g", braceHeight)
+        braceHeightText = UnitFormatting.lengthValue(inches: braceHeight, system: unitSystem, digits: 3)
         tillerTop = c?.tillerTop ?? fallback.tillerTop ?? 0
         tillerBottom = c?.tillerBottom ?? fallback.tillerBottom ?? 0
         plungerTension = c?.plungerTension ?? fallback.plungerTension ?? 12
@@ -836,10 +889,6 @@ struct BowDetailView: View {
         return "\(f) turn\(abs == 1 ? "" : "s") \(dir)"
     }
 
-    private func sixteenthLabel(_ n: Int) -> String {
-        if n == 0 { return "0" }
-        return "\(n > 0 ? "+" : "-")\(Swift.abs(n))/16\""
-    }
 }
 
 // MARK: - History detail sheet
