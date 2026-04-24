@@ -83,19 +83,6 @@ struct SessionView: View {
                 }
             }
 
-            Section("Target Face") {
-                Picker("Target face", selection: $selectedFaceType) {
-                    ForEach(TargetFaceType.allCases, id: \.self) { face in
-                        Text(face.label).tag(face)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .onChange(of: selectedFaceType) { _, _ in
-                    userTouchedFace = true
-                }
-                .accessibilityIdentifier("session_face_picker")
-            }
-
             Section("Arrows") {
                 if appState.arrowConfigs.isEmpty {
                     Text("No arrow configs. Add one in the Configure tab.")
@@ -112,6 +99,21 @@ struct SessionView: View {
                     .onMove { from, to in
                         appState.arrowConfigs.move(fromOffsets: from, toOffset: to)
                     }
+                }
+            }
+
+            Section("Target Face") {
+                ForEach(TargetFaceType.allCases, id: \.self) { face in
+                    StartPickerRow(
+                        title: face.label,
+                        subtitle: face.setupSubtitle,
+                        isSelected: selectedFaceType == face
+                    ) {
+                        selectedFaceType = face
+                        userTouchedFace = true
+                    }
+                    .listRowBackground(selectedFaceType == face ? Color.appAccent : nil)
+                    .accessibilityIdentifier("session_face_row_\(face.rawValue)")
                 }
             }
 
