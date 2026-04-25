@@ -83,6 +83,7 @@ protocol BowPressAPIClient: AnyObject {
     func plotArrow(_ plot: ArrowPlot) async throws -> ArrowPlot
     func deletePlot(sessionId: String, id: String) async throws
     func completeEnd(_ end: SessionEnd) async throws -> SessionEnd
+    func deleteEnd(sessionId: String, id: String) async throws
 
     // Subscription
     func fetchEntitlement() async throws -> Entitlement
@@ -464,6 +465,17 @@ final class APIClient: BowPressAPIClient {
         let (data, response) = try await request(method: "POST", path: "/sessions/\(encoded)/ends", body: end)
         try ensureSuccess(response: response, data: data)
         return try decoder.decode(SessionEnd.self, from: data)
+    }
+    func deleteEnd(sessionId: String, id: String) async throws {
+        #if DEBUG
+        if APIClient.useMocks { return }
+        #endif
+        guard let encodedSession = sessionId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let encodedId = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(method: "DELETE", path: "/sessions/\(encodedSession)/ends/\(encodedId)", body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
     }
 
     // MARK: - Analytics

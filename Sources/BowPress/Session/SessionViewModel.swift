@@ -63,7 +63,10 @@ import Observation
     /// Parallel to completedEnds — how many arrows were in each end.
     var endArrowCounts: [Int] = []
 
-    var currentEndNumber: Int { completedEnds.count + 1 }
+    /// Next end's display number. Uses `max(endNumber) + 1` rather than `count + 1`
+    /// so deleting a completed end leaves a gap — the next end won't reuse a deleted
+    /// end's number and create a duplicate.
+    var currentEndNumber: Int { (completedEnds.map { $0.endNumber }.max() ?? 0) + 1 }
 
     var currentEndArrows: [ArrowPlot] {
         let completedCount = endArrowCounts.reduce(0, +)
@@ -399,10 +402,79 @@ import Observation
     func removeLastArrow() {
         let completedCount = endArrowCounts.reduce(0, +)
         guard allArrows.count > completedCount else { return }
-        let removed = allArrows.removeLast()
-        currentArrows.removeAll { $0.id == removed.id }
-        try? store?.deleteArrow(id: removed.id)
-        Task { try? await apiClient.deletePlot(sessionId: removed.sessionId, id: removed.id) }
+        deleteArrow(id: allArrows[allArrows.count - 1].id)
+    }
+
+    /// Delete a specific arrow by id from local state, SwiftData, and remote.
+    /// Used by the recent-arrows edit sheet to fix mis-entered scores. If the
+    /// arrow belonged to a completed end, the end's arrow count is decremented
+    /// so the ends history slicing stays consistent.
+    func deleteArrow(id: String) {
+        guard let arrow = allArrows.first(where: { $0.id == id }) else { return }
+        allArrows.removeAll { $0.id == id }
+        currentArrows.removeAll { $0.id == id }
+        if let endId = arrow.endId,
+           let endIdx = completedEnds.firstIndex(where: { $0.id == endId }),
+           endIdx < endArrowCounts.count,
+           endArrowCounts[endIdx] > 0 {
+            endArrowCounts[endIdx] -= 1
+        }
+        try? store?.deleteArrow(id: id)
+        Task { try? await apiClient.deletePlot(sessionId: arrow.sessionId, id: id) }
+    }
+
+    /// Delete a completed end and all of its arrows from local state, SwiftData,
+    /// and the server. The arrows go away with the end so the session log won't
+    /// include them. Remaining ends keep their original endNumber — gaps are
+    /// acceptable mid-session and the next finish reuses currentEndNumber.
+    func deleteEnd(at index: Int) {
+        guard index >= 0, index < completedEnds.count, index < endArrowCounts.count else { return }
+        let end = completedEnds[index]
+        let arrowsInEnd = allArrows.filter { $0.endId == end.id }
+
+        // Mutate local state first — UI updates immediately.
+        for arrow in arrowsInEnd {
+            allArrows.removeAll { $0.id == arrow.id }
+            currentArrows.removeAll { $0.id == arrow.id }
+        }
+        completedEnds.remove(at: index)
+        endArrowCounts.remove(at: index)
+
+        // Persist locally.
+        for arrow in arrowsInEnd {
+            try? store?.deleteArrow(id: arrow.id)
+        }
+        try? store?.deleteEnd(id: end.id)
+
+        // Best-effort server sync. Arrow deletes can run in parallel; the end
+        // delete waits for the arrows to finish so a retried sync sees a clean state.
+        let sessionId = end.sessionId
+        Task { [apiClient] in
+            await withTaskGroup(of: Void.self) { group in
+                for arrow in arrowsInEnd {
+                    group.addTask { try? await apiClient.deletePlot(sessionId: sessionId, id: arrow.id) }
+                }
+            }
+            try? await apiClient.deleteEnd(sessionId: sessionId, id: end.id)
+        }
+    }
+
+    /// Replot an existing arrow at a new target position. The new ring/zone/plotX/plotY
+    /// come from a fresh tap on TargetPlotView in the edit sheet — same payload as a
+    /// brand-new plot, just routed to an existing arrow id. Reuses the plotArrow upsert
+    /// path (same pattern as toggleFlier).
+    func replotArrow(id: String, ring: Int, zone: ArrowPlot.Zone, plotX: Double, plotY: Double) {
+        guard let idx = allArrows.firstIndex(where: { $0.id == id }) else { return }
+        allArrows[idx].ring = ring
+        allArrows[idx].zone = zone
+        allArrows[idx].plotX = plotX
+        allArrows[idx].plotY = plotY
+        let updated = allArrows[idx]
+        if let currentIdx = currentArrows.firstIndex(where: { $0.id == id }) {
+            currentArrows[currentIdx] = updated
+        }
+        try? store?.save(arrow: updated)
+        Task { try? await apiClient.plotArrow(updated) }
     }
 
     /// Rehydrate an in-progress session from LocalStore. Called on launch

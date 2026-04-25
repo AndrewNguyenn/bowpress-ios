@@ -341,6 +341,14 @@ final class LocalStore {
         try context.save()
     }
 
+    func deleteEnd(id: String) throws {
+        let predicate = #Predicate<PersistentEnd> { $0.id == id }
+        if let existing = try context.fetch(FetchDescriptor<PersistentEnd>(predicate: predicate)).first {
+            context.delete(existing)
+            try context.save()
+        }
+    }
+
     // MARK: - Pending sync queries
 
     func fetchPendingBows() throws -> [Bow] {

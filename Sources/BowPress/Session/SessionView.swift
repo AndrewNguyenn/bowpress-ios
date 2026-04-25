@@ -15,6 +15,8 @@ struct SessionView: View {
     @State private var showingPaywall = false
     @State private var showBowPicker = false
     @State private var showNotesEditor = false
+    /// id of the arrow currently being edited via ArrowEditSheet (tap on a recent-arrows cell).
+    @State private var editingArrowId: String? = nil
     @State private var selectedBow: Bow? = nil
     @State private var selectedArrow: ArrowConfiguration? = nil
     @State private var selectedFaceType: TargetFaceType = .tenRing
@@ -106,6 +108,33 @@ struct SessionView: View {
                 }
             ))
         }
+        .sheet(item: Binding(
+            get: { editingArrowId.flatMap { id in viewModel.allArrows.firstIndex(where: { $0.id == id }).map { idx in EditingArrow(arrow: viewModel.allArrows[idx], number: idx + 1) } } },
+            set: { editingArrowId = $0?.arrow.id }
+        )) { editing in
+            let faceType = viewModel.currentSession?.targetFaceType
+                ?? (viewModel.selectedBow.map { TargetFaceType.defaultFor($0.bowType) } ?? .sixRing)
+            let current = viewModel.pendingArrowConfig ?? viewModel.activeArrowConfig
+            let live = appState.arrowConfigs.first(where: { $0.id == current?.id })
+            let diameter = (live ?? current)?.shaftDiameter?.rawValue ?? 5.0
+            ArrowEditSheet(
+                arrow: editing.arrow,
+                arrowNumber: editing.number,
+                faceType: faceType,
+                arrowDiameterMm: diameter,
+                onReplot: { ring, zone, x, y in
+                    viewModel.replotArrow(id: editing.arrow.id, ring: ring, zone: zone, plotX: x, plotY: y)
+                },
+                onDelete: { viewModel.deleteArrow(id: editing.arrow.id) }
+            )
+        }
+    }
+
+    /// Sheet-item wrapper so the edit sheet has a stable, identifiable payload.
+    private struct EditingArrow: Identifiable {
+        let arrow: ArrowPlot
+        let number: Int
+        var id: String { arrow.id }
     }
 
     // MARK: - Session Start (Kenrokuen)
@@ -565,9 +594,15 @@ struct SessionView: View {
                     ProgressView().padding(.bottom, 4)
                 }
 
-                recentArrowsStrip
+                finishEndBar
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 14)
+                    .padding(.vertical, 10)
+
+                if !viewModel.completedEnds.isEmpty {
+                    endsHistory
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                }
 
                 runningTotalsRow
                     .padding(.horizontal, 16)
@@ -751,7 +786,10 @@ struct SessionView: View {
             ?? (viewModel.selectedBow.map { TargetFaceType.defaultFor($0.bowType) } ?? .sixRing)
 
         TargetPlotView(
-            arrows: viewModel.allArrows,
+            // Show only the in-progress end's arrows so the target clears
+            // when the archer finishes an end. Completed ends remain
+            // visible in the ends history section below.
+            arrows: viewModel.currentEndArrows,
             onArrowPlotted: { ring, zone, plotX, plotY in
                 if isReadOnly { showingPaywall = true }
                 else {
@@ -809,80 +847,8 @@ struct SessionView: View {
         }
     }
 
-    // MARK: - Recent arrows strip
-
-    @ViewBuilder
-    private var recentArrowsStrip: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("RECENT ARROWS")
-                    .font(.bpUI(9, weight: .semibold))
-                    .appTracking(0.22, at: 9)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Color.appInk3)
-                Spacer(minLength: 8)
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(recentAvgString)
-                        .font(.bpDisplay(16, italic: true, weight: .medium))
-                        .foregroundStyle(Color.appPondDk)
-                    Text(" AVG OF LAST \(min(6, viewModel.allArrows.count))")
-                        .font(.bpUI(8.5, weight: .semibold))
-                        .appTracking(0.12, at: 8.5)
-                        .textCase(.uppercase)
-                        .foregroundStyle(Color.appInk3)
-                }
-            }
-
-            HStack(spacing: 8) {
-                ForEach(0..<6, id: \.self) { idx in
-                    recentCell(idx)
-                }
-            }
-        }
-        .overlay(Rectangle().fill(Color.appLine).frame(height: 1), alignment: .top)
-        .overlay(Rectangle().fill(Color.appLine).frame(height: 1), alignment: .bottom)
-        .padding(.vertical, 12)
-    }
-
-    @ViewBuilder
-    private func recentCell(_ col: Int) -> some View {
-        // Right-to-left: col 5 (last) is the newest arrow; col 0 is oldest of last 6.
-        let arrows = viewModel.allArrows
-        let startIdx = max(0, arrows.count - 6)
-        let cellIdx = startIdx + col
-        let arrow: ArrowPlot? = cellIdx < arrows.count ? arrows[cellIdx] : nil
-        let isX = (arrow?.ring ?? 0) == 11
-
-        VStack(spacing: 4) {
-            Text(arrow.map { valueFor($0.ring) } ?? "—")
-                .font(.bpDisplay(20, italic: true, weight: .medium))
-                .foregroundStyle(arrow == nil ? Color.appInk3 : (isX ? Color.appPine : Color.appInk))
-            Text(arrow == nil ? "—" : "#\(cellIdx + 1)")
-                .font(.bpUI(8, weight: .semibold))
-                .appTracking(0.16, at: 8)
-                .textCase(.uppercase)
-                .foregroundStyle(Color.appInk3)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(arrow == nil ? Color.appPaper2 : Color.appPaper)
-        .overlay(
-            Rectangle()
-                .strokeBorder(isX ? Color.appPondDk : Color.appLine, lineWidth: 1)
-        )
-    }
-
     private func valueFor(_ ring: Int) -> String {
         ring == 11 ? "X" : "\(ring)"
-    }
-
-    private var recentAvgString: String {
-        let arrows = viewModel.allArrows
-        guard !arrows.isEmpty else { return "0.0" }
-        let last = arrows.suffix(6)
-        let total = last.reduce(0) { $0 + min($1.ring, 10) }
-        let avg = Double(total) / Double(last.count)
-        return String(format: "%.1f", avg)
     }
 
     // MARK: - Running totals
@@ -1022,6 +988,157 @@ struct SessionView: View {
             .overlay(Rectangle().strokeBorder(Color.appLine, lineWidth: 1))
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Finish End
+
+    /// Mid-session CTA that closes the in-progress end and clears the target so
+    /// the next end can begin. Variable end length — the archer decides when an
+    /// end is complete. Disabled when the current end has no arrows yet.
+    @ViewBuilder
+    private var finishEndBar: some View {
+        let count = viewModel.currentEndArrows.count
+        let active = count > 0 && !viewModel.isLoading
+        Button {
+            guard active else { return }
+            if isReadOnly { showingPaywall = true }
+            else { Task { await viewModel.completeEnd(notes: nil) } }
+        } label: {
+            VStack(spacing: 4) {
+                Text("Finish End \(viewModel.currentEndNumber)")
+                    .font(.bpDisplay(15, italic: true, weight: .medium))
+                    .foregroundStyle(active ? Color.appPaper : Color.appInk3)
+                Text(count == 0
+                     ? "PLOT ARROWS TO CONTINUE"
+                     : "\(count) ARROW\(count == 1 ? "" : "S") · NEXT END")
+                    .font(.bpUI(10, weight: .semibold))
+                    .appTracking(0.18, at: 10)
+                    .textCase(.uppercase)
+                    .foregroundStyle(active ? Color.appPaper.opacity(0.72) : Color.appInk3)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(active ? Color.appPondDk : Color.appPaper2)
+            .overlay(
+                Rectangle().strokeBorder(active ? Color.appPondDk : Color.appLine, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!active)
+    }
+
+    // MARK: - Ends history
+
+    /// Vertical list of completed ends. Each row shows the end number, total
+    /// score, average, and the per-arrow scores. Hidden when no ends are
+    /// complete yet (handled at the call site).
+    @ViewBuilder
+    private var endsHistory: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("ENDS")
+                    .font(.bpUI(9, weight: .semibold))
+                    .appTracking(0.22, at: 9)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.appInk3)
+                Spacer(minLength: 8)
+                Text("\(viewModel.completedEnds.count) FINISHED")
+                    .font(.bpUI(9, weight: .semibold))
+                    .appTracking(0.18, at: 9)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.appInk3)
+            }
+
+            VStack(spacing: 8) {
+                ForEach(Array(viewModel.completedEnds.enumerated()), id: \.element.id) { idx, end in
+                    if idx < viewModel.endArrowCounts.count {
+                        let startIdx = viewModel.endArrowCounts.prefix(idx).reduce(0, +)
+                        let count = viewModel.endArrowCounts[idx]
+                        let safeEnd = min(startIdx + count, viewModel.allArrows.count)
+                        let arrows = Array(viewModel.allArrows[startIdx..<safeEnd])
+                        SwipeableRow(onDelete: {
+                            viewModel.deleteEnd(at: idx)
+                        }) {
+                            completedEndRow(end: end, arrows: arrows)
+                        }
+                    }
+                }
+            }
+        }
+        .overlay(Rectangle().fill(Color.appLine).frame(height: 1), alignment: .top)
+        .padding(.top, 12)
+    }
+
+    @ViewBuilder
+    private func completedEndRow(end: SessionEnd, arrows: [ArrowPlot]) -> some View {
+        let total = arrows.reduce(0) { $0 + min($1.ring, 10) }
+        let avg = arrows.isEmpty ? 0 : Double(total) / Double(arrows.count)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("End \(end.endNumber)")
+                    .font(.bpDisplay(15, italic: true, weight: .medium))
+                    .foregroundStyle(Color.appInk)
+                Text("· \(arrows.count) ARROW\(arrows.count == 1 ? "" : "S")")
+                    .font(.bpUI(9, weight: .semibold))
+                    .appTracking(0.18, at: 9)
+                    .textCase(.uppercase)
+                    .foregroundStyle(Color.appInk3)
+                Spacer(minLength: 8)
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(total)")
+                        .font(.bpDisplay(16, italic: true, weight: .medium))
+                        .foregroundStyle(Color.appPondDk)
+                    Text("TOT")
+                        .font(.bpUI(8.5, weight: .semibold))
+                        .appTracking(0.12, at: 8.5)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.appInk3)
+                    Text(String(format: "%.1f", avg))
+                        .font(.bpDisplay(16, italic: true, weight: .medium))
+                        .foregroundStyle(Color.appInk)
+                        .padding(.leading, 6)
+                    Text("AVG")
+                        .font(.bpUI(8.5, weight: .semibold))
+                        .appTracking(0.12, at: 8.5)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.appInk3)
+                }
+            }
+            // Adaptive grid so long ends wrap onto multiple rows instead of
+            // either scrolling sideways or widening the card.
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 36), spacing: 6, alignment: .center)],
+                alignment: .leading,
+                spacing: 6
+            ) {
+                ForEach(arrows) { arrow in
+                    let isX = arrow.ring == 11
+                    Button {
+                        if !isReadOnly { editingArrowId = arrow.id }
+                    } label: {
+                        Text(isX ? "X" : "\(arrow.ring)")
+                            .font(.bpDisplay(13, italic: true, weight: .medium))
+                            .foregroundStyle(isX ? Color.appPine : Color.appInk)
+                            .frame(maxWidth: .infinity, minHeight: 22)
+                            .padding(.horizontal, 4)
+                            .background(Color.appPaper)
+                            .overlay(Rectangle().strokeBorder(Color.appLine, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isReadOnly)
+                }
+            }
+            if let notes = end.notes, !notes.isEmpty {
+                Text(notes)
+                    .font(.bpDisplay(11, italic: true, weight: .regular))
+                    .foregroundStyle(Color.appInk2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(Color.appPaper2)
+        .overlay(Rectangle().strokeBorder(Color.appLine, lineWidth: 1))
     }
 
     @ViewBuilder
@@ -1191,6 +1308,180 @@ private struct BowPickerSheet: View {
 }
 
 // MARK: - Session Notes Sheet
+
+// MARK: - Swipeable Row
+
+/// Custom swipe-to-delete wrapper. SwiftUI's `.swipeActions` is List-only and
+/// the ends history is a VStack inside the active session ScrollView, so this
+/// row reveals a trailing Delete button with a horizontal DragGesture.
+private struct SwipeableRow<Content: View>: View {
+    let onDelete: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    @State private var offset: CGFloat = 0
+    @State private var revealed: Bool = false
+
+    private let revealWidth: CGFloat = 92
+    private let threshold: CGFloat = 50
+
+    private func reset() {
+        offset = 0
+        revealed = false
+    }
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { reset() }
+                onDelete()
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("DELETE")
+                        .font(.bpUI(10, weight: .semibold))
+                        .appTracking(0.18, at: 10)
+                }
+                .foregroundStyle(Color.appPaper)
+                .frame(width: revealWidth)
+                .frame(maxHeight: .infinity)
+                .background(Color.appMaple)
+            }
+            .buttonStyle(.plain)
+
+            content()
+                .offset(x: offset)
+                .gesture(
+                    DragGesture(minimumDistance: 10)
+                        .onChanged { value in
+                            let base: CGFloat = revealed ? -revealWidth : 0
+                            offset = min(0, max(base + value.translation.width, -(revealWidth + 30)))
+                        }
+                        .onEnded { value in
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                if revealed {
+                                    if value.translation.width > threshold { reset() }
+                                    else { offset = -revealWidth }
+                                } else {
+                                    if value.translation.width < -threshold {
+                                        offset = -revealWidth
+                                        revealed = true
+                                    } else {
+                                        reset()
+                                    }
+                                }
+                            }
+                        }
+                )
+        }
+        .clipped()
+    }
+}
+
+// MARK: - Arrow Edit Sheet
+
+/// Presented when the archer taps an arrow score in a completed end. Lets them
+/// re-plot the arrow at a new position (which also updates the ring/zone) or
+/// delete it entirely. The embedded TargetPlotView shows just this one arrow
+/// at its current position; the next tap on the target replots it.
+private struct ArrowEditSheet: View {
+    let arrow: ArrowPlot
+    let arrowNumber: Int
+    let faceType: TargetFaceType
+    let arrowDiameterMm: Double
+    let onReplot: (Int, ArrowPlot.Zone, Double, Double) -> Void
+    let onDelete: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var showDeleteConfirm = false
+
+    private func label(for ring: Int) -> String { ring == 11 ? "X" : "\(ring)" }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("ARROW #\(arrowNumber)")
+                            .font(.bpUI(9, weight: .semibold))
+                            .appTracking(0.22, at: 9)
+                            .textCase(.uppercase)
+                            .foregroundStyle(Color.appInk3)
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("Currently scored")
+                                .font(.bpDisplay(15, italic: true, weight: .regular))
+                                .foregroundStyle(Color.appInk2)
+                            Text(label(for: arrow.ring))
+                                .font(.bpDisplay(22, italic: true, weight: .medium))
+                                .foregroundStyle(arrow.ring == 11 ? Color.appPine : Color.appInk)
+                        }
+                        Text("Tap a new position on the target to re-plot.")
+                            .font(.bpDisplay(11, italic: true, weight: .regular))
+                            .foregroundStyle(Color.appInk3)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 14)
+
+                    GeometryReader { proxy in
+                        let size = min(proxy.size.width, 320)
+                        HStack {
+                            Spacer()
+                            TargetPlotView(
+                                arrows: [arrow],
+                                onArrowPlotted: { ring, zone, plotX, plotY in
+                                    onReplot(ring, zone, plotX, plotY)
+                                    dismiss()
+                                },
+                                isEnabled: true,
+                                arrowDiameterMm: arrowDiameterMm,
+                                faceType: faceType
+                            )
+                            .frame(width: size, height: size)
+                            Spacer()
+                        }
+                    }
+                    .frame(height: 320)
+                    .padding(.horizontal, 16)
+
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Text("Delete arrow")
+                            .font(.bpUI(12, weight: .semibold))
+                            .appTracking(0.18, at: 12)
+                            .textCase(.uppercase)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(Color.appPaper2)
+                            .overlay(Rectangle().strokeBorder(Color.appLine, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 18)
+                    .padding(.bottom, 16)
+                }
+            }
+            .navigationTitle("Re-plot arrow")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .alert("Delete this arrow?", isPresented: $showDeleteConfirm) {
+                Button("Delete", role: .destructive) {
+                    onDelete()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Arrow #\(arrowNumber) will be removed from this session.")
+            }
+        }
+        .presentationDetents([.large])
+    }
+}
 
 private struct SessionNotesSheet: View {
     @Binding var notes: String
