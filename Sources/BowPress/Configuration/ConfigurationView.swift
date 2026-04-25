@@ -279,6 +279,7 @@ private struct BowRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
+        .contentShape(Rectangle())
         .opacity(isRetired ? 0.55 : 1.0)
         .overlay(alignment: .bottom) {
             if !isLast {
@@ -323,6 +324,7 @@ private struct ArrowRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
+        .contentShape(Rectangle())
         .overlay(alignment: .bottom) {
             if !isLast {
                 Rectangle()
