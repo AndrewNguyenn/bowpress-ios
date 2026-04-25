@@ -437,6 +437,8 @@ struct HistoricalSessionsView: View {
                 .padding(.horizontal, 40)
             Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.appPaper)
     }
 
     // MARK: - Helpers
@@ -562,6 +564,11 @@ private struct SessionLogRow: View {
         return Double(arrows.reduce(0) { $0 + min($1.ring, 10) }) / Double(arrows.count)
     }
 
+    /// Total score with X counted as 10 — what shows in the right rail of the
+    /// session log so the archer can see "300 / 300" at a glance.
+    private var totalScore: Int { arrows.reduce(0) { $0 + min($1.ring, 10) } }
+    private var maxScore: Int { session.arrowCount * 10 }
+
     private var xCount: Int { arrows.filter { $0.ring == 11 }.count }
     private var xPct: Int {
         guard !arrows.isEmpty else { return 0 }
@@ -613,7 +620,7 @@ private struct SessionLogRow: View {
     }
 
     private var scoreString: String {
-        avgRing > 0 ? String(format: "%.1f", avgRing) : "—"
+        arrows.isEmpty ? "—" : "\(totalScore)"
     }
 
     var body: some View {
@@ -667,7 +674,13 @@ private struct SessionLogRow: View {
 
             // Col 3: Right rail
             VStack(alignment: .trailing, spacing: 4) {
-                BPBigScore(value: scoreString, size: 22)
+                BPBigScore(value: scoreString, size: 22, unit: "/\(maxScore)")
+                if !arrows.isEmpty {
+                    Text("\(xCount)X")
+                        .font(.bpMono(11, weight: .medium))
+                        .tracking(11 * 0.04)
+                        .foregroundStyle(Color.appPine)
+                }
                 if isBest && previousAvg != nil {
                     bestDeltaChip
                 } else {
