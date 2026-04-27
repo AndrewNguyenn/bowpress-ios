@@ -488,18 +488,39 @@ struct AnalyticsView: View {
                     if viewModel.selectedDistance == .twentyYards { return .sixRing }
                     return .tenRing
                 }()
+                let zoom = impactMapZoom(comparison: viewModel.comparison)
                 // Impact Map uses the pond-gradient ring stack (NOT real WA
                 // paint). The spec wants the target to read as data, not
                 // decoration — the centroids + shift arrow overlay on top.
-                BPTargetFace(face: face, style: .impactMap, size: 200, showCrosshair: true) {
-                    ImpactMapOverlay(
-                        size: 200,
-                        previous: viewModel.comparison?.previous,
-                        current: viewModel.comparison?.current,
-                        shift: viewModel.comparison?.shift
-                    )
+                // When the group is tight enough that all data sits inside the
+                // inner half of the face, we scaleEffect 2× and clip to a
+                // circle so the outer rings (which have nothing in them) drop
+                // away — fewer rings, more breathing room around the centroids.
+                ZStack(alignment: .topTrailing) {
+                    BPTargetFace(face: face, style: .impactMap, size: 200, showCrosshair: zoom == 1.0) {
+                        ImpactMapOverlay(
+                            size: 200,
+                            previous: viewModel.comparison?.previous,
+                            current: viewModel.comparison?.current,
+                            shift: viewModel.comparison?.shift
+                        )
+                    }
+                    .scaleEffect(zoom)
+                    .frame(width: 200, height: 200)
+                    .clipShape(Circle())
+                    .animation(.easeInOut(duration: 0.25), value: zoom)
+
+                    if zoom > 1.0 {
+                        Text("\(Int(zoom))×")
+                            .font(.bpMono(9, weight: .medium))
+                            .tracking(9 * 0.04)
+                            .foregroundStyle(Color.appInk3)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.appPaper.opacity(0.85))
+                            .padding(6)
+                    }
                 }
-                .frame(width: 200, height: 200)
 
                 impactLegend()
                     .frame(width: 130)
@@ -541,6 +562,34 @@ struct AnalyticsView: View {
                     .foregroundStyle(Color.appInk3)
             }
         }
+    }
+
+    /// Decides whether the impact map should zoom in. Returns 2.0 when every
+    /// piece of impact data (per-arrow plots, centroids, and the ±sigma rim
+    /// of each dispersion ellipse) sits inside ~30% of the face's normalized
+    /// radius — i.e. inside the 8-ring on a 10-ring face. At that threshold
+    /// the outer rings have nothing in them, so we trade them for a closer
+    /// look. Returns 1.0 otherwise (or when there's no data to anchor to).
+    private func impactMapZoom(comparison: PeriodComparison?) -> CGFloat {
+        guard let comparison else { return 1.0 }
+        let plotMax = (comparison.current.plots + comparison.previous.plots)
+            .compactMap { p -> Double? in
+                guard let x = p.plotX, let y = p.plotY else { return nil }
+                return hypot(x, y)
+            }
+            .max() ?? 0
+        let centroidExtent = [
+            (comparison.current.centroid, comparison.current.sigma),
+            (comparison.previous.centroid, comparison.previous.sigma),
+        ]
+        .compactMap { (c, s) -> Double? in
+            guard let c else { return nil }
+            return hypot(c.x, c.y) + (s?.major ?? 0)
+        }
+        .max() ?? 0
+        let furthest = max(plotMax, centroidExtent)
+        guard furthest > 0 else { return 1.0 }
+        return furthest < 0.30 ? 2.0 : 1.0
     }
 
     private func shiftLine(for shift: ShiftVector) -> String {
@@ -941,10 +990,9 @@ struct AnalyticsView: View {
 // prev dispersion ellipse (stone dashed), current dispersion ellipse (maple
 // solid), individual arrow dots, and the moss shift arrow prev → now.
 //
-// Coordinates are normalized face-space (roughly -1...1). The target face
-// itself draws from a ZStack of centered circles, so the overlay sits in a
-// container the same `size` as the face. Local coords: (0,0) = center,
-// +x right, +y up (flipped to SwiftUI's +y-down when rendered).
+// Coordinates are normalized face-space (roughly -1...1) in the same
+// convention as `ArrowPlot.plotY` and `Centroid.y` — i.e. screen-space:
+// (0,0) = center, +x right, +y down. No flip on render.
 
 private struct ImpactMapOverlay: View {
     let size: CGFloat
@@ -958,8 +1006,9 @@ private struct ImpactMapOverlay: View {
     }
 
     private func py(_ y: Double) -> CGFloat {
-        // Normalized (physical +y = "up") → SwiftUI's y-down screen coords.
-        return size / 2 - CGFloat(y) * (size / 2)
+        // Same screen convention as plotY (+y = down). Add, don't subtract,
+        // so a centroid stored south of center (y > 0) renders south.
+        return size / 2 + CGFloat(y) * (size / 2)
     }
 
     var body: some View {
