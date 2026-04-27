@@ -267,13 +267,14 @@ struct HistoricalSessionsView: View {
                 NavigationLink {
                     SessionDetailSheet(session: session, allConfigs: allConfigs)
                 } label: {
-                    SessionLogRow(
+                    SwipeableSessionLogRow(
                         session: session,
                         isBest: isBest,
                         previousAvg: prevSession.map { sessionAvg($0) },
                         isLastInGroup: isLastInGroup,
                         plots: plots(for: session),
-                        bowName: bowName(for: session)
+                        bowName: bowName(for: session),
+                        onRequestDelete: { pendingDeleteSession = session }
                     )
                 }
                 .buttonStyle(.plain)
@@ -761,6 +762,101 @@ private struct SessionLogRow: View {
     }
 }
 
+// MARK: - SwipeableSessionLogRow
+//
+// Wraps SessionLogRow with a left-swipe-to-reveal Delete action. Same gesture
+// model as SwipeableLedgerRow / SwipeableSuggestionRow elsewhere in Analytics:
+// drag left to latch the trash button, drag past `fullSwipeThreshold` to fire
+// delete immediately. We can't use the system `.swipeActions` modifier here
+// because the session log lives in a `VStack` inside a `ScrollView`, not a
+// `List`. The DragGesture's `minimumDistance: 18` lets the parent
+// NavigationLink still receive taps.
+
+private struct SwipeableSessionLogRow: View {
+    let session: ShootingSession
+    let isBest: Bool
+    let previousAvg: Double?
+    let isLastInGroup: Bool
+    let plots: [ArrowPlot]
+    let bowName: String
+    let onRequestDelete: () -> Void
+
+    @State private var offset: CGFloat = 0
+    @State private var restingOffset: CGFloat = 0
+
+    private let actionWidth: CGFloat = 88
+    private let fullSwipeThreshold: CGFloat = 140
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            if offset < -1 {
+                trashAction
+            }
+            SessionLogRow(
+                session: session,
+                isBest: isBest,
+                previousAvg: previousAvg,
+                isLastInGroup: isLastInGroup,
+                plots: plots,
+                bowName: bowName
+            )
+            .offset(x: offset)
+            .gesture(swipeGesture)
+        }
+    }
+
+    private var trashAction: some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                offset = 0
+                restingOffset = 0
+            }
+            onRequestDelete()
+        } label: {
+            ZStack {
+                Rectangle().fill(Color.appMaple)
+                VStack(spacing: 4) {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.appPaper)
+                    Text("DELETE")
+                        .font(.bpUI(10, weight: .semibold))
+                        .tracking(10 * 0.22)
+                        .foregroundStyle(Color.appPaper)
+                }
+            }
+            .frame(width: actionWidth)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Delete session")
+    }
+
+    private var swipeGesture: some Gesture {
+        DragGesture(minimumDistance: 18)
+            .onChanged { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                let proposed = restingOffset + value.translation.width
+                offset = proposed < 0 ? proposed : proposed / 5
+            }
+            .onEnded { value in
+                let velocity = value.predictedEndTranslation.width - value.translation.width
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                    if offset < -fullSwipeThreshold || (velocity < -300 && offset < -actionWidth / 2) {
+                        offset = 0
+                        restingOffset = 0
+                        onRequestDelete()
+                    } else if offset < -actionWidth / 2 {
+                        offset = -actionWidth
+                        restingOffset = -actionWidth
+                    } else {
+                        offset = 0
+                        restingOffset = 0
+                    }
+                }
+            }
+    }
+}
+
 // MARK: - Arrow bars
 
 private struct ArrowBars: View {
@@ -867,7 +963,7 @@ struct SessionDetailSheet: View {
 
     private var displaySession: ShootingSession { liveSession ?? session }
 
-    private var sessionEnds: [SessionEnd] {
+    private var rawSessionEnds: [SessionEnd] {
         loadedEnds.isEmpty ? (session.ends ?? []) : loadedEnds
     }
     private var allArrows: [ArrowPlot] {
@@ -878,30 +974,62 @@ struct SessionDetailSheet: View {
         allArrows.sorted { $0.shotAt < $1.shotAt }
     }
 
+    /// Single source of truth for the per-end breakdown. When the session has
+    /// real ends (loaded from the local store, or hydrated from the API DTO)
+    /// they're used as-is and arrows are matched by `endId`. When no ends exist
+    /// (legacy / dev-mock sessions where ends were never recorded), synthesize
+    /// ends by chunking the arrows. This way the breakdown renders for every
+    /// session that has at least one arrow.
+    private var endsWithArrows: [(end: SessionEnd, arrows: [ArrowPlot])] {
+        let arrows = sortedArrows
+        let realEnds = rawSessionEnds
+        if !realEnds.isEmpty {
+            let byEndId = Dictionary(grouping: arrows.filter { $0.endId != nil }) { $0.endId! }
+            return realEnds.map { end in
+                (end, byEndId[end.id]?.sorted { $0.shotAt < $1.shotAt } ?? [])
+            }
+        }
+        guard !arrows.isEmpty else { return [] }
+        let chunkSize = 3
+        var result: [(end: SessionEnd, arrows: [ArrowPlot])] = []
+        var i = 0
+        var num = 1
+        while i < arrows.count {
+            let chunk = Array(arrows[i..<min(i + chunkSize, arrows.count)])
+            let synth = SessionEnd(
+                id: "synth-\(session.id)-\(num)",
+                sessionId: session.id,
+                endNumber: num,
+                notes: nil,
+                completedAt: chunk.last?.shotAt ?? Date()
+            )
+            result.append((synth, chunk))
+            i += chunkSize
+            num += 1
+        }
+        return result
+    }
+
+    private var sessionEnds: [SessionEnd] {
+        endsWithArrows.map { $0.end }
+    }
+
     /// Arrow counts at which each subsequent end begins (for slider tick marks).
     private var endBoundaries: [Int] {
-        let sorted = sortedArrows
-        var seen = Set<String>()
         var boundaries: [Int] = []
-        for (idx, arrow) in sorted.enumerated() {
-            guard let endId = arrow.endId else { continue }
-            if !seen.contains(endId) {
-                seen.insert(endId)
-                if idx > 0 { boundaries.append(idx) }
-            }
+        var running = 0
+        for (idx, pair) in endsWithArrows.enumerated() {
+            if idx > 0 && running > 0 { boundaries.append(running) }
+            running += pair.arrows.count
         }
         return boundaries
     }
 
     private var arrowIdToEndNumber: [String: Int] {
-        var map: [String: Int] = [:]
-        for end in sessionEnds {
-            map[end.id] = end.endNumber
-        }
         var result: [String: Int] = [:]
-        for arrow in allArrows {
-            if let endId = arrow.endId, let num = map[endId] {
-                result[arrow.id] = num
+        for pair in endsWithArrows {
+            for arrow in pair.arrows {
+                result[arrow.id] = pair.end.endNumber
             }
         }
         return result
@@ -928,6 +1056,12 @@ struct SessionDetailSheet: View {
 
     private var displayedArrows: [ArrowPlot] {
         guard let end = selectedEnd else { return allArrows }
+        // Look up via endsWithArrows so synthetic ends (whose arrows have
+        // nil endId) still resolve correctly. Falls through to endId match
+        // for real ends.
+        if let pair = endsWithArrows.first(where: { $0.end.id == end.id }) {
+            return pair.arrows
+        }
         return allArrows.filter { $0.endId == end.id }
     }
 
@@ -1039,18 +1173,17 @@ struct SessionDetailSheet: View {
                 }
 
                 // Per-end breakdown (tap to filter heatmap)
-                if !sessionEnds.isEmpty {
+                if !endsWithArrows.isEmpty {
                     Section {
-                        ForEach(sessionEnds) { end in
-                            let endArrows = allArrows.filter { $0.endId == end.id }
-                            let isSelected = selectedEnd?.id == end.id
+                        ForEach(endsWithArrows, id: \.end.id) { pair in
+                            let isSelected = selectedEnd?.id == pair.end.id
                             Button {
                                 withAnimation(.easeInOut(duration: 0.2)) {
-                                    selectedEnd = isSelected ? nil : end
+                                    selectedEnd = isSelected ? nil : pair.end
                                 }
                             } label: {
                                 HStack {
-                                    EndRow(end: end, arrows: endArrows, isCurrent: false)
+                                    EndRow(end: pair.end, arrows: pair.arrows, isCurrent: false)
                                     Spacer(minLength: 0)
                                     if isSelected {
                                         Image(systemName: "target")
@@ -1065,7 +1198,7 @@ struct SessionDetailSheet: View {
                             .listRowSeparator(.hidden)
                         }
                     } header: {
-                        Text("\(sessionEnds.count) Ends · Tap to inspect")
+                        Text("\(endsWithArrows.count) Ends · Tap to inspect")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
                             .textCase(nil)
@@ -1231,9 +1364,10 @@ private struct PrecisionStats {
         let dist = hypot(centroid.x, centroid.y)
         guard dist >= 0.01 else { return "\u{2299}" }
         let adx = abs(centroid.x), ady = abs(centroid.y)
-        if ady > adx * 2 { return centroid.y > 0 ? "\u{2191}" : "\u{2193}" }
+        // plotY uses screen convention (+y = down/south), so centroid.y > 0 → ↓.
+        if ady > adx * 2 { return centroid.y > 0 ? "\u{2193}" : "\u{2191}" }
         if adx > ady * 2 { return centroid.x > 0 ? "\u{2192}" : "\u{2190}" }
-        return (centroid.y > 0 ? "\u{2191}" : "\u{2193}") + (centroid.x > 0 ? "\u{2192}" : "\u{2190}")
+        return (centroid.y > 0 ? "\u{2193}" : "\u{2191}") + (centroid.x > 0 ? "\u{2192}" : "\u{2190}")
     }
 }
 
@@ -1362,8 +1496,11 @@ private struct SessionHeatMapView: View {
     }
 
     private func normToScreen(_ norm: (x: Double, y: Double), in size: CGSize) -> CGPoint {
+        // plotY uses screen convention (+y = down) — same as TargetPlotView when
+        // it writes the field. Add, don't subtract, so an arrow shot south of
+        // center renders south here too.
         CGPoint(x: size.width / 2 + CGFloat(norm.x) * size.width / 2,
-                y: size.height / 2 - CGFloat(norm.y) * size.height / 2)
+                y: size.height / 2 + CGFloat(norm.y) * size.height / 2)
     }
 
     private func blobPosition(for plot: ArrowPlot, index: Int, in size: CGSize) -> CGPoint {
@@ -1485,8 +1622,9 @@ private struct PrecisionScatterView: View {
                 context.draw(Text("W").font(.system(size: 9, weight: .semibold)).foregroundStyle(Color.secondary), at: CGPoint(x: center.x - labelOffset, y: center.y))
 
                 for shot in realShots {
+                    // plotY uses screen convention (+y = down).
                     let sx = center.x + CGFloat(shot.x) * scale
-                    let sy = center.y - CGFloat(shot.y) * scale
+                    let sy = center.y + CGFloat(shot.y) * scale
                     let dotR: CGFloat = 5
                     let dotColor: Color
                     switch shot.ring {
@@ -1501,7 +1639,7 @@ private struct PrecisionScatterView: View {
 
                 if let stats {
                     let cx = center.x + CGFloat(stats.centroid.x) * scale
-                    let cy = center.y - CGFloat(stats.centroid.y) * scale
+                    let cy = center.y + CGFloat(stats.centroid.y) * scale
                     let arm: CGFloat = 9
                     var cross = Path()
                     cross.move(to: CGPoint(x: cx - arm, y: cy))
