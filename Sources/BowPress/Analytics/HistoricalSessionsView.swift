@@ -681,11 +681,10 @@ private struct SessionLogRow: View {
                         .tracking(11 * 0.04)
                         .foregroundStyle(Color.appPine)
                 }
-                if isBest && previousAvg != nil {
-                    bestDeltaChip
-                } else {
-                    BPDelta(value: deltaVsPrev)
+                if isBest {
+                    BPEyebrow("BEST", tone: .pine)
                 }
+                BPDelta(value: deltaVsPrev)
                 Text("\u{203A}")
                     .font(.bpDisplay(14, italic: true, weight: .medium))
                     .foregroundStyle(Color.appPond)
@@ -761,18 +760,6 @@ private struct SessionLogRow: View {
         bowName.isEmpty ? "bow" : bowName
     }
 
-    private var bestDeltaChip: some View {
-        let delta = previousAvg.map { avgRing - $0 } ?? 0
-        let text = delta > 0 ? "best · +\(String(format: "%.1f", delta))" : "best"
-        return Text(text)
-            .font(.bpMono(10))
-            .tracking(10 * 0.04)
-            .foregroundStyle(Color.appPine)
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(Color.appPine.opacity(0.16))
-            .clipShape(RoundedRectangle(cornerRadius: 2))
-    }
 }
 
 // MARK: - Arrow bars
@@ -789,6 +776,7 @@ private struct ArrowBars: View {
         HStack(spacing: 1) {
             if arrows.isEmpty {
                 // Placeholder bars — arrows haven't loaded from the store yet.
+                // appLine2 (not white) because this is a skeleton, not a score.
                 ForEach(0..<max(1, arrowCount), id: \.self) { _ in
                     Rectangle()
                         .fill(Color.appLine2)
@@ -798,7 +786,10 @@ private struct ArrowBars: View {
             } else {
                 ForEach(Array(arrows.enumerated()), id: \.element.id) { _, arrow in
                     Rectangle()
-                        .fill(barColor(for: arrow.ring))
+                        .fill(barFill(for: arrow.ring))
+                        .overlay(
+                            Rectangle().strokeBorder(barEdge(for: arrow.ring), lineWidth: 1)
+                        )
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .cornerRadius(1)
                 }
@@ -806,13 +797,26 @@ private struct ArrowBars: View {
         }
     }
 
-    private func barColor(for ring: Int) -> Color {
+    /// Maps a score ring to the World Archery target ring. Bars are colored
+    /// by ring (white / black / blue / red / gold) so the strip is
+    /// self-explanatory to any archer — no legend needed.
+    private func barFill(for ring: Int) -> Color {
         switch ring {
-        case 11: return Color.appPine     // X
-        case 9, 10: return Color.appPondDk
-        case 8: return Color.appPond
-        case 6, 7: return Color.appPondLt
-        default: return Color.appLine2
+        case 9, 10, 11: return .appWAGoldFill   // 11 = X
+        case 7, 8:      return .appWARedFill
+        case 5, 6:      return .appWABlueFill
+        case 3, 4:      return .appWABlackFill
+        default:        return .appWAWhiteFill   // 1, 2, miss
+        }
+    }
+
+    private func barEdge(for ring: Int) -> Color {
+        switch ring {
+        case 9, 10, 11: return .appWAGoldEdge
+        case 7, 8:      return .appWARedEdge
+        case 5, 6:      return .appWABlueEdge
+        case 3, 4:      return .appWABlackEdge
+        default:        return .appWAWhiteEdge
         }
     }
 }
