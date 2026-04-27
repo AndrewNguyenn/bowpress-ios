@@ -25,6 +25,7 @@ struct SessionView: View {
     @AppStorage("session.lastDistance") private var lastDistanceRaw: String = ""
     @State private var selectedDistance: ShootingDistance? = nil
     @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
+    @FocusState private var intentionFocused: Bool
 
     /// Live clock so the active-session elapsed timer + pulsing dot re-render.
     @State private var now: Date = Date()
@@ -453,6 +454,13 @@ struct SessionView: View {
                     .foregroundStyle(Color.appInk)
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 44)
+                    .focused($intentionFocused)
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button("Done") { intentionFocused = false }
+                        }
+                    }
             }
         }
         .padding(14)
