@@ -75,18 +75,18 @@ struct SettingsView: View {
                             .fill(Color.appPondDk)
                             .frame(width: 54, height: 54)
                         Text(initials(for: user.name))
-                            .font(.bpDisplay(22, italic: true, weight: .medium))
+                            .font(.bpDisplay(32, italic: true, weight: .medium))
                             .foregroundStyle(Color.appPaper)
                     }
 
                     // Name + email
                     VStack(alignment: .leading, spacing: 4) {
                         Text(user.name)
-                            .font(.bpDisplay(20, italic: true, weight: .medium))
+                            .font(.bpDisplay(30, italic: true, weight: .medium))
                             .foregroundStyle(Color.appInk)
                             .lineLimit(1)
                         Text(user.email.uppercased())
-                            .font(.bpMono(10))
+                            .font(.bpMono(12))
                             .tracking(10 * 0.04)
                             .foregroundStyle(Color.appInk3)
                             .lineLimit(1)
@@ -103,7 +103,7 @@ struct SettingsView: View {
                                 .tracking(11 * 0.18)
                                 .textCase(.uppercase)
                             Text("\u{203A}")
-                                .font(.bpDisplay(11, italic: true, weight: .medium))
+                                .font(.bpDisplay(14, italic: true, weight: .medium))
                         }
                         .foregroundStyle(Color.appPondDk)
                     }
@@ -143,12 +143,12 @@ struct SettingsView: View {
                 // Notifications toggle row
                 HStack(alignment: .center) {
                     Text("Push notifications")
-                        .font(.bpDisplay(14, italic: true, weight: .medium))
+                        .font(.bpDisplay(20, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                     Spacer()
                     HStack(spacing: 6) {
                         Text(notificationsEnabled ? "ON" : "OFF")
-                            .font(.bpMono(10))
+                            .font(.bpMono(12))
                             .tracking(10 * 0.04)
                             .foregroundStyle(Color.appInk3)
                         Toggle("", isOn: $notificationsEnabled)
@@ -167,16 +167,16 @@ struct SettingsView: View {
                 } label: {
                     HStack(alignment: .center) {
                         Text("Units")
-                            .font(.bpDisplay(14, italic: true, weight: .medium))
+                            .font(.bpDisplay(20, italic: true, weight: .medium))
                             .foregroundStyle(Color.appInk)
                         Spacer()
                         HStack(spacing: 4) {
                             Text((unitSystem == .imperial ? "IMPERIAL" : "METRIC"))
-                                .font(.bpMono(10))
+                                .font(.bpMono(12))
                                 .tracking(10 * 0.04)
                                 .foregroundStyle(Color.appInk3)
                             Text("\u{203A}")
-                                .font(.bpDisplay(16, italic: true, weight: .medium))
+                                .font(.bpDisplay(22, italic: true, weight: .medium))
                                 .foregroundStyle(Color.appPond)
                         }
                     }
@@ -197,11 +197,11 @@ struct SettingsView: View {
                 Link(destination: URL(string: "https://bowpress.app/privacy")!) {
                     HStack(alignment: .center) {
                         Text("Privacy policy")
-                            .font(.bpDisplay(14, italic: true, weight: .medium))
+                            .font(.bpDisplay(20, italic: true, weight: .medium))
                             .foregroundStyle(Color.appInk)
                         Spacer()
                         Text("\u{203A}")
-                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .font(.bpDisplay(22, italic: true, weight: .medium))
                             .foregroundStyle(Color.appPond)
                     }
                     .padding(.horizontal, 14)
@@ -214,11 +214,11 @@ struct SettingsView: View {
                 Link(destination: URL(string: "https://bowpress.app/terms")!) {
                     HStack(alignment: .center) {
                         Text("Terms of service")
-                            .font(.bpDisplay(14, italic: true, weight: .medium))
+                            .font(.bpDisplay(20, italic: true, weight: .medium))
                             .foregroundStyle(Color.appInk)
                         Spacer()
                         Text("\u{203A}")
-                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .font(.bpDisplay(22, italic: true, weight: .medium))
                             .foregroundStyle(Color.appPond)
                     }
                     .padding(.horizontal, 14)
@@ -233,11 +233,11 @@ struct SettingsView: View {
                 } label: {
                     HStack(alignment: .center) {
                         Text("Sign out")
-                            .font(.bpDisplay(14, italic: true, weight: .medium))
+                            .font(.bpDisplay(20, italic: true, weight: .medium))
                             .foregroundStyle(Color.appMaple)
                         Spacer()
                         Text("\u{203A}")
-                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .font(.bpDisplay(22, italic: true, weight: .medium))
                             .foregroundStyle(Color.appPond)
                     }
                     .padding(.horizontal, 14)
@@ -261,16 +261,16 @@ struct SettingsView: View {
                     HStack(alignment: .center) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(appState.entitlement?.isActive == true ? "View subscription plans" : "Upgrade to Pro")
-                                .font(.bpDisplay(14, italic: true, weight: .medium))
+                                .font(.bpDisplay(20, italic: true, weight: .medium))
                                 .foregroundStyle(Color.appInk)
                             Text("unlock the full tuning engine")
-                                .font(.bpUI(10))
+                                .font(.bpUI(14))
                                 .tracking(10 * 0.04)
                                 .foregroundStyle(Color.appInk3)
                         }
                         Spacer()
                         Text("\u{203A}")
-                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .font(.bpDisplay(22, italic: true, weight: .medium))
                             .foregroundStyle(Color.appPond)
                     }
                     .padding(.horizontal, 14)
@@ -284,11 +284,11 @@ struct SettingsView: View {
                 } label: {
                     HStack(alignment: .center) {
                         Text("Restore purchases")
-                            .font(.bpDisplay(14, italic: true, weight: .medium))
+                            .font(.bpDisplay(20, italic: true, weight: .medium))
                             .foregroundStyle(Color.appInk)
                         Spacer()
                         Text("\u{203A}")
-                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .font(.bpDisplay(22, italic: true, weight: .medium))
                             .foregroundStyle(Color.appPond)
                     }
                     .padding(.horizontal, 14)
@@ -305,7 +305,7 @@ struct SettingsView: View {
         HStack(spacing: 0) {
             Spacer()
             Text("est. arch")
-                .font(.bpDisplay(11, italic: true, weight: .regular))
+                .font(.bpDisplay(14, italic: true, weight: .regular))
                 .tracking(11 * 0.08)
                 .foregroundStyle(Color.appInk3)
             Spacer().frame(width: 8)
@@ -314,7 +314,7 @@ struct SettingsView: View {
                 .frame(width: 5, height: 5)
             Spacer().frame(width: 8)
             Text("kanazawa")
-                .font(.bpDisplay(11, italic: true, weight: .regular))
+                .font(.bpDisplay(14, italic: true, weight: .regular))
                 .tracking(11 * 0.08)
                 .foregroundStyle(Color.appInk3)
             Spacer()
@@ -356,18 +356,18 @@ struct SettingsView: View {
         } label: {
             HStack(alignment: .center) {
                 Text(label)
-                    .font(.bpDisplay(14, italic: true, weight: .medium))
+                    .font(.bpDisplay(20, italic: true, weight: .medium))
                     .foregroundStyle(isDestructive ? Color.appMaple : Color.appInk)
                 Spacer()
                 HStack(spacing: 4) {
                     if !value.isEmpty {
                         Text(value.uppercased())
-                            .font(.bpMono(10))
+                            .font(.bpMono(12))
                             .tracking(10 * 0.04)
                             .foregroundStyle(Color.appInk3)
                     }
                     Text("\u{203A}")
-                        .font(.bpDisplay(16, italic: true, weight: .medium))
+                        .font(.bpDisplay(22, italic: true, weight: .medium))
                         .foregroundStyle(Color.appPond)
                 }
             }

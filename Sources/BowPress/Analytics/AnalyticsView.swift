@@ -95,7 +95,7 @@ struct AnalyticsView: View {
                                 .controlSize(.small)
                                 .tint(.appPondDk)
                             Text("Refreshing…")
-                                .font(.bpUI(11))
+                                .font(.bpUI(14))
                                 .foregroundStyle(Color.appInk3)
                             Spacer()
                         }
@@ -124,18 +124,18 @@ struct AnalyticsView: View {
             Text(dateYmd)
                 .foregroundStyle(Color.appInk3)
             Text(dayOfWeek)
-                .font(.bpMono(10, weight: .medium))
+                .font(.bpMono(12, weight: .medium))
                 .foregroundStyle(Color.appInk)
             let count = viewModel.overview?.sessionCount ?? 0
             (
                 Text("session no. ")
                     .foregroundStyle(Color.appInk3)
                 + Text(String(format: "%03d", max(count, 0)))
-                    .font(.bpMono(10, weight: .medium))
+                    .font(.bpMono(12, weight: .medium))
                     .foregroundStyle(Color.appInk)
             )
         }
-        .font(.bpMono(10))
+        .font(.bpMono(12))
     }
 
     private var dateYmd: String {
@@ -215,7 +215,7 @@ struct AnalyticsView: View {
     @ViewBuilder
     private func statCellAverage(overview: AnalyticsOverview) -> some View {
         BPStatGridCell(label: "Average", sub: "per arrow · out of 11") {
-            BPBigScore(value: formatted(overview.avgArrowScore), size: 56)
+            BPBigScore(value: formatted(overview.avgArrowScore), size: 72)
         } tick: {
             sparkTicks(points: overview.sparkline?.map(\.avg) ?? [])
         }
@@ -251,21 +251,21 @@ struct AnalyticsView: View {
             BPEyebrow("X rate")
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("\(pct)")
-                    .font(.bpDisplay(28, italic: true, weight: .medium))
+                    .font(.bpDisplay(40, italic: true, weight: .medium))
                     .foregroundStyle(Color.appPondDk)
                 Text("%")
-                    .font(.bpDisplay(17, italic: true, weight: .medium))
+                    .font(.bpDisplay(24, italic: true, weight: .medium))
                     .foregroundStyle(Color.appPondDk)
             }
             Text(prevPct.map { "prev · \(Int($0.rounded()))%" } ?? "prev · —")
-                .font(.bpUI(10))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
             Text("\(overview.sessionCount)")
-                .font(.bpDisplay(17, italic: true, weight: .medium))
+                .font(.bpDisplay(24, italic: true, weight: .medium))
                 .foregroundStyle(Color.appInk)
                 .padding(.top, 4)
             Text("sessions")
-                .font(.bpUI(10))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -281,21 +281,21 @@ struct AnalyticsView: View {
             BPEyebrow("Group \u{2205}")
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text(sigmaText)
-                    .font(.bpDisplay(28, italic: true, weight: .medium))
+                    .font(.bpDisplay(40, italic: true, weight: .medium))
                     .foregroundStyle(Color.appPondDk)
                 Text("\u{2033}")
-                    .font(.bpDisplay(15, italic: true, weight: .medium))
+                    .font(.bpDisplay(21, italic: true, weight: .medium))
                     .foregroundStyle(Color.appPondDk)
             }
             Text("at \(distanceText)")
-                .font(.bpUI(10))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
             Text("\(arrows)")
-                .font(.bpDisplay(17, italic: true, weight: .medium))
+                .font(.bpDisplay(24, italic: true, weight: .medium))
                 .foregroundStyle(Color.appInk)
                 .padding(.top, 4)
             Text("arrows logged")
-                .font(.bpUI(10))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -317,34 +317,34 @@ struct AnalyticsView: View {
             VStack(alignment: .leading, spacing: 3) {
                 BPEyebrow("Prev \(prettyPeriod)")
                 Text(formatted(comparison.previous.avgArrowScore))
-                    .font(.bpDisplay(20, italic: true, weight: .medium))
+                    .font(.bpDisplay(30, italic: true, weight: .medium))
                     .foregroundStyle(Color.appInk)
                 Text(
                     "\(Int(comparison.previous.xPercentage.rounded()))% X · \(comparison.previous.sessionCount) sessions"
                 )
-                .font(.bpMono(9.5))
+                .font(.bpMono(11.5))
                 .foregroundStyle(Color.appInk3)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             // Middle arrow
             Text("\u{2192}")
-                .font(.bpDisplay(22, italic: true, weight: .medium))
+                .font(.bpDisplay(32, italic: true, weight: .medium))
                 .foregroundStyle(Color.appMoss)
 
             // Current column
             VStack(alignment: .leading, spacing: 3) {
                 BPEyebrow("This \(prettyPeriod)")
                 Text(formatted(comparison.current.avgArrowScore))
-                    .font(.bpDisplay(20, italic: true, weight: .medium))
+                    .font(.bpDisplay(30, italic: true, weight: .medium))
                     .foregroundStyle(Color.appPondDk)
                 HStack(spacing: 6) {
                     Text("\(Int(comparison.current.xPercentage.rounded()))% X · \(comparison.current.sessionCount) sessions")
-                        .font(.bpMono(9.5))
+                        .font(.bpMono(11.5))
                         .foregroundStyle(Color.appInk3)
                     if abs(delta) >= 0.05 {
                         Text((delta > 0 ? "+" : "") + String(format: "%.1f", delta))
-                            .font(.bpMono(9.5, weight: .medium))
+                            .font(.bpMono(11.5, weight: .medium))
                             .foregroundStyle(delta > 0 ? Color.appPine : Color.appMaple)
                     }
                 }
@@ -384,7 +384,7 @@ struct AnalyticsView: View {
                     let hi = viewModel.timeline?.range.max ?? (avgs.max() ?? 0)
                     let sigma = viewModel.timeline?.range.sigma ?? computedSigma(avgs)
                     Text("range \(formatted(lo))—\(formatted(hi)) · σ \(String(format: "%.2f", sigma))")
-                        .font(.bpMono(9.5))
+                        .font(.bpMono(11.5))
                         .foregroundStyle(Color.appInk3)
                 }
             }
@@ -407,7 +407,7 @@ struct AnalyticsView: View {
                 timelineXAxis(points: points)
             } else {
                 Text("no session data yet")
-                    .font(.bpUI(11))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk3)
                     .padding(.vertical, 14)
             }
@@ -420,7 +420,7 @@ struct AnalyticsView: View {
 
     private func axisLabel(value: Double) -> some View {
         Text(formatted(value))
-            .font(.bpMono(9))
+            .font(.bpMono(11))
             .foregroundStyle(Color.appInk3)
     }
 
@@ -451,7 +451,7 @@ struct AnalyticsView: View {
                 Text("now")
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .font(.bpMono(9))
+            .font(.bpMono(11))
             .foregroundStyle(Color.appInk3)
             .padding(.top, 2)
         }
@@ -479,7 +479,7 @@ struct AnalyticsView: View {
         VStack(alignment: .leading, spacing: 8) {
             BPSectionTitle("Impact map", aside: "\(distanceText) · \(bowTypeText)")
             Text("centroid of grouping · this week vs. previous · 1 ring = 1 point")
-                .font(.bpUI(10.5))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
 
             HStack(alignment: .center, spacing: 14) {
@@ -533,11 +533,11 @@ struct AnalyticsView: View {
             BPEyebrow("Shift")
                 .padding(.top, 4)
             Text(shift.map { shiftLine(for: $0) } ?? "not enough data")
-                .font(.bpDisplay(13, italic: true, weight: .medium))
+                .font(.bpDisplay(14, italic: true, weight: .medium))
                 .foregroundStyle(Color.appPine)
             if let shift, !shift.description.isEmpty {
                 Text(shift.description)
-                    .font(.bpMono(9))
+                    .font(.bpMono(11))
                     .foregroundStyle(Color.appInk3)
             }
         }
@@ -568,10 +568,10 @@ struct AnalyticsView: View {
                 .frame(width: 9, height: 9)
             VStack(alignment: .leading, spacing: 1) {
                 Text(name)
-                    .font(.bpDisplay(12.5, italic: true, weight: .medium))
+                    .font(.bpDisplay(14, italic: true, weight: .medium))
                     .foregroundStyle(Color.appInk)
                 Text(stat)
-                    .font(.bpMono(9.5))
+                    .font(.bpMono(11.5))
                     .foregroundStyle(Color.appInk3)
             }
         }
@@ -590,12 +590,12 @@ struct AnalyticsView: View {
         VStack(alignment: .leading, spacing: 8) {
             BPSectionTitle("Trend analysis", aside: findings.isEmpty ? nil : "\(findings.count) findings")
             Text("insight from the last \(arrows) arrows · ranked by actionability")
-                .font(.bpUI(10.5))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
 
             if findings.isEmpty {
                 Text("not enough data yet")
-                    .font(.bpUI(11))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk3)
                     .padding(.vertical, 12)
             } else {
@@ -626,12 +626,12 @@ struct AnalyticsView: View {
         VStack(alignment: .leading, spacing: 8) {
             BPSectionTitle("Parameter drift", aside: rows.isEmpty ? nil : "\(rows.count) tracked")
             Text("setup values across the period · tap for history")
-                .font(.bpUI(10.5))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
 
             if rows.isEmpty {
                 Text("not enough data yet")
-                    .font(.bpUI(11))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk3)
                     .padding(.vertical, 12)
             } else {
@@ -669,7 +669,7 @@ struct AnalyticsView: View {
 
     private func driftHeaderCell(_ text: String, align: HorizontalAlignment) -> some View {
         Text(text.uppercased())
-            .font(.bpUI(8.5, weight: .semibold))
+            .font(.bpUI(10.5, weight: .semibold))
             .tracking(8.5 * 0.2)
             .foregroundStyle(Color.appInk3)
             .frame(maxWidth: .infinity, alignment: align == .leading ? .leading : .trailing)
@@ -679,7 +679,7 @@ struct AnalyticsView: View {
     private func driftRow(row: DriftRow) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             Text(row.label)
-                .font(.bpDisplay(13.5, italic: true, weight: .medium))
+                .font(.bpDisplay(14, italic: true, weight: .medium))
                 .foregroundStyle(Color.appInk)
                 .frame(maxWidth: .infinity, alignment: .leading)
             driftValueCell(row.before ?? "—")
@@ -689,7 +689,7 @@ struct AnalyticsView: View {
             driftDeltaCell(row: row)
                 .frame(width: 64, alignment: .trailing)
             Text("\(row.n)")
-                .font(.bpMono(10))
+                .font(.bpMono(12))
                 .foregroundStyle(Color.appInk3)
                 .frame(width: 28, alignment: .trailing)
         }
@@ -698,7 +698,7 @@ struct AnalyticsView: View {
 
     private func driftValueCell(_ text: String) -> some View {
         Text(text)
-            .font(.bpDisplay(12.5, italic: true, weight: .medium))
+            .font(.bpDisplay(14, italic: true, weight: .medium))
             .foregroundStyle(Color.appInk)
     }
 
@@ -720,7 +720,7 @@ struct AnalyticsView: View {
             }
         }()
         Text(text)
-            .font(.bpMono(10))
+            .font(.bpMono(12))
             .foregroundStyle(fg)
             .padding(.horizontal, 5)
             .padding(.vertical, 1)
@@ -737,12 +737,12 @@ struct AnalyticsView: View {
                 aside: viewModel.suggestions.isEmpty ? nil : "\(viewModel.suggestions.count) ranked"
             )
             Text("by confidence · swipe left on a card to dismiss")
-                .font(.bpUI(10.5))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
 
             if viewModel.suggestions.isEmpty {
                 Text("no suggestions yet")
-                    .font(.bpUI(11))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk3)
                     .padding(.vertical, 12)
             } else {
@@ -816,11 +816,11 @@ struct AnalyticsView: View {
 
     private func footnote(key: String, value: String) -> some View {
         (
-            Text(key).font(.bpMono(9.5, weight: .medium)).foregroundStyle(Color.appInk)
+            Text(key).font(.bpMono(11.5, weight: .medium)).foregroundStyle(Color.appInk)
             + Text(" · ").foregroundStyle(Color.appInk3)
             + Text(value).foregroundStyle(Color.appInk3)
         )
-        .font(.bpMono(9.5))
+        .font(.bpMono(11.5))
     }
 
     private func formatYmd(_ d: Date) -> String {
@@ -837,7 +837,7 @@ struct AnalyticsView: View {
             Rectangle().fill(Color.appPond).frame(width: 5, height: 5)
             Text("shoot better")
         }
-        .font(.bpDisplay(11, italic: true))
+        .font(.bpDisplay(14, italic: true))
         .foregroundStyle(Color.appInk3)
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.top, 16)
@@ -872,10 +872,10 @@ struct AnalyticsView: View {
         VStack(alignment: .leading, spacing: 10) {
             BPEyebrow("Not enough data")
             Text("Log at least one session to unlock analytics.")
-                .font(.bpDisplay(18, italic: true, weight: .medium))
+                .font(.bpDisplay(26, italic: true, weight: .medium))
                 .foregroundStyle(Color.appInk)
             Text("Arrows inform centroids, sigmas, and tuning suggestions — six or more is usually enough for the first picture to form.")
-                .font(.bpUI(11.5))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk2)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -909,11 +909,11 @@ struct AnalyticsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 BPEyebrow("Analytics error", tone: .maple)
                 Text(message)
-                    .font(.bpUI(11.5))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk2)
                     .lineLimit(3)
                 Button("Retry") { Task { await viewModel.refresh() } }
-                    .font(.bpUI(10.5, weight: .semibold))
+                    .font(.bpUI(11.5, weight: .semibold))
                     .tracking(10.5 * 0.18)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appPondDk)
@@ -1113,7 +1113,7 @@ private struct TrendLedgerRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Text(roman(finding.index) + ".")
-                .font(.bpDisplay(14, italic: true, weight: .medium))
+                .font(.bpDisplay(20, italic: true, weight: .medium))
                 .foregroundStyle(Color.appPond)
                 .tracking(14 * 0.02)
                 .frame(width: 24, alignment: .leading)
@@ -1121,7 +1121,7 @@ private struct TrendLedgerRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 titleLine(finding: finding)
                 Text(finding.body)
-                    .font(.bpUI(11.5))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk2)
                     .fixedSize(horizontal: false, vertical: true)
                 if let cues = finding.cues, !cues.isEmpty {
@@ -1149,7 +1149,7 @@ private struct TrendLedgerRow: View {
         }()
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             Text(finding.title)
-                .font(.bpDisplay(15, italic: true, weight: .medium))
+                .font(.bpDisplay(21, italic: true, weight: .medium))
                 .foregroundStyle(Color.appInk)
                 .fixedSize(horizontal: false, vertical: true)
             Text(finding.metric.text)
@@ -1166,7 +1166,7 @@ private struct TrendLedgerRow: View {
         let segments = parseBold(raw)
         segments.reduce(Text("")) { acc, seg in
             acc + Text(seg.text)
-                .font(.bpMono(9.5, weight: seg.bold ? .medium : .regular))
+                .font(.bpMono(11.5, weight: seg.bold ? .medium : .regular))
                 .foregroundStyle(seg.bold ? Color.appInk2 : Color.appInk3)
         }
         .tracking(9.5 * 0.04)
@@ -1269,7 +1269,7 @@ private struct SwipeableLedgerRow: View {
             ZStack {
                 Rectangle().fill(Color.appMaple)
                 Text("Dismiss")
-                    .font(.bpUI(9, weight: .semibold))
+                    .font(.bpUI(11, weight: .semibold))
                     .tracking(9 * 0.22)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appPaper)

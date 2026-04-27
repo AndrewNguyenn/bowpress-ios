@@ -27,7 +27,7 @@ struct BPStatGridCell<MainView: View, TickView: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             if let sub {
                 Text(sub)
-                    .font(.bpUI(10))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk3)
             }
             if let tick {
@@ -55,7 +55,7 @@ extension BPStatGridCell where TickView == EmptyView {
         Color.appPaper.ignoresSafeArea()
         HStack(alignment: .top, spacing: 16) {
             BPStatGridCell(label: "Avg so far", sub: "15 arrows") {
-                BPBigScore(value: "10.4", size: 40)
+                BPBigScore(value: "10.4", size: 56)
             } tick: {
                 HStack(spacing: 2) {
                     ForEach(0..<5) { _ in
@@ -64,7 +64,7 @@ extension BPStatGridCell where TickView == EmptyView {
                 }
             }
             BPStatGridCell(label: "Xs", sub: "40% rate") {
-                BPBigScore(value: "6", size: 40, unit: "/15")
+                BPBigScore(value: "6", size: 56, unit: "/15")
             }
         }
         .padding()

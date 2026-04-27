@@ -130,12 +130,12 @@ struct HydrationSplashView: View {
     private var header: some View {
         HStack(alignment: .lastTextBaseline) {
             Text("BOWPRESS")
-                .font(.bpUI(10.5, weight: .semibold))
+                .font(.bpUI(11.5, weight: .semibold))
                 .tracking(10.5 * 0.32)
                 .foregroundStyle(Color.appPondDk)
             Spacer()
             Text("v2.4 · SYNC")
-                .font(.bpMono(9))
+                .font(.bpMono(11))
                 .tracking(9 * 0.06)
                 .foregroundStyle(Color.appInk3)
         }
@@ -253,7 +253,7 @@ struct HydrationSplashView: View {
             HStack(spacing: 8) {
                 PulsingMapleDot(size: 5)
                 Text("ANALYZING YOUR DATA")
-                    .font(.bpUI(10, weight: .semibold))
+                    .font(.bpUI(11.5, weight: .semibold))
                     .tracking(10 * 0.26)
                     .foregroundStyle(Color.appInk3)
             }
@@ -269,15 +269,15 @@ struct HydrationSplashView: View {
         HStack(alignment: .lastTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("LAST SESSION")
-                    .font(.bpUI(9, weight: .semibold))
+                    .font(.bpUI(11, weight: .semibold))
                     .tracking(9 * 0.22)
                     .foregroundStyle(Color.appPondDk)
                 HStack(spacing: 4) {
                     Text("10.4 avg")
-                        .font(.bpDisplay(13, italic: true, weight: .medium))
+                        .font(.bpDisplay(14, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                     Text("· 72% X")
-                        .font(.bpMono(9))
+                        .font(.bpMono(11))
                         .tracking(9 * 0.06)
                         .foregroundStyle(Color.appInk3)
                 }
@@ -285,15 +285,15 @@ struct HydrationSplashView: View {
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
                 Text("LOADING")
-                    .font(.bpUI(9, weight: .semibold))
+                    .font(.bpUI(11, weight: .semibold))
                     .tracking(9 * 0.22)
                     .foregroundStyle(Color.appPondDk)
                 HStack(spacing: 4) {
                     Text("342 arrows")
-                        .font(.bpDisplay(13, italic: true, weight: .medium))
+                        .font(.bpDisplay(14, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                     Text("· 14 sess")
-                        .font(.bpMono(9))
+                        .font(.bpMono(11))
                         .tracking(9 * 0.06)
                         .foregroundStyle(Color.appInk3)
                 }

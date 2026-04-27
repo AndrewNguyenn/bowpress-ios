@@ -26,7 +26,7 @@ struct BPEyebrow: View {
 
     var body: some View {
         Text(text)
-            .font(.bpEyebrow(9))
+            .font(.bpEyebrow(11))
             // 0.22em at 9pt
             .tracking(9 * 0.22)
             .textCase(.uppercase)

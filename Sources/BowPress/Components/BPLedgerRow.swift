@@ -32,24 +32,24 @@ struct BPLedgerRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Text("\(index)")
-                .font(.bpDisplay(17, italic: true, weight: .medium))
+                .font(.bpDisplay(24, italic: true, weight: .medium))
                 .foregroundStyle(Color.appPond)
                 .frame(width: 22, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.bpDisplay(15, italic: true, weight: .medium))
+                    .font(.bpDisplay(21, italic: true, weight: .medium))
                     .foregroundStyle(Color.appInk)
                     .fixedSize(horizontal: false, vertical: true)
                 if let detail {
                     Text(detail)
-                        .font(.bpUI(11.5))
+                        .font(.bpUI(14))
                         .foregroundStyle(Color.appInk2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let monoLine {
                     Text(monoLine)
-                        .font(.bpMono(9.5))
+                        .font(.bpMono(11.5))
                         // 0.06em at 9.5pt
                         .tracking(9.5 * 0.06)
                         .foregroundStyle(Color.appInk3)

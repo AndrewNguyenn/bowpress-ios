@@ -298,9 +298,9 @@ extension Font {
         bpUI(size, weight: .semibold)
     }
 
-    /// Eyebrow micro-label (9pt). Callers apply `.tracking(size * 0.22)`
+    /// Eyebrow micro-label (11pt). Callers apply `.tracking(size * 0.22)`
     /// and `.textCase(.uppercase)`.
-    static func bpEyebrow(_ size: CGFloat = 9) -> Font {
+    static func bpEyebrow(_ size: CGFloat = 11) -> Font {
         bpUI(size, weight: .semibold)
     }
 }

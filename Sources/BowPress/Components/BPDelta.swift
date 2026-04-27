@@ -45,7 +45,7 @@ struct BPDelta: View {
 
     var body: some View {
         Text(text)
-            .font(.bpMono(10))
+            .font(.bpMono(12))
             // 0.04em at 10pt
             .tracking(10 * 0.04)
             .foregroundStyle(fg)

@@ -164,20 +164,20 @@ private struct ActiveSessionBanner: View {
                     .animation(.easeInOut(duration: 1.0), value: pulseOn)
 
                 Text("IN SESSION")
-                    .font(.bpUI(10, weight: .semibold))
+                    .font(.bpUI(11.5, weight: .semibold))
                     .appTracking(0.22, at: 10)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appPondDk)
 
                 Text("· \(viewModel.selectedBow?.name ?? "session") · \(viewModel.allArrows.count) arrow\(viewModel.allArrows.count == 1 ? "" : "s")")
-                    .font(.bpUI(9))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk3)
                     .lineLimit(1)
 
                 Spacer()
 
                 Text("\u{203A}")
-                    .font(.bpDisplay(14, italic: true, weight: .medium))
+                    .font(.bpDisplay(20, italic: true, weight: .medium))
                     .foregroundStyle(Color.appPondDk)
             }
             .padding(.horizontal, 16)

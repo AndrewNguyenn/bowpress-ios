@@ -28,11 +28,11 @@ struct BPPrimaryButton: View {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(title)
-                        .font(.bpDisplay(20, italic: true, weight: .medium))
+                        .font(.bpDisplay(30, italic: true, weight: .medium))
                         .lineLimit(1)
                     if let sub = subtitle {
                         Text(sub)
-                            .font(.bpUI(9, weight: .semibold))
+                            .font(.bpUI(11, weight: .semibold))
                             // 0.20em at 9pt
                             .tracking(9 * 0.20)
                             .textCase(.uppercase)
@@ -42,7 +42,7 @@ struct BPPrimaryButton: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text(trailing)
-                    .font(.bpDisplay(32, italic: true, weight: .medium))
+                    .font(.bpDisplay(46, italic: true, weight: .medium))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 16)
