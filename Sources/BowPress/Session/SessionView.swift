@@ -159,6 +159,13 @@ struct SessionView: View {
                 .padding(.bottom, 40)
             }
         }
+        .scrollDismissesKeyboard(.interactively)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { intentionFocused = false }
+            }
+        }
         .onAppear { primeSetupState() }
         .onChange(of: selectedBow?.id) { _, _ in
             guard !userTouchedFace, let bow = selectedBow else { return }
@@ -455,12 +462,6 @@ struct SessionView: View {
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 44)
                     .focused($intentionFocused)
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button("Done") { intentionFocused = false }
-                        }
-                    }
             }
         }
         .padding(14)
