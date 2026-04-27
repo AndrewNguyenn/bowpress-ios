@@ -55,6 +55,21 @@ extension Color {
     static let appTgtRed    = hex("#d94b3b")
     static let appTgtYellow = hex("#f0d04a")
 
+    // ── WA score-bar palette ──────────────────────────────
+    // Slightly desaturated WA ring colors used for score-viz
+    // (per-arrow bars, score chips). Do NOT swap with appTgt*
+    // above — those are the literal target face render.
+    static let appWAWhiteFill = hex("#f4f1ea")
+    static let appWAWhiteEdge = hex("#b8b2a4")
+    static let appWABlackFill = hex("#2a2a28")
+    static let appWABlackEdge = hex("#1a1a18")
+    static let appWABlueFill  = hex("#3a6f8a")
+    static let appWABlueEdge  = hex("#1e3e4a")
+    static let appWARedFill   = hex("#b04a3a")
+    static let appWARedEdge   = hex("#7a2f24")
+    static let appWAGoldFill  = hex("#d8a23a")
+    static let appWAGoldEdge  = hex("#9a6f1a")
+
     // ── Semantic status ───────────────────────────────────
     static let appSuccess = Color.appPine
     static let appWarning = Color.appMaple
