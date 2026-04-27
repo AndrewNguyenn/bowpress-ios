@@ -30,7 +30,7 @@ struct BPStamp: View {
     var body: some View {
         let col = tone.color
         Text(text)
-            .font(.bpUI(9, weight: .semibold))
+            .font(.bpUI(11, weight: .semibold))
             // CSS: letter-spacing 0.22em at 9pt = 9 * 0.22 = 1.98
             .tracking(9 * 0.22)
             .textCase(.uppercase)

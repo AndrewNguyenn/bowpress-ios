@@ -51,7 +51,7 @@ struct ArrowProgressionSlider: View {
             )
 
             Text(caption)
-                .font(.bpMono(10))
+                .font(.bpMono(12))
                 .appTracking(0.04, at: 10)
                 .foregroundStyle(Color.appInk3)
                 .animation(.none, value: visibleCount)

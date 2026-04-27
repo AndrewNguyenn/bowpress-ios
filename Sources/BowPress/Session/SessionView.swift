@@ -176,13 +176,13 @@ struct SessionView: View {
         // snapshot tests can pin a deterministic date via the DEBUG init.
         VStack(alignment: .trailing, spacing: 0) {
             Text(dateLine(now))
-                .font(.bpMono(10, weight: .medium))
+                .font(.bpMono(12, weight: .medium))
                 .foregroundStyle(Color.appInk)
             Text(timeLine(now))
-                .font(.bpMono(10))
+                .font(.bpMono(12))
                 .foregroundStyle(Color.appInk3)
             Text(sunriseLine())
-                .font(.bpMono(10))
+                .font(.bpMono(12))
                 .foregroundStyle(Color.appInk3)
         }
     }
@@ -236,11 +236,11 @@ struct SessionView: View {
             bowIcon
             VStack(alignment: .leading, spacing: 4) {
                 Text(bowName)
-                    .font(.bpDisplay(17, italic: true, weight: .medium))
+                    .font(.bpDisplay(24, italic: true, weight: .medium))
                     .foregroundStyle(Color.appInk)
                     .lineLimit(1)
                 Text(bowSpec)
-                    .font(.bpMono(9.5))
+                    .font(.bpMono(11.5))
                     .appTracking(0.04, at: 9.5)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appInk3)
@@ -248,7 +248,7 @@ struct SessionView: View {
             }
             Spacer(minLength: 8)
             Text("\u{203A}")
-                .font(.bpDisplay(18, italic: true, weight: .medium))
+                .font(.bpDisplay(26, italic: true, weight: .medium))
                 .foregroundStyle(Color.appPond)
         }
         .padding(.horizontal, 12)
@@ -327,10 +327,10 @@ struct SessionView: View {
         } label: {
             VStack(spacing: 4) {
                 Text(parts.num)
-                    .font(.bpDisplay(19, italic: true, weight: .medium))
+                    .font(.bpDisplay(28, italic: true, weight: .medium))
                     .foregroundStyle(selected ? Color.appPaper : Color.appInk2)
                 Text(parts.unit)
-                    .font(.bpUI(8.5, weight: .semibold))
+                    .font(.bpUI(10.5, weight: .semibold))
                     .appTracking(0.18, at: 8.5)
                     .textCase(.uppercase)
                     .foregroundStyle(selected ? Color.appPaper.opacity(0.72) : Color.appInk3)
@@ -379,7 +379,7 @@ struct SessionView: View {
                 BPTargetFace(face: face == .tenRing ? .tenRing : .sixRing, size: 56)
                     .padding(.top, 4)
                 Text(faceName(face))
-                    .font(.bpDisplay(11.5, italic: true, weight: .medium))
+                    .font(.bpDisplay(14, italic: true, weight: .medium))
                     .foregroundStyle(selected ? Color.appPondDk : Color.appInk)
             }
             .frame(maxWidth: .infinity)
@@ -436,20 +436,20 @@ struct SessionView: View {
     private var intentionBox: some View {
         HStack(alignment: .top, spacing: 4) {
             Text("\u{201C}") // Left double curly quote
-                .font(.bpDisplay(22, italic: true, weight: .medium))
+                .font(.bpDisplay(32, italic: true, weight: .medium))
                 .foregroundStyle(Color.appPond)
                 .baselineOffset(-2)
                 .padding(.top, -2)
             ZStack(alignment: .topLeading) {
                 if viewModel.intentionNote.isEmpty {
                     Text("Keep the back tension through the click. No rushing the shot on end two.")
-                        .font(.bpDisplay(13.5, italic: true, weight: .regular))
+                        .font(.bpDisplay(14, italic: true, weight: .regular))
                         .foregroundStyle(Color.appInk3)
                         .lineLimit(3)
                         .allowsHitTesting(false)
                 }
                 TextEditor(text: $viewModel.intentionNote)
-                    .font(.bpDisplay(13.5, italic: true, weight: .regular))
+                    .font(.bpDisplay(14, italic: true, weight: .regular))
                     .foregroundStyle(Color.appInk)
                     .scrollContentBackground(.hidden)
                     .frame(minHeight: 44)
@@ -479,7 +479,7 @@ struct SessionView: View {
                 else { Task { await startNewSession() } }
             }
             Text("nock up, breathe, and tap when you're on the line.")
-                .font(.bpDisplay(11, italic: true, weight: .regular))
+                .font(.bpDisplay(14, italic: true, weight: .regular))
                 .foregroundStyle(Color.appInk3)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
@@ -500,13 +500,13 @@ struct SessionView: View {
     private func fieldLabel(_ label: String, hint: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
-                .font(.bpUI(9, weight: .semibold))
+                .font(.bpUI(11, weight: .semibold))
                 .appTracking(0.24, at: 9)
                 .textCase(.uppercase)
                 .foregroundStyle(Color.appInk3)
             Spacer(minLength: 8)
             Text(hint)
-                .font(.bpDisplay(10.5, italic: true, weight: .medium))
+                .font(.bpDisplay(14, italic: true, weight: .medium))
                 .foregroundStyle(Color.appPond)
         }
     }
@@ -634,10 +634,10 @@ struct SessionView: View {
                 livePulseLabel
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("Arrow ")
-                        .font(.bpDisplay(32, italic: true, weight: .medium))
+                        .font(.bpDisplay(46, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                     Text("\(viewModel.allArrows.count + 1)")
-                        .font(.bpDisplay(32, italic: true, weight: .medium))
+                        .font(.bpDisplay(46, italic: true, weight: .medium))
                         .foregroundStyle(Color.appPondDk)
                 }
             }
@@ -656,7 +656,7 @@ struct SessionView: View {
                 .animation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true),
                            value: pulseOpacity)
             Text("IN SESSION")
-                .font(.bpUI(9.5, weight: .semibold))
+                .font(.bpUI(11.5, weight: .semibold))
                 .appTracking(0.28, at: 9.5)
                 .textCase(.uppercase)
                 .foregroundStyle(Color.appPondDk)
@@ -673,10 +673,10 @@ struct SessionView: View {
     private var timerBlock: some View {
         VStack(alignment: .trailing, spacing: 2) {
             Text(elapsedString)
-                .font(.bpDisplay(16, italic: true, weight: .medium))
+                .font(.bpDisplay(22, italic: true, weight: .medium))
                 .foregroundStyle(Color.appInk)
             Text("ELAPSED")
-                .font(.bpMono(10.5))
+                .font(.bpMono(12))
                 .appTracking(0.06, at: 10.5)
                 .foregroundStyle(Color.appInk3)
         }
@@ -698,10 +698,10 @@ struct SessionView: View {
             if viewModel.hasPendingConfigChange {
                 HStack(spacing: 8) {
                     Text("\u{25A0}") // ■
-                        .font(.bpDisplay(10, italic: true, weight: .medium))
+                        .font(.bpDisplay(14, italic: true, weight: .medium))
                         .foregroundStyle(Color.appMaple)
                     Text("Config changed — plot an arrow to confirm new config")
-                        .font(.bpDisplay(12, italic: true, weight: .regular))
+                        .font(.bpDisplay(14, italic: true, weight: .regular))
                         .foregroundStyle(Color.appMaple)
                     Spacer()
                 }
@@ -715,12 +715,12 @@ struct SessionView: View {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(bannerPrimary)
-                        .font(.bpDisplay(13, italic: true, weight: .medium))
+                        .font(.bpDisplay(14, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                         .lineLimit(1)
                     if let sub = bannerSub {
                         Text(sub)
-                            .font(.bpMono(9.5))
+                            .font(.bpMono(11.5))
                             .appTracking(0.04, at: 9.5)
                             .textCase(.uppercase)
                             .foregroundStyle(Color.appInk3)
@@ -815,12 +815,12 @@ struct SessionView: View {
         let faceType = viewModel.currentSession?.targetFaceType ?? .sixRing
         VStack(alignment: .leading, spacing: 3) {
             Text("FACE")
-                .font(.bpUI(9, weight: .semibold))
+                .font(.bpUI(11, weight: .semibold))
                 .appTracking(0.20, at: 9)
                 .textCase(.uppercase)
                 .foregroundStyle(Color.appInk3)
             Text("\(faceName(faceType)) · \(faceSize(faceType))")
-                .font(.bpDisplay(10, italic: true, weight: .medium))
+                .font(.bpDisplay(14, italic: true, weight: .medium))
                 .foregroundStyle(Color.appPondDk)
         }
     }
@@ -839,7 +839,7 @@ struct SessionView: View {
             HStack {
                 Spacer()
                 Text("tap where the arrow landed.\nlong-press to fine-adjust.")
-                    .font(.bpDisplay(11, italic: true, weight: .regular))
+                    .font(.bpDisplay(14, italic: true, weight: .regular))
                     .foregroundStyle(Color.appInk3)
                     .multilineTextAlignment(.trailing)
                     .frame(maxWidth: 140, alignment: .trailing)
@@ -870,9 +870,9 @@ struct SessionView: View {
     private var totalsPrimary: some View {
         VStack(alignment: .leading, spacing: 4) {
             BPEyebrow("AVG SO FAR")
-            BPBigScore(value: avgSoFarString, size: 28)
+            BPBigScore(value: avgSoFarString, size: 40)
             Text("across \(viewModel.allArrows.count) arrow\(viewModel.allArrows.count == 1 ? "" : "s")")
-                .font(.bpUI(9))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -887,14 +887,14 @@ struct SessionView: View {
             BPEyebrow("XS")
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text("\(xs)")
-                    .font(.bpDisplay(24, italic: true, weight: .medium))
+                    .font(.bpDisplay(34, italic: true, weight: .medium))
                     .foregroundStyle(Color.appInk)
                 Text("/\(total)")
                     .font(.bpMono(11))
                     .foregroundStyle(Color.appInk3)
             }
             Text(String(format: "%.0f%% rate", rate))
-                .font(.bpUI(9))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -906,10 +906,10 @@ struct SessionView: View {
         VStack(alignment: .leading, spacing: 4) {
             BPEyebrow("SESSION BEST")
             Text(best.label)
-                .font(.bpDisplay(18, italic: true, weight: .medium))
+                .font(.bpDisplay(26, italic: true, weight: .medium))
                 .foregroundStyle(Color.appInk)
             Text(best.sub)
-                .font(.bpUI(9))
+                .font(.bpUI(14))
                 .foregroundStyle(Color.appInk3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -972,10 +972,10 @@ struct SessionView: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Text(glyph)
-                    .font(.bpDisplay(13.5, italic: true, weight: .medium))
+                    .font(.bpDisplay(14, italic: true, weight: .medium))
                     .foregroundStyle(Color.appInk)
                 Text(label)
-                    .font(.bpUI(10, weight: .semibold))
+                    .font(.bpUI(11.5, weight: .semibold))
                     .appTracking(0.18, at: 10)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appInk2)
@@ -1006,12 +1006,12 @@ struct SessionView: View {
         } label: {
             VStack(spacing: 4) {
                 Text("Finish End \(viewModel.currentEndNumber)")
-                    .font(.bpDisplay(15, italic: true, weight: .medium))
+                    .font(.bpDisplay(21, italic: true, weight: .medium))
                     .foregroundStyle(active ? Color.appPaper : Color.appInk3)
                 Text(count == 0
                      ? "PLOT ARROWS TO CONTINUE"
                      : "\(count) ARROW\(count == 1 ? "" : "S") · NEXT END")
-                    .font(.bpUI(10, weight: .semibold))
+                    .font(.bpUI(11.5, weight: .semibold))
                     .appTracking(0.18, at: 10)
                     .textCase(.uppercase)
                     .foregroundStyle(active ? Color.appPaper.opacity(0.72) : Color.appInk3)
@@ -1037,13 +1037,13 @@ struct SessionView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text("ENDS")
-                    .font(.bpUI(9, weight: .semibold))
+                    .font(.bpUI(11, weight: .semibold))
                     .appTracking(0.22, at: 9)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appInk3)
                 Spacer(minLength: 8)
                 Text("\(viewModel.completedEnds.count) FINISHED")
-                    .font(.bpUI(9, weight: .semibold))
+                    .font(.bpUI(11, weight: .semibold))
                     .appTracking(0.18, at: 9)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appInk3)
@@ -1076,29 +1076,29 @@ struct SessionView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("End \(end.endNumber)")
-                    .font(.bpDisplay(15, italic: true, weight: .medium))
+                    .font(.bpDisplay(21, italic: true, weight: .medium))
                     .foregroundStyle(Color.appInk)
                 Text("· \(arrows.count) ARROW\(arrows.count == 1 ? "" : "S")")
-                    .font(.bpUI(9, weight: .semibold))
+                    .font(.bpUI(11, weight: .semibold))
                     .appTracking(0.18, at: 9)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appInk3)
                 Spacer(minLength: 8)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(total)")
-                        .font(.bpDisplay(16, italic: true, weight: .medium))
+                        .font(.bpDisplay(22, italic: true, weight: .medium))
                         .foregroundStyle(Color.appPondDk)
                     Text("TOT")
-                        .font(.bpUI(8.5, weight: .semibold))
+                        .font(.bpUI(10.5, weight: .semibold))
                         .appTracking(0.12, at: 8.5)
                         .textCase(.uppercase)
                         .foregroundStyle(Color.appInk3)
                     Text(String(format: "%.1f", avg))
-                        .font(.bpDisplay(16, italic: true, weight: .medium))
+                        .font(.bpDisplay(22, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                         .padding(.leading, 6)
                     Text("AVG")
-                        .font(.bpUI(8.5, weight: .semibold))
+                        .font(.bpUI(10.5, weight: .semibold))
                         .appTracking(0.12, at: 8.5)
                         .textCase(.uppercase)
                         .foregroundStyle(Color.appInk3)
@@ -1117,7 +1117,7 @@ struct SessionView: View {
                         if !isReadOnly { editingArrowId = arrow.id }
                     } label: {
                         Text(isX ? "X" : "\(arrow.ring)")
-                            .font(.bpDisplay(13, italic: true, weight: .medium))
+                            .font(.bpDisplay(14, italic: true, weight: .medium))
                             .foregroundStyle(isX ? Color.appPine : Color.appInk)
                             .frame(maxWidth: .infinity, minHeight: 22)
                             .padding(.horizontal, 4)
@@ -1130,7 +1130,7 @@ struct SessionView: View {
             }
             if let notes = end.notes, !notes.isEmpty {
                 Text(notes)
-                    .font(.bpDisplay(11, italic: true, weight: .regular))
+                    .font(.bpDisplay(14, italic: true, weight: .regular))
                     .foregroundStyle(Color.appInk2)
             }
         }
@@ -1149,10 +1149,10 @@ struct SessionView: View {
         } label: {
             VStack(spacing: 4) {
                 Text("\u{2713} Finish") // ✓
-                    .font(.bpDisplay(13.5, italic: true, weight: .medium))
+                    .font(.bpDisplay(14, italic: true, weight: .medium))
                     .foregroundStyle(Color.appPaper)
                 Text("SAVE · SYNC · LOG")
-                    .font(.bpUI(10, weight: .semibold))
+                    .font(.bpUI(11.5, weight: .semibold))
                     .appTracking(0.18, at: 10)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appPaper.opacity(0.72))
@@ -1179,11 +1179,11 @@ struct SessionView: View {
             } label: {
                 HStack(spacing: 2) {
                     Text("DISCARD")
-                        .font(.bpUI(9.5, weight: .semibold))
+                        .font(.bpUI(11.5, weight: .semibold))
                         .appTracking(0.20, at: 9.5)
                         .textCase(.uppercase)
                     Text("\u{203A}")
-                        .font(.bpDisplay(11, italic: true, weight: .medium))
+                        .font(.bpDisplay(14, italic: true, weight: .medium))
                 }
                 .foregroundStyle(Color.appInk3)
             }
@@ -1193,7 +1193,7 @@ struct SessionView: View {
             Spacer()
 
             Text(autosaveLine)
-                .font(.bpDisplay(11, italic: true, weight: .regular))
+                .font(.bpDisplay(14, italic: true, weight: .regular))
                 .foregroundStyle(Color.appInk3)
 
             Spacer()
@@ -1339,7 +1339,7 @@ private struct SwipeableRow<Content: View>: View {
                     Image(systemName: "trash")
                         .font(.system(size: 15, weight: .semibold))
                     Text("DELETE")
-                        .font(.bpUI(10, weight: .semibold))
+                        .font(.bpUI(11.5, weight: .semibold))
                         .appTracking(0.18, at: 10)
                 }
                 .foregroundStyle(Color.appPaper)
@@ -1403,20 +1403,20 @@ private struct ArrowEditSheet: View {
                 VStack(alignment: .leading, spacing: 0) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("ARROW #\(arrowNumber)")
-                            .font(.bpUI(9, weight: .semibold))
+                            .font(.bpUI(11, weight: .semibold))
                             .appTracking(0.22, at: 9)
                             .textCase(.uppercase)
                             .foregroundStyle(Color.appInk3)
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text("Currently scored")
-                                .font(.bpDisplay(15, italic: true, weight: .regular))
+                                .font(.bpDisplay(21, italic: true, weight: .regular))
                                 .foregroundStyle(Color.appInk2)
                             Text(label(for: arrow.ring))
-                                .font(.bpDisplay(22, italic: true, weight: .medium))
+                                .font(.bpDisplay(32, italic: true, weight: .medium))
                                 .foregroundStyle(arrow.ring == 11 ? Color.appPine : Color.appInk)
                         }
                         Text("Tap a new position on the target to re-plot.")
-                            .font(.bpDisplay(11, italic: true, weight: .regular))
+                            .font(.bpDisplay(14, italic: true, weight: .regular))
                             .foregroundStyle(Color.appInk3)
                     }
                     .padding(.horizontal, 16)
@@ -1491,7 +1491,7 @@ private struct SessionNotesSheet: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
                 TextEditor(text: $notes)
-                    .font(.bpDisplay(15, italic: true, weight: .regular))
+                    .font(.bpDisplay(21, italic: true, weight: .regular))
                     .padding(12)
                 Spacer()
             }

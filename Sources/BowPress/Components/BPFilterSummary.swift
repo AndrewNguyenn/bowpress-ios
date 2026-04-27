@@ -11,11 +11,11 @@ struct BPFilterSummary: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(summary)
-                    .font(.bpDisplay(14, italic: true, weight: .medium))
+                    .font(.bpDisplay(20, italic: true, weight: .medium))
                     .foregroundStyle(Color.appInk)
                     .lineLimit(2)
                 Text(subtitle)
-                    .font(.bpUI(10))
+                    .font(.bpUI(14))
                     // 0.04em at 10pt
                     .tracking(10 * 0.04)
                     .foregroundStyle(Color.appInk3)

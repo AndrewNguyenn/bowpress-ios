@@ -127,7 +127,7 @@ struct HistoricalSessionsView: View {
             NavigationStack {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Filters")
-                        .font(.bpDisplay(22, italic: true, weight: .medium))
+                        .font(.bpDisplay(32, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                         .padding()
                     Spacer()
@@ -156,12 +156,12 @@ struct HistoricalSessionsView: View {
                 // Left: eyebrow + title
                 VStack(alignment: .leading, spacing: 4) {
                     Text("BOWPRESS")
-                        .font(.bpUI(10.5, weight: .semibold))
+                        .font(.bpUI(11.5, weight: .semibold))
                         .tracking(10.5 * 0.32)
                         .textCase(.uppercase)
                         .foregroundStyle(Color.appPondDk)
                     Text("Session log")
-                        .font(.bpDisplay(30, italic: true, weight: .medium))
+                        .font(.bpDisplay(42, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                 }
                 Spacer(minLength: 8)
@@ -170,7 +170,7 @@ struct HistoricalSessionsView: View {
                     monoCountLine(bold: "\(sessions.count)", rest: " sessions")
                     monoCountLine(bold: "\(totalArrows)", rest: " arrows")
                     Text("since \(sinceDateString)")
-                        .font(.bpMono(10))
+                        .font(.bpMono(12))
                         .foregroundStyle(Color.appInk3)
                 }
             }
@@ -187,10 +187,10 @@ struct HistoricalSessionsView: View {
 
     private func monoCountLine(bold: String, rest: String) -> some View {
         (Text(bold)
-            .font(.bpMono(10, weight: .medium))
+            .font(.bpMono(12, weight: .medium))
             .foregroundStyle(Color.appInk)
         + Text(rest)
-            .font(.bpMono(10))
+            .font(.bpMono(12))
             .foregroundStyle(Color.appInk3))
     }
 
@@ -239,13 +239,13 @@ struct HistoricalSessionsView: View {
             // Group title row
             HStack(alignment: .center) {
                 Text(group.header)
-                    .font(.bpUI(9.5, weight: .semibold))
+                    .font(.bpUI(11.5, weight: .semibold))
                     .tracking(9.5 * 0.24)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appInk3)
                 Spacer()
                 Text(rangeLabel)
-                    .font(.bpMono(10))
+                    .font(.bpMono(12))
                     .tracking(10 * 0.04)
                     .foregroundStyle(Color.appInk3)
             }
@@ -330,10 +330,10 @@ struct HistoricalSessionsView: View {
                 // Title row
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(monthLabel)
-                        .font(.bpDisplay(14, italic: true, weight: .medium))
+                        .font(.bpDisplay(20, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                     Text("· \(monthCount) sessions · avg \(String(format: "%.1f", monthAvg))")
-                        .font(.bpMono(10.5))
+                        .font(.bpMono(12))
                         .tracking(10.5 * 0.06)
                         .foregroundStyle(Color.appInk3)
                 }
@@ -341,11 +341,11 @@ struct HistoricalSessionsView: View {
                 // Sub row: range days / shot days
                 HStack {
                     Text("range days")
-                        .font(.bpUI(10.5))
+                        .font(.bpUI(14))
                         .foregroundStyle(Color.appInk2)
                     Spacer()
                     Text("shot days")
-                        .font(.bpUI(10.5))
+                        .font(.bpUI(14))
                         .foregroundStyle(Color.appInk2)
                 }
 
@@ -393,7 +393,7 @@ struct HistoricalSessionsView: View {
                 .fill(color)
                 .frame(width: 9, height: 9)
             Text(label)
-                .font(.bpUI(9))
+                .font(.bpUI(14))
                 .tracking(9 * 0.04)
                 .foregroundStyle(Color.appInk3)
         }
@@ -428,7 +428,7 @@ struct HistoricalSessionsView: View {
         VStack(spacing: 16) {
             Spacer()
             Text("No sessions yet")
-                .font(.bpDisplay(22, italic: true, weight: .medium))
+                .font(.bpDisplay(32, italic: true, weight: .medium))
                 .foregroundStyle(Color.appInk)
             Text("Log a session to see your history here.")
                 .font(.bpUI(14))
@@ -628,10 +628,10 @@ private struct SessionLogRow: View {
             // Col 1: Day tile (38pt wide)
             VStack(alignment: .center, spacing: 3) {
                 Text(dayNumber)
-                    .font(.bpDisplay(22, italic: true, weight: .medium))
+                    .font(.bpDisplay(32, italic: true, weight: .medium))
                     .foregroundStyle(isBest ? Color.appPine : Color.appPondDk)
                 Text(weekdayAbbr)
-                    .font(.bpUI(8.5, weight: .semibold))
+                    .font(.bpUI(10.5, weight: .semibold))
                     .tracking(8.5 * 0.18)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appInk3)
@@ -644,10 +644,10 @@ private struct SessionLogRow: View {
                 // Title + best stamp
                 HStack(alignment: .firstTextBaseline, spacing: 0) {
                     Text(sessionTitle)
-                        .font(.bpDisplay(15, italic: true, weight: .medium))
+                        .font(.bpDisplay(21, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                     Text(" \(distanceTag)")
-                        .font(.bpMono(10))
+                        .font(.bpMono(12))
                         .tracking(10 * 0.04)
                         .foregroundStyle(Color.appInk3)
                     if isBest {
@@ -666,7 +666,7 @@ private struct SessionLogRow: View {
                 // Note excerpt
                 if let note = noteExcerpt {
                     Text(note)
-                        .font(.bpDisplay(11.5, italic: true, weight: .regular))
+                        .font(.bpDisplay(14, italic: true, weight: .regular))
                         .foregroundStyle(Color.appInk2)
                         .lineLimit(2)
                 }
@@ -674,7 +674,7 @@ private struct SessionLogRow: View {
 
             // Col 3: Right rail
             VStack(alignment: .trailing, spacing: 4) {
-                BPBigScore(value: scoreString, size: 22, unit: "/\(maxScore)")
+                BPBigScore(value: scoreString, size: 32, unit: "/\(maxScore)")
                 if !arrows.isEmpty {
                     Text("\(xCount)X")
                         .font(.bpMono(11, weight: .medium))
@@ -687,7 +687,7 @@ private struct SessionLogRow: View {
                     BPDelta(value: deltaVsPrev)
                 }
                 Text("\u{203A}")
-                    .font(.bpDisplay(14, italic: true, weight: .medium))
+                    .font(.bpDisplay(20, italic: true, weight: .medium))
                     .foregroundStyle(Color.appPond)
             }
             .padding(.top, 2)
@@ -718,7 +718,7 @@ private struct SessionLogRow: View {
     /// point picks up `appMaple` to echo the hero BPBigScore treatment).
     private var metaLineText: Text {
         let bowSuffix = Text(bowNameForSession)
-            .font(.bpMono(10))
+            .font(.bpMono(12))
             .foregroundStyle(Color.appInk3)
             .tracking(10 * 0.04)
         guard !arrows.isEmpty else {
@@ -727,31 +727,31 @@ private struct SessionLogRow: View {
         let avgStr = String(format: "%.1f", avgRing)
         let avgParts = avgStr.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
         let intNumeral = Text(avgParts[0])
-            .font(.bpMono(10, weight: .medium))
+            .font(.bpMono(12, weight: .medium))
             .foregroundStyle(Color.appInk2)
             .tracking(10 * 0.04)
         let decimalPiece: Text = {
             guard avgParts.count == 2 else { return Text("") }
             return Text(".")
-                .font(.bpMono(10, weight: .medium))
+                .font(.bpMono(12, weight: .medium))
                 .foregroundStyle(Color.appMaple)
                 + Text(avgParts[1])
-                    .font(.bpMono(10, weight: .medium))
+                    .font(.bpMono(12, weight: .medium))
                     .foregroundStyle(Color.appInk2)
                     .tracking(10 * 0.04)
         }()
         return intNumeral
             + decimalPiece
             + Text(" avg · ")
-                .font(.bpMono(10))
+                .font(.bpMono(12))
                 .foregroundStyle(Color.appInk3)
                 .tracking(10 * 0.04)
             + Text("\(xPct)%")
-                .font(.bpMono(10, weight: .medium))
+                .font(.bpMono(12, weight: .medium))
                 .foregroundStyle(Color.appInk2)
                 .tracking(10 * 0.04)
             + Text(" X · ")
-                .font(.bpMono(10))
+                .font(.bpMono(12))
                 .foregroundStyle(Color.appInk3)
                 .tracking(10 * 0.04)
             + bowSuffix
@@ -765,7 +765,7 @@ private struct SessionLogRow: View {
         let delta = previousAvg.map { avgRing - $0 } ?? 0
         let text = delta > 0 ? "best · +\(String(format: "%.1f", delta))" : "best"
         return Text(text)
-            .font(.bpMono(10))
+            .font(.bpMono(12))
             .tracking(10 * 0.04)
             .foregroundStyle(Color.appPine)
             .padding(.horizontal, 5)
@@ -1029,7 +1029,7 @@ struct SessionDetailSheet: View {
                         .listRowSeparator(.hidden)
                     } header: {
                         Text(selectedEnd == nil ? "Shot distribution" : "End \(selectedEnd!.endNumber)")
-                            .font(.bpDisplay(16, italic: true, weight: .medium))
+                            .font(.bpDisplay(22, italic: true, weight: .medium))
                             .foregroundStyle(Color.appInk)
                             .textCase(nil)
                     }
@@ -1423,7 +1423,7 @@ private struct StatChip: View {
 
     var body: some View {
         Text(label.uppercased())
-            .font(.bpUI(9, weight: .semibold))
+            .font(.bpUI(11, weight: .semibold))
             .tracking(9 * 0.18)
             .foregroundStyle(Color.appPondDk)
             .padding(.horizontal, 8)
@@ -1452,7 +1452,7 @@ private struct PrecisionScatterView: View {
     var body: some View {
         VStack(spacing: 6) {
             Text("X \u{00B7} 10 RING DETAIL")
-                .font(.bpUI(9, weight: .semibold))
+                .font(.bpUI(11, weight: .semibold))
                 .tracking(9 * 0.22)
                 .foregroundStyle(Color.appInk3)
 

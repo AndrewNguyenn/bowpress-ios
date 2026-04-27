@@ -9,7 +9,7 @@ struct BPBigScore: View {
     let size: CGFloat
     let unit: String?
 
-    init(value: String, size: CGFloat = 56, unit: String? = nil) {
+    init(value: String, size: CGFloat = 72, unit: String? = nil) {
         self.value = value
         self.size = size
         self.unit = unit
@@ -34,8 +34,8 @@ struct BPBigScore: View {
             }
             if let unit, !unit.isEmpty {
                 Text(unit)
-                    .font(.bpUI(max(10, size * 0.2), weight: .semibold))
-                    .tracking(max(10, size * 0.2) * 0.12)
+                    .font(.bpUI(max(11, size * 0.2), weight: .semibold))
+                    .tracking(max(11, size * 0.2) * 0.12)
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appInk3)
                     .padding(.leading, 4)
@@ -54,8 +54,8 @@ struct BPBigScore: View {
         Color.appPaper.ignoresSafeArea()
         VStack(alignment: .leading, spacing: 20) {
             BPBigScore(value: "10.4")
-            BPBigScore(value: "287", size: 48, unit: "pts")
-            BPBigScore(value: "9.8", size: 40)
+            BPBigScore(value: "287", size: 64, unit: "pts")
+            BPBigScore(value: "9.8", size: 56)
         }
         .padding()
     }

@@ -130,7 +130,7 @@ struct ConfigurationView: View {
         } else if appState.bows.isEmpty {
             BPCard(padding: 0) {
                 Text("No bows yet")
-                    .font(.bpUI(13))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk3)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 16)
@@ -190,7 +190,7 @@ struct ConfigurationView: View {
         } else if appState.arrowConfigs.isEmpty {
             BPCard(padding: 0) {
                 Text("No arrow setups yet")
-                    .font(.bpUI(13))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk3)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 16)
@@ -263,18 +263,18 @@ private struct BowRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(bow.name)
-                        .font(.bpDisplay(15, italic: true, weight: .medium))
+                        .font(.bpDisplay(21, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                         .lineLimit(1)
                 }
                 Text(specLine)
-                    .font(.bpMono(10))
+                    .font(.bpMono(12))
                     .tracking(10 * 0.04)
                     .foregroundStyle(Color.appInk3)
             }
             Spacer(minLength: 8)
             Text("\u{203A}")
-                .font(.bpDisplay(18, italic: true, weight: .medium))
+                .font(.bpDisplay(26, italic: true, weight: .medium))
                 .foregroundStyle(Color.appPond)
         }
         .padding(.horizontal, 14)
@@ -307,19 +307,19 @@ private struct ArrowRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(arrow.label)
-                        .font(.bpDisplay(15, italic: true, weight: .medium))
+                        .font(.bpDisplay(21, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                         .lineLimit(1)
                     BPStamp("ACTIVE", tone: .pond)
                 }
                 Text(specLine)
-                    .font(.bpMono(10))
+                    .font(.bpMono(12))
                     .tracking(10 * 0.04)
                     .foregroundStyle(Color.appInk3)
             }
             Spacer(minLength: 8)
             Text("\u{203A}")
-                .font(.bpDisplay(18, italic: true, weight: .medium))
+                .font(.bpDisplay(26, italic: true, weight: .medium))
                 .foregroundStyle(Color.appPond)
         }
         .padding(.horizontal, 14)

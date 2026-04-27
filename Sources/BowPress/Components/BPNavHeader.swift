@@ -20,20 +20,20 @@ struct BPNavHeader<Meta: View>: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if let eyebrow {
                         Text(eyebrow)
-                            .font(.bpUI(10.5, weight: .semibold))
+                            .font(.bpUI(11.5, weight: .semibold))
                             // 0.32em at 10.5pt
                             .tracking(10.5 * 0.32)
                             .textCase(.uppercase)
                             .foregroundStyle(Color.appPondDk)
                     }
                     Text(title)
-                        .font(.bpDisplay(28, italic: true, weight: .medium))
+                        .font(.bpDisplay(40, italic: true, weight: .medium))
                         .foregroundStyle(Color.appInk)
                         .lineLimit(2)
                 }
                 Spacer(minLength: 8)
                 meta
-                    .font(.bpMono(10))
+                    .font(.bpMono(12))
                     .foregroundStyle(Color.appInk3)
             }
             .padding(.horizontal, 16)

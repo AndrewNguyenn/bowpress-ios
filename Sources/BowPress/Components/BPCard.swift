@@ -28,12 +28,12 @@ struct BPCard<Content: View>: View {
         VStack(spacing: 16) {
             BPCard {
                 Text("Default card — paper bg, 1px hairline")
-                    .font(.bpUI(13))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk2)
             }
             BPCard(inset: true) {
                 Text("Inset card — paper2 bg")
-                    .font(.bpUI(13))
+                    .font(.bpUI(14))
                     .foregroundStyle(Color.appInk2)
             }
         }

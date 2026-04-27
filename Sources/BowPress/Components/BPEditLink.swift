@@ -20,7 +20,7 @@ struct BPEditLink: View {
                     .tracking(11 * 0.18)
                     .textCase(.uppercase)
                 Text("\u{203A}") // ›
-                    .font(.bpDisplay(11, italic: true, weight: .medium))
+                    .font(.bpDisplay(14, italic: true, weight: .medium))
             }
             .foregroundStyle(Color.appPondDk)
         }

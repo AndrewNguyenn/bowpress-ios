@@ -14,12 +14,12 @@ struct BPSectionTitle: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.bpDisplay(16, italic: true, weight: .medium))
+                .font(.bpDisplay(22, italic: true, weight: .medium))
                 .foregroundStyle(Color.appInk)
             Spacer(minLength: 8)
             if let aside {
                 Text(aside)
-                    .font(.bpUI(9.5, weight: .semibold))
+                    .font(.bpUI(11.5, weight: .semibold))
                     // 0.20em at 9.5pt
                     .tracking(9.5 * 0.20)
                     .textCase(.uppercase)
