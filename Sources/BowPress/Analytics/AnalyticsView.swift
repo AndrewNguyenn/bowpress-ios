@@ -601,7 +601,13 @@ struct AnalyticsView: View {
             } else {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(findings) { finding in
-                        TrendLedgerRow(finding: finding)
+                        NavigationLink {
+                            TrendFindingDetailView(finding: finding)
+                        } label: {
+                            TrendLedgerRow(finding: finding)
+                        }
+                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
                         if finding.id != findings.last?.id {
                             Rectangle().fill(Color.appLine2).frame(height: 1)
                         }
