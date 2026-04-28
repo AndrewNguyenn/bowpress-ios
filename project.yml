@@ -92,8 +92,8 @@ targets:
       base:
         SWIFT_VERSION: "5.9"
         PRODUCT_BUNDLE_IDENTIFIER: com.andrewnguyen.bowpress
-        MARKETING_VERSION: "1.2.1"
-        CURRENT_PROJECT_VERSION: "24"
+        MARKETING_VERSION: "1.2.2"
+        CURRENT_PROJECT_VERSION: "27"
         INFOPLIST_FILE: SupportingFiles/Info.plist
         CODE_SIGN_ENTITLEMENTS: SupportingFiles/BowPress.entitlements
         STORE_KIT_CONFIGURATION_FILE_PATH: Sources/BowPress/Subscriptions/Products.storekit
