@@ -1,13 +1,1 @@
-BowPress 1.1.0 — full visual redesign.
-
-A quieter, more focused app. Paper and ink surfaces, serif display numerals, a single maple-leaf red kept strictly for alerts. Real World Archery target colors on the session face; a quiet pond-gradient target on the Analytics impact map.
-
-• New Analytics tab: hero score with a maple-dot decimal, X-rate and group-size stats side by side, a prev → now compare strip, score timeline with date ticks, an impact map that shows where your group has shifted, a ranked trend-analysis ledger, a parameter-drift table, and suggestions with inline "current → suggested" summaries and status stamps.
-
-• Session tab redesigned around a bow wireframe mark, segmented distance, two target faces (10-ring / 6-ring), and an optional one-line intention note. Active session: pulsing In-Session indicator, elapsed timer, recent arrows strip, running totals, liquid-glass scrub slider on the detail view.
-
-• Session log is a proper ledger now — per-arrow bars under each session, BEST stamps on top-of-week sessions, month rollup heatmap, real session titles.
-
-• New launch animation and app icon.
-
-• Backend: new analytics endpoints behind the Analytics tab (timeline / drift / trends), richer LLM-synthesized suggestion text.
+Fixes a scroll bug in the session log where ends with many arrows blocked vertical scrolling, and wraps long ends across multiple lines.
