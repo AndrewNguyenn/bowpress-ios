@@ -1329,6 +1329,9 @@ private struct SwipeableRow<Content: View>: View {
 
     @State private var offset: CGFloat = 0
     @State private var revealed: Bool = false
+    @State private var dragAxis: DragAxis? = nil
+
+    private enum DragAxis { case horizontal, vertical }
 
     private let revealWidth: CGFloat = 92
     private let threshold: CGFloat = 50
@@ -1360,13 +1363,20 @@ private struct SwipeableRow<Content: View>: View {
 
             content()
                 .offset(x: offset)
-                .gesture(
+                .simultaneousGesture(
                     DragGesture(minimumDistance: 10)
                         .onChanged { value in
+                            if dragAxis == nil {
+                                dragAxis = abs(value.translation.width) > abs(value.translation.height)
+                                    ? .horizontal : .vertical
+                            }
+                            guard dragAxis == .horizontal else { return }
                             let base: CGFloat = revealed ? -revealWidth : 0
                             offset = min(0, max(base + value.translation.width, -(revealWidth + 30)))
                         }
                         .onEnded { value in
+                            defer { dragAxis = nil }
+                            guard dragAxis == .horizontal else { return }
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                                 if revealed {
                                     if value.translation.width > threshold { reset() }
@@ -1553,23 +1563,24 @@ struct EndRow: View {
                 Text(String(format: "Total %d  ·  Avg %.1f", total, average))
                     .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    ForEach(arrows) { arrow in
-                        if let onToggleFlier {
-                            Button {
-                                onToggleFlier(arrow.id)
-                            } label: {
-                                RingBadge(ring: arrow.ring, excluded: arrow.excluded)
-                            }
-                            .buttonStyle(.plain)
-                        } else {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 28), spacing: 4, alignment: .center)],
+                alignment: .leading,
+                spacing: 4
+            ) {
+                ForEach(arrows) { arrow in
+                    if let onToggleFlier {
+                        Button {
+                            onToggleFlier(arrow.id)
+                        } label: {
                             RingBadge(ring: arrow.ring, excluded: arrow.excluded)
                         }
+                        .buttonStyle(.plain)
+                    } else {
+                        RingBadge(ring: arrow.ring, excluded: arrow.excluded)
                     }
                 }
             }
-            .frame(height: 28)
             if isCurrent && onToggleFlier != nil {
                 Text("Tap an arrow to flag it as a flier (excluded from analytics).")
                     .font(.system(size: 10))

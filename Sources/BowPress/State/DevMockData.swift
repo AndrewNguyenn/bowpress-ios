@@ -467,16 +467,18 @@ enum DevMockData {
         rings: [Int], zones: [ArrowPlot.Zone],
         plotX: [Double] = [], plotY: [Double] = []
     ) -> [ArrowPlot] {
-        (0..<count).map { i in
-            ArrowPlot(
+        (0..<count).map { (i: Int) -> ArrowPlot in
+            let x: Double? = i < plotX.count ? plotX[i] : nil
+            let y: Double? = i < plotY.count ? plotY[i] : nil
+            return ArrowPlot(
                 id: "\(sessionId)_p\(i + 1)",
                 sessionId: sessionId,
                 bowConfigId: bowConfigId,
                 arrowConfigId: arrowConfigId,
                 ring: rings[i % rings.count],
                 zone: zones[i % zones.count],
-                plotX: i < plotX.count ? plotX[i] : nil,
-                plotY: i < plotY.count ? plotY[i] : nil,
+                plotX: x,
+                plotY: y,
                 shotAt: startedAt.addingTimeInterval(Double(i) * 240),
                 excluded: false,
                 notes: nil
