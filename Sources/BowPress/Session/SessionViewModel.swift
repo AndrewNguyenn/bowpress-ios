@@ -331,6 +331,7 @@ import Observation
     func cancelSession() async {
         guard let session = currentSession else { resetState(); return }
         isLoading = true
+        try? store?.deleteSession(id: session.id)
         do {
             try await apiClient.deleteSession(id: session.id)
         } catch {
