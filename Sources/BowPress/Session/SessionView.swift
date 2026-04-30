@@ -29,6 +29,11 @@ struct SessionView: View {
     @State private var selectedDistance: ShootingDistance? = nil
     @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
     @FocusState private var intentionFocused: Bool
+    @FocusState private var nameFocused: Bool
+
+    /// Soft cap on session name length. Mirrors `SessionLogRow`'s 60-char trim
+    /// (`HistoricalSessionsView.swift:619`) so titles never overflow the row.
+    private let sessionNameMaxLength = 60
 
     /// Live clock so the active-session elapsed timer + pulsing dot re-render.
     @State private var now: Date = Date()
@@ -152,6 +157,7 @@ struct SessionView: View {
                 }
 
                 VStack(spacing: 0) {
+                    sessionNameField
                     bowField
                     distanceField
                     targetFaceField
@@ -166,7 +172,10 @@ struct SessionView: View {
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
-                Button("Done") { intentionFocused = false }
+                Button("Done") {
+                    intentionFocused = false
+                    nameFocused = false
+                }
             }
         }
         .onAppear { primeSetupState() }
@@ -431,6 +440,37 @@ struct SessionView: View {
         }
     }
 
+    // MARK: - Session name field
+
+    @ViewBuilder
+    private var sessionNameField: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            fieldLabel("NAME", hint: "optional")
+            TextField("", text: $viewModel.sessionName, prompt:
+                Text("Tournament round, drill, or league night")
+                    .font(.bpDisplay(20, italic: true, weight: .regular))
+                    .foregroundStyle(Color.appInk3)
+            )
+            .font(.bpDisplay(20, italic: true, weight: .medium))
+            .foregroundStyle(Color.appInk)
+            .textInputAutocapitalization(.words)
+            .submitLabel(.done)
+            .focused($nameFocused)
+            .accessibilityIdentifier("session_name_field")
+            .onChange(of: viewModel.sessionName) { _, new in
+                if new.count > sessionNameMaxLength {
+                    viewModel.sessionName = String(new.prefix(sessionNameMaxLength))
+                }
+            }
+            .onSubmit { nameFocused = false }
+        }
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.appLine).frame(height: 1)
+        }
+    }
+
     // MARK: - Intention field
 
     @ViewBuilder
@@ -569,12 +609,14 @@ struct SessionView: View {
                 ?? BowConfiguration.makeDefault(for: bow)
         }
         let freshArrow = appState.arrowConfigs.first(where: { $0.id == arrow.id }) ?? arrow
+        let trimmedName = viewModel.sessionName.trimmingCharacters(in: .whitespacesAndNewlines)
         await viewModel.startSession(
             bow: bow,
             bowConfig: latestConfig,
             arrowConfig: freshArrow,
             targetFaceType: selectedFaceType,
-            distance: selectedDistance
+            distance: selectedDistance,
+            title: trimmedName.isEmpty ? nil : trimmedName
         )
         isStarting = false
     }

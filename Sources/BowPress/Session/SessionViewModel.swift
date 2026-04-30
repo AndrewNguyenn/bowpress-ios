@@ -82,6 +82,10 @@ import Observation
     /// not written to the store or API. Cleared on session start/reset.
     var intentionNote: String = ""
 
+    /// Optional archer-authored title for the upcoming session ("Outdoor Nationals R2",
+    /// "Click drill"). Cleared on session start/reset. Empty == untitled.
+    var sessionName: String = ""
+
     // MARK: - Setup
 
     var selectedBow: Bow?
@@ -104,7 +108,8 @@ import Observation
         arrowConfig: ArrowConfiguration,
         knownConfigs: [BowConfiguration] = [],
         targetFaceType: TargetFaceType? = nil,
-        distance: ShootingDistance? = nil
+        distance: ShootingDistance? = nil,
+        title: String? = nil
     ) async {
         isLoading = true
         error = nil
@@ -120,7 +125,8 @@ import Observation
             feelTags: [],
             arrowCount: 0,
             targetFaceType: resolvedFaceType,
-            distance: distance
+            distance: distance,
+            title: title
         )
         // Persist locally first — session exists even if server is unreachable
         try? store?.save(session: session)
@@ -353,6 +359,7 @@ import Observation
         endArrowCounts = []
         sessionNotes = ""
         intentionNote = ""
+        sessionName = ""
         selectedBow = nil
         isLoading = false
     }
