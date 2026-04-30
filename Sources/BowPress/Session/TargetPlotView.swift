@@ -233,10 +233,11 @@ struct TargetPlotView: View {
             .gesture(isEnabled ? combinedGesture(center: center, radius: radius,
                                                  arrowDotSize: arrowDotSize,
                                                  panLimit: panLimit) : nil)
-            // Clip to the inscribed circle so the transparent square corners
-            // (and any stray off-target rendering at high zoom) can never expose
-            // the page background through the visible target footprint.
-            .clipShape(Circle())
+            // Clip to the square frame so a zoomed-and-scaled target cannot
+            // render outside the section. Preserves the natural
+            // circle-in-square look at 1×; at higher zoom the scaled content
+            // is contained within the original square footprint.
+            .clipped()
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityIdentifier("target_plot_canvas")
