@@ -126,6 +126,10 @@ struct TargetGeometry {
 struct TargetPlotView: View {
     var arrows: [ArrowPlot]
     var onArrowPlotted: (Int, ArrowPlot.Zone, Double, Double) -> Void
+    /// Fired when the target transitions between unzoomed (1×) and zoomed
+    /// states. Lets the parent fade out informational overlays that would
+    /// otherwise sit underneath the magnified target.
+    var onZoomChanged: ((Bool) -> Void)? = nil
     var isEnabled: Bool = true
     var arrowDiameterMm: Double = 5.0
     var faceType: TargetFaceType = .sixRing
@@ -245,6 +249,9 @@ struct TargetPlotView: View {
         .aspectRatio(1, contentMode: .fit)
         .accessibilityIdentifier("target_plot_canvas")
         .accessibilityLabel("Target face, \(faceType.label). Zoom \(Int(currentZoom * 100)) percent.")
+        .onChange(of: isZoomed) { _, newValue in
+            onZoomChanged?(newValue)
+        }
     }
 
     // MARK: - Gesture composition
@@ -255,7 +262,7 @@ struct TargetPlotView: View {
             .updating($liveMagnification) { value, state, _ in state = value }
             .onChanged { _ in markPinchInProgress() }
             .onEnded { value in
-                let newZoom = min(max(committedZoom * value, 1.0), 3.0)
+                let newZoom = min(max(committedZoom * value, 1.0), 8.0)
                 if newZoom <= 1.01 {
                     committedZoom = 1.0
                     committedPan = .zero
