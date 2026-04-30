@@ -1141,21 +1141,6 @@ struct SessionView: View {
         let totalXCount = arrowsByEnd.reduce(0) { $0 + $1.filter { $0.ring == 11 }.count }
 
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("ENDS")
-                    .font(.bpUI(11, weight: .semibold))
-                    .appTracking(0.22, at: 9)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Color.appInk3)
-                Spacer(minLength: 8)
-                Text("\(viewModel.completedEnds.count) FINISHED")
-                    .font(.bpUI(11, weight: .semibold))
-                    .appTracking(0.18, at: 9)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Color.appInk3)
-            }
-            .padding(.bottom, 6)
-
             ScoreCardHeader()
 
             ForEach(Array(viewModel.completedEnds.enumerated()), id: \.element.id) { idx, end in
