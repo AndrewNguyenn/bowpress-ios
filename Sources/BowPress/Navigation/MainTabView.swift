@@ -80,6 +80,12 @@ struct MainTabView: View {
             }
             sessionViewModel.onSessionCompleted = { completed in
                 appState.completedSessions.insert(completed, at: 0)
+                // Land on the Log tab so the just-finished session is visible
+                // at the top of the list. Discarded sessions don't fire this
+                // callback, so they correctly stay on the Session tab.
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    selectedTab = 1
+                }
             }
             syncService.configure(store: store)
             syncService.triggerSync()
