@@ -1177,29 +1177,54 @@ struct SessionDetailSheet: View {
 
                 // Per-end breakdown (tap to filter heatmap)
                 if !endsWithArrows.isEmpty {
+                    let endTotals: [Int] = endsWithArrows.map { pair in
+                        pair.arrows.reduce(0) { $0 + min($1.ring, 10) }
+                    }
+                    let runningTotals: [Int] = endTotals.reduce(into: [Int]()) { acc, t in
+                        acc.append((acc.last ?? 0) + t)
+                    }
                     Section {
-                        ForEach(endsWithArrows, id: \.end.id) { pair in
+                        ScoreCardHeader()
+                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+
+                        ForEach(Array(endsWithArrows.enumerated()), id: \.element.end.id) { idx, pair in
                             let isSelected = selectedEnd?.id == pair.end.id
                             Button {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     selectedEnd = isSelected ? nil : pair.end
                                 }
                             } label: {
-                                HStack {
-                                    EndRow(end: pair.end, arrows: pair.arrows, isCurrent: false)
-                                    Spacer(minLength: 0)
+                                HStack(spacing: 0) {
+                                    ScoreCardRow(
+                                        endNumber: pair.end.endNumber,
+                                        arrows: pair.arrows,
+                                        runningTotal: runningTotals[idx],
+                                        notes: pair.end.notes
+                                    )
                                     if isSelected {
                                         Image(systemName: "target")
                                             .font(.caption)
                                             .foregroundStyle(Color.appAccent)
+                                            .padding(.trailing, 8)
                                     }
                                 }
                             }
                             .buttonStyle(.plain)
                             .listRowBackground(isSelected ? Color.appAccent.opacity(0.08) : Color.clear)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                             .listRowSeparator(.hidden)
                         }
+
+                        ScoreCardFooter(
+                            totalScore: totalScore,
+                            totalArrows: allArrows.count,
+                            totalXCount: xCount
+                        )
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                     } header: {
                         Text("\(endsWithArrows.count) Ends · Tap to inspect")
                             .font(.subheadline.weight(.semibold))

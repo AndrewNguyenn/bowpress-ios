@@ -1122,12 +1122,27 @@ struct SessionView: View {
 
     // MARK: - Ends history
 
-    /// Vertical list of completed ends. Each row shows the end number, total
-    /// score, average, and the per-arrow scores. Hidden when no ends are
-    /// complete yet (handled at the call site).
+    /// Vertical list of completed ends in compact score-card format. Each row
+    /// fits on a single line with arrow chips, end total, X count, and a
+    /// running cumulative total. Tuned so 12 ends fit in a screenshot.
     @ViewBuilder
     private var endsHistory: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let arrowsByEnd: [[ArrowPlot]] = viewModel.completedEnds.indices.map { idx in
+            guard idx < viewModel.endArrowCounts.count else { return [] }
+            let startIdx = viewModel.endArrowCounts.prefix(idx).reduce(0, +)
+            let count = viewModel.endArrowCounts[idx]
+            let safeEnd = min(startIdx + count, viewModel.allArrows.count)
+            return Array(viewModel.allArrows[startIdx..<safeEnd])
+        }
+        let endTotals: [Int] = arrowsByEnd.map { $0.reduce(0) { $0 + min($1.ring, 10) } }
+        let runningTotals: [Int] = endTotals.reduce(into: [Int]()) { acc, t in
+            acc.append((acc.last ?? 0) + t)
+        }
+        let totalArrows = arrowsByEnd.reduce(0) { $0 + $1.count }
+        let totalScore = runningTotals.last ?? 0
+        let totalXCount = arrowsByEnd.reduce(0) { $0 + $1.filter { $0.ring == 11 }.count }
+
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 Text("ENDS")
                     .font(.bpUI(11, weight: .semibold))
@@ -1141,97 +1156,34 @@ struct SessionView: View {
                     .textCase(.uppercase)
                     .foregroundStyle(Color.appInk3)
             }
+            .padding(.bottom, 6)
 
-            VStack(spacing: 8) {
-                ForEach(Array(viewModel.completedEnds.enumerated()), id: \.element.id) { idx, end in
-                    if idx < viewModel.endArrowCounts.count {
-                        let startIdx = viewModel.endArrowCounts.prefix(idx).reduce(0, +)
-                        let count = viewModel.endArrowCounts[idx]
-                        let safeEnd = min(startIdx + count, viewModel.allArrows.count)
-                        let arrows = Array(viewModel.allArrows[startIdx..<safeEnd])
-                        SwipeableRow(onDelete: {
-                            viewModel.deleteEnd(at: idx)
-                        }) {
-                            completedEndRow(end: end, arrows: arrows)
-                        }
+            ScoreCardHeader()
+
+            ForEach(Array(viewModel.completedEnds.enumerated()), id: \.element.id) { idx, end in
+                if idx < arrowsByEnd.count {
+                    SwipeableRow(onDelete: {
+                        viewModel.deleteEnd(at: idx)
+                    }) {
+                        ScoreCardRow(
+                            endNumber: end.endNumber,
+                            arrows: arrowsByEnd[idx],
+                            runningTotal: runningTotals[idx],
+                            notes: end.notes,
+                            onArrowTap: isReadOnly ? nil : { id in editingArrowId = id }
+                        )
                     }
                 }
             }
+
+            ScoreCardFooter(
+                totalScore: totalScore,
+                totalArrows: totalArrows,
+                totalXCount: totalXCount
+            )
         }
         .overlay(Rectangle().fill(Color.appLine).frame(height: 1), alignment: .top)
         .padding(.top, 12)
-    }
-
-    @ViewBuilder
-    private func completedEndRow(end: SessionEnd, arrows: [ArrowPlot]) -> some View {
-        let total = arrows.reduce(0) { $0 + min($1.ring, 10) }
-        let avg = arrows.isEmpty ? 0 : Double(total) / Double(arrows.count)
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text("End \(end.endNumber)")
-                    .font(.bpDisplay(21, italic: true, weight: .medium))
-                    .foregroundStyle(Color.appInk)
-                Text("· \(arrows.count) ARROW\(arrows.count == 1 ? "" : "S")")
-                    .font(.bpUI(11, weight: .semibold))
-                    .appTracking(0.18, at: 9)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Color.appInk3)
-                Spacer(minLength: 8)
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(total)")
-                        .font(.bpDisplay(22, italic: true, weight: .medium))
-                        .foregroundStyle(Color.appPondDk)
-                    Text("TOT")
-                        .font(.bpUI(10.5, weight: .semibold))
-                        .appTracking(0.12, at: 8.5)
-                        .textCase(.uppercase)
-                        .foregroundStyle(Color.appInk3)
-                    Text(String(format: "%.1f", avg))
-                        .font(.bpDisplay(22, italic: true, weight: .medium))
-                        .foregroundStyle(Color.appInk)
-                        .padding(.leading, 6)
-                    Text("AVG")
-                        .font(.bpUI(10.5, weight: .semibold))
-                        .appTracking(0.12, at: 8.5)
-                        .textCase(.uppercase)
-                        .foregroundStyle(Color.appInk3)
-                }
-            }
-            // Adaptive grid so long ends wrap onto multiple rows instead of
-            // either scrolling sideways or widening the card.
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 36), spacing: 6, alignment: .center)],
-                alignment: .leading,
-                spacing: 6
-            ) {
-                ForEach(arrows) { arrow in
-                    let isX = arrow.ring == 11
-                    Button {
-                        if !isReadOnly { editingArrowId = arrow.id }
-                    } label: {
-                        Text(isX ? "X" : "\(arrow.ring)")
-                            .font(.bpDisplay(14, italic: true, weight: .medium))
-                            .foregroundStyle(isX ? Color.appPine : Color.appInk)
-                            .frame(maxWidth: .infinity, minHeight: 22)
-                            .padding(.horizontal, 4)
-                            .background(Color.appPaper)
-                            .overlay(Rectangle().strokeBorder(Color.appLine, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isReadOnly)
-                }
-            }
-            if let notes = end.notes, !notes.isEmpty {
-                Text(notes)
-                    .font(.bpDisplay(14, italic: true, weight: .regular))
-                    .foregroundStyle(Color.appInk2)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
-        .background(Color.appPaper2)
-        .overlay(Rectangle().strokeBorder(Color.appLine, lineWidth: 1))
     }
 
     @ViewBuilder
@@ -1609,78 +1561,6 @@ private struct SessionNotesSheet: View {
     }
 }
 
-// MARK: - End Row (used by HistoricalSessionsView)
-//
-// Kept intact for the historical session viewer, which still renders ends
-// using the pre-Kenrokuen style. When that surface is redesigned this can
-// be folded into the Kenrokuen primitives.
-
-struct EndRow: View {
-    var end: SessionEnd?
-    var endNumber: Int = 0
-    var arrows: [ArrowPlot]
-    var isCurrent: Bool
-    var onToggleFlier: ((String) -> Void)? = nil
-
-    private var displayNumber: Int { end?.endNumber ?? endNumber }
-    private var total: Int { arrows.reduce(0) { $0 + min($1.ring, 10) } }
-    private var average: Double {
-        guard !arrows.isEmpty else { return 0 }
-        return Double(total) / Double(arrows.count)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 6) {
-                Text("End \(displayNumber)")
-                    .font(.caption).fontWeight(.semibold)
-                    .foregroundStyle(isCurrent ? Color.appAccent : .primary)
-                if isCurrent {
-                    Text("IN PROGRESS")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.orange)
-                        .padding(.horizontal, 5).padding(.vertical, 2)
-                        .background(.orange.opacity(0.15))
-                        .clipShape(Capsule())
-                }
-                Spacer()
-                Text(String(format: "Total %d  ·  Avg %.1f", total, average))
-                    .font(.caption).fontWeight(.semibold).foregroundStyle(.secondary)
-            }
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 28), spacing: 4, alignment: .center)],
-                alignment: .leading,
-                spacing: 4
-            ) {
-                ForEach(arrows) { arrow in
-                    if let onToggleFlier {
-                        Button {
-                            onToggleFlier(arrow.id)
-                        } label: {
-                            RingBadge(ring: arrow.ring, excluded: arrow.excluded)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        RingBadge(ring: arrow.ring, excluded: arrow.excluded)
-                    }
-                }
-            }
-            if isCurrent && onToggleFlier != nil {
-                Text("Tap an arrow to flag it as a flier (excluded from analytics).")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-            }
-            if let notes = end?.notes, !notes.isEmpty {
-                Text(notes)
-                    .font(.caption2).foregroundStyle(.secondary)
-                    .padding(.top, 1)
-            }
-        }
-        .padding(.vertical, 6).padding(.horizontal, 10)
-        .background(Color.appSurface)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-    }
-}
 
 // MARK: - Legacy Ring Badge (kept for API continuity if other files use it)
 
