@@ -21,6 +21,9 @@ struct SessionView: View {
     @State private var selectedArrow: ArrowConfiguration? = nil
     @State private var selectedFaceType: TargetFaceType = .tenRing
     @State private var userTouchedFace: Bool = false
+    /// Mirror of `TargetPlotView`'s zoom state. Used to fade out the corner
+    /// overlays so they don't sit underneath the magnified target.
+    @State private var isTargetZoomed: Bool = false
     /// Last picked distance, persisted across launches. `nil` = unset.
     @AppStorage("session.lastDistance") private var lastDistanceRaw: String = ""
     @State private var selectedDistance: ShootingDistance? = nil
@@ -603,9 +606,12 @@ struct SessionView: View {
                     ProgressView().padding(.bottom, 4)
                 }
 
-                finishEndBar
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
+                HStack(spacing: 10) {
+                    undoEndButton
+                    finishEndBar
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
 
                 if !viewModel.completedEnds.isEmpty {
                     endsHistory
@@ -783,7 +789,11 @@ struct SessionView: View {
             }
             crumbOverlay
                 .padding(.top, 4)
+                .opacity(isTargetZoomed ? 0 : 1)
+                .allowsHitTesting(!isTargetZoomed)
             instrOverlay
+                .opacity(isTargetZoomed ? 0 : 1)
+                .allowsHitTesting(!isTargetZoomed)
         }
     }
 
@@ -806,6 +816,11 @@ struct SessionView: View {
                         await viewModel.plotArrow(ring: ring, zone: zone,
                                                   plotX: plotX, plotY: plotY)
                     }
+                }
+            },
+            onZoomChanged: { zoomed in
+                withAnimation(.easeOut(duration: 0.18)) {
+                    isTargetZoomed = zoomed
                 }
             },
             isEnabled: !viewModel.isLoading,
@@ -966,9 +981,6 @@ struct SessionView: View {
     @ViewBuilder
     private var actionsRow: some View {
         HStack(spacing: 10) {
-            actionButton(glyph: "\u{21B6}", label: "UNDO LAST") {
-                viewModel.removeLastArrow()
-            }
             actionButton(glyph: "\u{270E}", label: "ADD NOTE") {
                 showNotesEditor = true
             }
@@ -1000,6 +1012,36 @@ struct SessionView: View {
     }
 
     // MARK: - Finish End
+
+    /// Compact undo button paired with `finishEndBar` so it stays anchored
+    /// directly under the target rather than drifting down as completed ends
+    /// accumulate in the history list.
+    @ViewBuilder
+    private var undoEndButton: some View {
+        let active = !viewModel.currentEndArrows.isEmpty && !viewModel.isLoading
+        Button {
+            guard active else { return }
+            viewModel.removeLastArrow()
+        } label: {
+            VStack(spacing: 4) {
+                Text("\u{21B6}")
+                    .font(.bpDisplay(21, italic: true, weight: .medium))
+                    .foregroundStyle(active ? Color.appInk : Color.appInk3)
+                Text("UNDO")
+                    .font(.bpUI(11.5, weight: .semibold))
+                    .appTracking(0.18, at: 10)
+                    .textCase(.uppercase)
+                    .foregroundStyle(active ? Color.appInk2 : Color.appInk3)
+            }
+            .frame(width: 76)
+            .padding(.vertical, 12)
+            .background(Color.appPaper2)
+            .overlay(Rectangle().strokeBorder(Color.appLine, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(!active)
+        .accessibilityLabel("Undo last arrow")
+    }
 
     /// Mid-session CTA that closes the in-progress end and clears the target so
     /// the next end can begin. Variable end length — the archer decides when an
