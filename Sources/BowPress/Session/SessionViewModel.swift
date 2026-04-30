@@ -209,7 +209,8 @@ import Observation
                 feelTags: [],
                 arrowCount: 0,
                 targetFaceType: currentSession?.targetFaceType ?? TargetFaceType.defaultFor(bow.bowType),
-                distance: currentSession?.distance
+                distance: currentSession?.distance,
+                title: currentSession?.title
             )
             try? store?.save(session: newSession)
             currentSession = newSession
@@ -317,7 +318,8 @@ import Observation
             feelTags: session.feelTags,
             arrowCount: allArrows.count,
             targetFaceType: session.targetFaceType,
-            distance: session.distance
+            distance: session.distance,
+            title: session.title
         )
         onSessionCompleted?(completed)
         // Trigger analytics pipeline immediately — spec: "Every time a session closes".
