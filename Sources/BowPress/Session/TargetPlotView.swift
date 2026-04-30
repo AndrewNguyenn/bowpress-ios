@@ -197,11 +197,17 @@ struct TargetPlotView: View {
                 .animation(.easeOut(duration: 0.15), value: committedZoom)
                 .animation(.easeOut(duration: 0.15), value: committedPan)
 
-                // Drag preview (1x only — at zoom the user can see the exact spot)
-                if let preview = dragPreviewPoint, !isZoomed {
+                // Drag preview ring under the finger so the user can see exactly
+                // where the arrow will land. At 1x it sits 80pt above the finger
+                // (so the thumb doesn't cover it); at zoom it sits at the finger
+                // (no offset needed — the target is large enough to see clearly).
+                // The ring is sized to match the *visible* arrow dot, which is
+                // `arrowDotSize` at 1x and `arrowDotSize * currentZoom` at zoom.
+                if let preview = dragPreviewPoint {
+                    let previewSize = arrowDotSize * currentZoom
                     Circle()
                         .strokeBorder(.white, lineWidth: 1.5)
-                        .frame(width: arrowDotSize, height: arrowDotSize)
+                        .frame(width: previewSize, height: previewSize)
                         .shadow(color: .black.opacity(0.5), radius: 3)
                         .position(preview)
                         .allowsHitTesting(false)
@@ -227,24 +233,10 @@ struct TargetPlotView: View {
             .gesture(isEnabled ? combinedGesture(center: center, radius: radius,
                                                  arrowDotSize: arrowDotSize,
                                                  panLimit: panLimit) : nil)
-            .overlay(alignment: .topTrailing) {
-                if isZoomed {
-                    Button {
-                        withAnimation(.easeOut(duration: 0.2)) {
-                            committedZoom = 1.0
-                            committedPan = .zero
-                        }
-                    } label: {
-                        Image(systemName: "arrow.counterclockwise.circle.fill")
-                            .font(.title3)
-                            .symbolRenderingMode(.palette)
-                            .foregroundStyle(.white, .black.opacity(0.65))
-                    }
-                    .padding(10)
-                    .accessibilityLabel("Reset zoom")
-                    .disabled(!isEnabled)
-                }
-            }
+            // Clip to the inscribed circle so the transparent square corners
+            // (and any stray off-target rendering at high zoom) can never expose
+            // the page background through the visible target footprint.
+            .clipShape(Circle())
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityIdentifier("target_plot_canvas")
@@ -275,15 +267,15 @@ struct TargetPlotView: View {
             }
 
         let drag = DragGesture(minimumDistance: 0)
-            .updating($livePan) { value, state, _ in
-                // Live pan only when zoomed and not mid-pinch.
-                if currentZoom > 1.01 && !pinchInProgress {
-                    state = value.translation
-                }
-            }
             .onChanged { value in
-                if isZoomed || pinchInProgress {
+                if pinchInProgress {
                     dragPreviewPoint = nil
+                } else if isZoomed {
+                    // Show preview at the finger so the user can see exactly
+                    // where the arrow will land — no thumb offset needed at
+                    // zoom because the target is large enough to be visible
+                    // around the finger.
+                    dragPreviewPoint = value.location
                 } else {
                     dragPreviewPoint = CGPoint(x: value.location.x,
                                                y: value.location.y - touchOffset)
@@ -292,26 +284,19 @@ struct TargetPlotView: View {
             .onEnded { value in
                 dragPreviewPoint = nil
                 if pinchInProgress { return }
-                let translationMag = hypot(value.translation.width, value.translation.height)
                 let dotNormRadius = Double(arrowDotSize / 2) / Double(radius)
 
                 if isZoomed {
-                    // At zoom: tap still places (tapping is how you score at zoom);
-                    // a real drag pans the canvas.
-                    if translationMag < tapSlop {
-                        handleTap(at: value.location, center: center, radius: radius,
-                                  arrowNormRadius: dotNormRadius)
-                    } else {
-                        let newPan = CGSize(
-                            width: committedPan.width + value.translation.width,
-                            height: committedPan.height + value.translation.height
-                        )
-                        committedPan = clampPan(newPan, panLimit: panLimit)
-                    }
+                    // At zoom, both tap and drag place at the finger position
+                    // (no offset). Pan-via-drag is intentionally absent — to
+                    // navigate, pinch out and re-pinch in elsewhere.
+                    handleTap(at: value.location, center: center, radius: radius,
+                              arrowNormRadius: dotNormRadius)
                     return
                 }
                 // At 1x: short translation = tap (place directly, no offset);
                 // longer translation = drag (place at finger-80pt preview point).
+                let translationMag = hypot(value.translation.width, value.translation.height)
                 let screenPoint: CGPoint = translationMag < tapSlop
                     ? value.location
                     : CGPoint(x: value.location.x, y: value.location.y - touchOffset)
