@@ -63,7 +63,10 @@ struct ScoreCardRow: View {
 
     @ViewBuilder
     private var arrowChips: some View {
-        HStack(spacing: 2) {
+        // ChipFlowLayout wraps onto additional rows when the chips don't fit
+        // horizontally, so an end with many arrows no longer pushes the
+        // TOT/X/RT columns off the right edge of the screen.
+        ChipFlowLayout(hSpacing: 2, vSpacing: 4) {
             ForEach(arrows) { arrow in
                 let isX = arrow.ring == 11
                 let label = isX ? "X" : "\(arrow.ring)"
@@ -173,5 +176,55 @@ struct ScoreCardFooter: View {
             Rectangle().fill(Color.appLine).frame(height: 1),
             alignment: .top
         )
+    }
+}
+
+// MARK: - Chip Flow Layout
+
+/// Wrapping horizontal layout for the arrow-chip strip. Chips flow onto
+/// additional rows when they don't fit in the available width; otherwise it
+/// behaves like an HStack. Used by ScoreCardRow so an end with many arrows
+/// (e.g. a long indoor end) stays inside the row's bounds instead of pushing
+/// the trailing TOT/X/RT columns off-screen.
+fileprivate struct ChipFlowLayout: Layout {
+    var hSpacing: CGFloat = 2
+    var vSpacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        return arrange(subviews, maxWidth: maxWidth).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let positions = arrange(subviews, maxWidth: bounds.width).positions
+        for (subview, position) in zip(subviews, positions) {
+            subview.place(
+                at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y),
+                anchor: .topLeading,
+                proposal: .unspecified
+            )
+        }
+    }
+
+    private func arrange(_ subviews: Subviews, maxWidth: CGFloat)
+        -> (size: CGSize, positions: [CGPoint]) {
+        var positions: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        var maxRowWidth: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > maxWidth {
+                x = 0
+                y += lineHeight + vSpacing
+                lineHeight = 0
+            }
+            positions.append(CGPoint(x: x, y: y))
+            x += size.width + hSpacing
+            lineHeight = max(lineHeight, size.height)
+            maxRowWidth = max(maxRowWidth, x - hSpacing)
+        }
+        return (CGSize(width: maxRowWidth, height: y + lineHeight), positions)
     }
 }
