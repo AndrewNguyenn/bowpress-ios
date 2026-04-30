@@ -818,17 +818,9 @@ struct SessionView: View {
     @ViewBuilder
     private var targetSection: some View {
         ZStack(alignment: .topLeading) {
-            VStack(spacing: 0) {
-                GeometryReader { proxy in
-                    let size = min(proxy.size.width, 320)
-                    HStack {
-                        Spacer()
-                        targetFaceWithDots(size: size)
-                        Spacer()
-                    }
-                }
-                .frame(height: 320)
-            }
+            // The target spans the section's full available width and is
+            // sized square via TargetPlotView's internal aspectRatio(1).
+            targetFaceWithDots()
             crumbOverlay
                 .padding(.top, 4)
                 .opacity(isTargetZoomed ? 0 : 1)
@@ -840,7 +832,7 @@ struct SessionView: View {
     }
 
     @ViewBuilder
-    private func targetFaceWithDots(size: CGFloat) -> some View {
+    private func targetFaceWithDots() -> some View {
         // Hit-testing is preserved via TargetPlotView. The BPTargetFace
         // overlay is strictly visual and sits behind the TargetPlotView.
         let faceType = viewModel.currentSession?.targetFaceType
@@ -860,6 +852,13 @@ struct SessionView: View {
                     }
                 }
             },
+            onArrowReplotted: { id, ring, zone, plotX, plotY in
+                if isReadOnly { showingPaywall = true }
+                else {
+                    viewModel.replotArrow(id: id, ring: ring, zone: zone,
+                                          plotX: plotX, plotY: plotY)
+                }
+            },
             onZoomChanged: { zoomed in
                 withAnimation(.easeOut(duration: 0.18)) {
                     isTargetZoomed = zoomed
@@ -873,7 +872,6 @@ struct SessionView: View {
             }(),
             faceType: faceType
         )
-        .frame(width: size, height: size)
     }
 
     @ViewBuilder
@@ -1398,10 +1396,12 @@ private struct SwipeableRow<Content: View>: View {
             .buttonStyle(.plain)
 
             content()
-                // Opaque background so the trailing Delete chip stays
-                // hidden behind the row at offset=0 — without this the
-                // score-card columns render with the red Delete bleeding
-                // through the transparent gaps in the row content.
+                // Stretch to the full ZStack height so the opaque background
+                // covers every pixel the trailing Delete chip would otherwise
+                // occupy. Without maxHeight: .infinity here, Delete (which has
+                // its own .frame(maxHeight: .infinity)) renders taller than the
+                // chip row and slivers of red leak above and below the content.
+                .frame(maxHeight: .infinity)
                 .background(Color.appPaper)
                 .offset(x: offset)
                 .simultaneousGesture(

@@ -126,6 +126,10 @@ struct TargetGeometry {
 struct TargetPlotView: View {
     var arrows: [ArrowPlot]
     var onArrowPlotted: (Int, ArrowPlot.Zone, Double, Double) -> Void
+    /// Fired when the user drags an existing arrow to a new position. Lets the
+    /// archer fix a misclick before finishing the end without going through
+    /// the per-arrow edit sheet. Reuses the same scoring math as `onArrowPlotted`.
+    var onArrowReplotted: ((String, Int, ArrowPlot.Zone, Double, Double) -> Void)? = nil
     /// Fired when the target transitions between unzoomed (1×) and zoomed
     /// states. Lets the parent fade out informational overlays that would
     /// otherwise sit underneath the magnified target.
@@ -148,6 +152,12 @@ struct TargetPlotView: View {
     /// Below this translation magnitude the gesture is treated as a tap
     /// (place arrow at the raw tap point with no thumb offset).
     private let tapSlop: CGFloat = 8
+
+    /// Id of the arrow currently being dragged-to-reposition. Set on the first
+    /// drag movement past `tapSlop` if the gesture started on top of an
+    /// existing arrow; cleared on release. While set, the arrow is hidden from
+    /// the rendered list so the drag preview is the only thing the archer sees.
+    @State private var movingArrowId: String? = nil
 
     // Pinch-zoom + pan state. `committed*` persists between gestures;
     // `live*` is @GestureState that auto-resets when the gesture ends.
@@ -186,7 +196,11 @@ struct TargetPlotView: View {
                         .position(center)
 
                     ForEach(Array(arrows.enumerated()), id: \.element.id) { idx, arrow in
-                        if let pos = storedPosition(for: arrow, center: center, radius: radius) {
+                        // Hide the arrow currently being dragged-to-reposition
+                        // so the user only sees the drag preview, not a stale
+                        // dot at the arrow's old location.
+                        if arrow.id != movingArrowId,
+                           let pos = storedPosition(for: arrow, center: center, radius: radius) {
                             ArrowDot(number: idx + 1, ring: arrow.ring, size: arrowDotSize)
                                 .position(pos)
                         }
@@ -271,7 +285,22 @@ struct TargetPlotView: View {
             .onChanged { value in
                 if pinchInProgress {
                     dragPreviewPoint = nil
-                } else if isZoomed {
+                    return
+                }
+                // Once the user has moved more than tapSlop, decide whether
+                // the gesture started on top of an existing arrow. If so, we
+                // enter "moving" mode and the release will replot that arrow
+                // instead of placing a new one.
+                let translationMag = hypot(value.translation.width, value.translation.height)
+                if movingArrowId == nil && translationMag >= tapSlop {
+                    if let hitId = hitTestArrow(at: value.startLocation,
+                                                center: center, radius: radius,
+                                                dotSize: arrowDotSize) {
+                        movingArrowId = hitId
+                    }
+                }
+
+                if isZoomed {
                     // Show preview at the finger so the user can see exactly
                     // where the arrow will land — no thumb offset needed at
                     // zoom because the target is large enough to be visible
@@ -283,7 +312,9 @@ struct TargetPlotView: View {
                 }
             }
             .onEnded { value in
+                let movedId = movingArrowId
                 dragPreviewPoint = nil
+                movingArrowId = nil
                 if pinchInProgress { return }
                 let dotNormRadius = Double(arrowDotSize / 2) / Double(radius)
 
@@ -292,7 +323,7 @@ struct TargetPlotView: View {
                     // (no offset). Pan-via-drag is intentionally absent — to
                     // navigate, pinch out and re-pinch in elsewhere.
                     handleTap(at: value.location, center: center, radius: radius,
-                              arrowNormRadius: dotNormRadius)
+                              arrowNormRadius: dotNormRadius, replotId: movedId)
                     return
                 }
                 // At 1x: short translation = tap (place directly, no offset);
@@ -302,7 +333,7 @@ struct TargetPlotView: View {
                     ? value.location
                     : CGPoint(x: value.location.x, y: value.location.y - touchOffset)
                 handleTap(at: screenPoint, center: center, radius: radius,
-                          arrowNormRadius: dotNormRadius)
+                          arrowNormRadius: dotNormRadius, replotId: movedId)
             }
 
         return SimultaneousGesture(pinch, drag)
@@ -329,10 +360,37 @@ struct TargetPlotView: View {
         )
     }
 
+    // MARK: - Hit Testing
+
+    /// Returns the id of the arrow whose visible (post-zoom) dot is closest to
+    /// `point` and within finger-touch range, or `nil` if the gesture started
+    /// on empty target space. Used to decide between placing a new arrow and
+    /// dragging an existing one.
+    private func hitTestArrow(at point: CGPoint, center: CGPoint, radius: CGFloat,
+                              dotSize: CGFloat) -> String? {
+        // Use the visible (post-zoom) dot radius plus a small finger-touch
+        // buffer so users don't have to be pixel-perfect.
+        let hitRadius = (dotSize * currentZoom) / 2 + 12
+        var best: (id: String, dist: CGFloat)? = nil
+        for arrow in arrows {
+            guard let pos = storedPosition(for: arrow, center: center, radius: radius) else { continue }
+            // storedPosition is in unscaled target coords; convert to screen
+            // space using the same zoom + pan transform applied to the inner
+            // ZStack so the hit area lines up with what the user sees.
+            let screenX = center.x + (pos.x - center.x) * currentZoom + panOffset.width
+            let screenY = center.y + (pos.y - center.y) * currentZoom + panOffset.height
+            let dist = hypot(point.x - screenX, point.y - screenY)
+            if dist <= hitRadius && (best == nil || dist < best!.dist) {
+                best = (arrow.id, dist)
+            }
+        }
+        return best?.id
+    }
+
     // MARK: - Tap Handling
 
     private func handleTap(at point: CGPoint, center: CGPoint, radius: CGFloat,
-                           arrowNormRadius: Double) {
+                           arrowNormRadius: Double, replotId: String? = nil) {
         // Undo the zoom/pan applied to the inner ZStack so we recover the
         // unscaled target-space coordinate of the tap. Screen y is positive-down.
         let dxScreen = point.x - center.x
@@ -364,7 +422,11 @@ struct TargetPlotView: View {
         confirmationPosition = clampedLabelPosition(for: point, in: CGPoint(x: 0, y: 0))
         showConfirmation(near: point)
 
-        onArrowPlotted(ring, zone, normX, normY)
+        if let replotId {
+            onArrowReplotted?(replotId, ring, zone, normX, normY)
+        } else {
+            onArrowPlotted(ring, zone, normX, normY)
+        }
     }
 
     private func showConfirmation(near point: CGPoint) {
