@@ -114,6 +114,10 @@ import Observation
         isLoading = true
         error = nil
         let resolvedFaceType = targetFaceType ?? TargetFaceType.defaultFor(bow.bowType)
+        // The pre-session "intention" seeds the session's notes so it carries
+        // through to the session log row's italic excerpt. The user can keep
+        // editing notes mid-session via the notes sheet.
+        let seededNotes = intentionNote.trimmingCharacters(in: .whitespacesAndNewlines)
         let session = ShootingSession(
             id: UUID().uuidString,
             bowId: bow.id,
@@ -121,7 +125,7 @@ import Observation
             arrowConfigId: arrowConfig.id,
             startedAt: Date(),
             endedAt: nil,
-            notes: "",
+            notes: seededNotes,
             feelTags: [],
             arrowCount: 0,
             targetFaceType: resolvedFaceType,
@@ -140,7 +144,7 @@ import Observation
         allArrows = []
         completedEnds = []
         endArrowCounts = []
-        sessionNotes = ""
+        sessionNotes = seededNotes
         pendingBowConfig = nil
         pendingArrowConfig = nil
         isSessionActive = true
