@@ -287,12 +287,15 @@ struct TargetPlotView: View {
                     dragPreviewPoint = nil
                     return
                 }
-                // Once the user has moved more than tapSlop, decide whether
-                // the gesture started on top of an existing arrow. If so, we
-                // enter "moving" mode and the release will replot that arrow
-                // instead of placing a new one.
+                // On the first sub-pixel of motion, decide whether the gesture
+                // started on top of an existing arrow. If so, enter "moving"
+                // mode and the release will replot that arrow instead of
+                // placing a new one. Triggering on any non-zero translation
+                // (rather than waiting for tapSlop) makes the pickup feel
+                // instant — the original dot vanishes and the preview ring
+                // appears at the finger as soon as the archer starts moving.
                 let translationMag = hypot(value.translation.width, value.translation.height)
-                if movingArrowId == nil && translationMag >= tapSlop {
+                if movingArrowId == nil && translationMag > 0 {
                     if let hitId = hitTestArrow(at: value.startLocation,
                                                 center: center, radius: radius,
                                                 dotSize: arrowDotSize) {
@@ -342,6 +345,10 @@ struct TargetPlotView: View {
     private func markPinchInProgress() {
         pinchCooldownTask?.cancel()
         pinchInProgress = true
+        // If the archer started a pinch from on top of an arrow, the drag
+        // gesture may have already entered moving mode for that arrow's id.
+        // Clear it so the dot doesn't briefly disappear during the pinch.
+        movingArrowId = nil
     }
 
     private func scheduleClearPinchFlag() {
