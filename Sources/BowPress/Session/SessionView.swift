@@ -1398,6 +1398,11 @@ private struct SwipeableRow<Content: View>: View {
             .buttonStyle(.plain)
 
             content()
+                // Opaque background so the trailing Delete chip stays
+                // hidden behind the row at offset=0 — without this the
+                // score-card columns render with the red Delete bleeding
+                // through the transparent gaps in the row content.
+                .background(Color.appPaper)
                 .offset(x: offset)
                 .simultaneousGesture(
                     DragGesture(minimumDistance: 10)
