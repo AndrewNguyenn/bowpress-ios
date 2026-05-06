@@ -40,12 +40,17 @@ final class BackgroundSyncService {
         isSyncing = true
         defer { isSyncing = false }
 
-        // Dependency order: bows → bow-configs → arrow-configs → sessions → plots
+        // Dependency order: bows → bow-configs → arrow-configs → sessions → plots → sight-marks.
+        // Sight marks key on arrow-configs so they go after arrow-configs are
+        // settled — but before plots/sessions in terms of strict dependency
+        // they're independent. Ordering them last keeps the bulk of the
+        // session-flow data going first on a slow connection.
         await syncBows(store: store)
         await syncBowConfigs(store: store)
         await syncArrowConfigs(store: store)
         await syncSessions(store: store)
         await syncPlots(store: store)
+        await syncSightMarks(store: store)
     }
 
     private func syncBows(store: LocalStore) async {
@@ -98,6 +103,19 @@ final class BackgroundSyncService {
             do {
                 _ = try await api.plotArrow(plot)
                 try? store.markPlotSynced(id: plot.id)
+            } catch {}
+        }
+    }
+
+    private func syncSightMarks(store: LocalStore) async {
+        guard let pending = try? store.fetchPendingSightMarks() else { return }
+        // The server upserts on the natural key (user, arrow, distance, unit),
+        // so create vs update is the same wire call. We use createSightMark
+        // and trust the server's response shape.
+        for mark in pending {
+            do {
+                _ = try await api.createSightMark(mark)
+                try? store.markSightMarkSynced(id: mark.id)
             } catch {}
         }
     }

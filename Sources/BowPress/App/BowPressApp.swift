@@ -16,6 +16,7 @@ struct BowPressApp: App {
         let schema = Schema([
             PersistentBow.self, PersistentBowConfig.self, PersistentArrowConfig.self,
             PersistentSession.self, PersistentArrowPlot.self, PersistentEnd.self, PersistentSuggestion.self,
+            PersistentSightMark.self,
         ])
         #if DEBUG
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)

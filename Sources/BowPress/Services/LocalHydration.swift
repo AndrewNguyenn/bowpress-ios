@@ -25,6 +25,11 @@ enum LocalHydration {
         if let arrows = try? await api.fetchArrowConfigs() {
             for arrow in arrows { try? store.save(arrowConfig: arrow) }
         }
+        if let marks = try? await api.fetchSightMarks(arrowId: nil) {
+            for mark in marks {
+                try? store.save(sightMark: mark, markPendingSync: false)
+            }
+        }
         if let sessions = try? await api.fetchSessions() {
             for session in sessions {
                 try? store.save(session: session)

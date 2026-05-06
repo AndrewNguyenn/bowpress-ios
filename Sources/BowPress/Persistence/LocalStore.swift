@@ -6,6 +6,12 @@ import Observation
 final class LocalStore {
     private let context: ModelContext
 
+    /// Bumped on every sight-mark save/delete. Views that want to stay fresh
+    /// across cross-screen mutations (e.g. the in-session chip after the
+    /// archer adds a mark on the Equipment tab) read this in body to
+    /// subscribe; the @Observable wrapper handles the rest.
+    var sightMarksMutationStamp: Date = Date()
+
     init(context: ModelContext) {
         self.context = context
     }
@@ -425,6 +431,82 @@ final class LocalStore {
 
     func markPlotSynced(id: String) throws {
         let predicate = #Predicate<PersistentArrowPlot> { $0.id == id }
+        if let record = try context.fetch(FetchDescriptor(predicate: predicate)).first {
+            record.pendingSync = false
+            try context.save()
+        }
+    }
+
+    // MARK: - SightMarks
+
+    func fetchSightMarks(arrowId: String) throws -> [SightMark] {
+        let predicate = #Predicate<PersistentSightMark> { $0.arrowId == arrowId }
+        let descriptor = FetchDescriptor<PersistentSightMark>(
+            predicate: predicate,
+            sortBy: [SortDescriptor(\.distance)]
+        )
+        return try context.fetch(descriptor).map { $0.toDTO() }
+    }
+
+    func fetchAllSightMarks() throws -> [SightMark] {
+        let descriptor = FetchDescriptor<PersistentSightMark>(
+            sortBy: [SortDescriptor(\.arrowId), SortDescriptor(\.distance)]
+        )
+        return try context.fetch(descriptor).map { $0.toDTO() }
+    }
+
+    /// Save a mark. `markPendingSync` controls whether this write joins the
+    /// retry queue: callers performing a local edit pass `true` (the default);
+    /// `LocalHydration` passes `false` so the server's authoritative state
+    /// doesn't get re-POSTed back at it. Pre-existing local edits with
+    /// `pendingSync == true` are preserved on hydration — the local edit
+    /// wins until `BackgroundSyncService` drains it.
+    func save(sightMark: SightMark, markPendingSync: Bool = true) throws {
+        let id = sightMark.id
+        let predicate = #Predicate<PersistentSightMark> { $0.id == id }
+        let descriptor = FetchDescriptor<PersistentSightMark>(predicate: predicate)
+        if let existing = try context.fetch(descriptor).first {
+            // Hydration must not stomp a local edit that hasn't been drained
+            // yet — that's the silent-data-loss path the reviewer flagged.
+            if !markPendingSync && existing.pendingSync { return }
+            existing.userId = sightMark.userId
+            existing.arrowId = sightMark.arrowId
+            existing.distance = sightMark.distance
+            existing.distanceUnitStr = sightMark.distanceUnit.rawValue
+            existing.mark = sightMark.mark
+            existing.note = sightMark.note
+            existing.isSuggestion = sightMark.isSuggestion
+            existing.createdAt = sightMark.createdAt
+            existing.updatedAt = sightMark.updatedAt
+            if markPendingSync { existing.pendingSync = true }
+        } else {
+            let record = PersistentSightMark.from(sightMark)
+            record.pendingSync = markPendingSync
+            context.insert(record)
+        }
+        try context.save()
+        sightMarksMutationStamp = Date()
+    }
+
+    func deleteSightMark(id: String) throws {
+        let predicate = #Predicate<PersistentSightMark> { $0.id == id }
+        if let existing = try context.fetch(FetchDescriptor<PersistentSightMark>(predicate: predicate)).first {
+            context.delete(existing)
+            try context.save()
+            sightMarksMutationStamp = Date()
+        }
+    }
+
+    func fetchPendingSightMarks() throws -> [SightMark] {
+        let descriptor = FetchDescriptor<PersistentSightMark>(
+            predicate: #Predicate { $0.pendingSync == true },
+            sortBy: [SortDescriptor(\.createdAt)]
+        )
+        return try context.fetch(descriptor).map { $0.toDTO() }
+    }
+
+    func markSightMarkSynced(id: String) throws {
+        let predicate = #Predicate<PersistentSightMark> { $0.id == id }
         if let record = try context.fetch(FetchDescriptor(predicate: predicate)).first {
             record.pendingSync = false
             try context.save()

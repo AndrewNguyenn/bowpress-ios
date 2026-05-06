@@ -37,4 +37,18 @@ final class SyncService {
     func syncEndSession(id: String, notes: String) {
         Task { try? await api.endSession(id: id, notes: notes) }
     }
+
+    func syncSightMark(_ mark: SightMark, isNew: Bool) {
+        Task {
+            if isNew {
+                try? await api.createSightMark(mark)
+            } else {
+                try? await api.updateSightMark(mark)
+            }
+        }
+    }
+
+    func syncDeleteSightMark(id: String) {
+        Task { try? await api.deleteSightMark(id: id) }
+    }
 }

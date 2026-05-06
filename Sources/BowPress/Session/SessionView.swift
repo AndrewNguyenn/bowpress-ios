@@ -640,6 +640,13 @@ struct SessionView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)
 
+                SightMarkChip(
+                    arrow: viewModel.pendingArrowConfig ?? viewModel.activeArrowConfig,
+                    distance: viewModel.currentSession?.distance
+                )
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
+
                 targetSection
                     .padding(.horizontal, 16)
                     .padding(.vertical, 10)

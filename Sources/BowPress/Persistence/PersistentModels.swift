@@ -353,6 +353,77 @@ final class PersistentArrowConfig {
     }
 }
 
+// MARK: - PersistentSightMark
+
+@Model
+final class PersistentSightMark {
+    var id: String
+    var userId: String
+    var arrowId: String
+    var distance: Double
+    var distanceUnitStr: String  // DistanceUnit.rawValue ("yards" / "meters")
+    var mark: Double
+    var note: String?
+    var isSuggestion: Bool = false
+    var createdAt: Date
+    var updatedAt: Date
+    var pendingSync: Bool = false
+
+    init(
+        id: String,
+        userId: String,
+        arrowId: String,
+        distance: Double,
+        distanceUnitStr: String,
+        mark: Double,
+        note: String?,
+        isSuggestion: Bool,
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.userId = userId
+        self.arrowId = arrowId
+        self.distance = distance
+        self.distanceUnitStr = distanceUnitStr
+        self.mark = mark
+        self.note = note
+        self.isSuggestion = isSuggestion
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    func toDTO() -> SightMark {
+        SightMark(
+            id: id,
+            userId: userId,
+            arrowId: arrowId,
+            distance: distance,
+            distanceUnit: DistanceUnit(rawValue: distanceUnitStr) ?? .yards,
+            mark: mark,
+            note: note,
+            isSuggestion: isSuggestion,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+    }
+
+    static func from(_ dto: SightMark) -> PersistentSightMark {
+        PersistentSightMark(
+            id: dto.id,
+            userId: dto.userId,
+            arrowId: dto.arrowId,
+            distance: dto.distance,
+            distanceUnitStr: dto.distanceUnit.rawValue,
+            mark: dto.mark,
+            note: dto.note,
+            isSuggestion: dto.isSuggestion,
+            createdAt: dto.createdAt,
+            updatedAt: dto.updatedAt
+        )
+    }
+}
+
 // MARK: - PersistentSession
 
 @Model

@@ -24,6 +24,7 @@ struct ArrowDetailView: View {
     @State private var showSavedBanner = false
     @State private var showDeleteConfirm = false
     @State private var showingPaywall = false
+    @State private var sightMarkCount: Int = 0
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.isReadOnly) private var isReadOnly
@@ -104,6 +105,21 @@ struct ArrowDetailView: View {
                 }
             }
 
+            Section("Sight Marks") {
+                NavigationLink {
+                    SightMarksListView(arrow: arrow)
+                } label: {
+                    HStack {
+                        Image(systemName: "ruler")
+                            .foregroundStyle(.tint)
+                        Text("Sight Marks")
+                        Spacer()
+                        Text(sightMarkSummary)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             Section("Notes") {
                 TextEditor(text: $notes)
                     .frame(minHeight: 80)
@@ -174,6 +190,18 @@ struct ArrowDetailView: View {
         }
     }
 
+    private var sightMarkSummary: String {
+        // Read the @Observable mutation stamp so we re-render after edits in
+        // the SightMarks subsection without paying for a SwiftData fetch on
+        // every keystroke in this form.
+        _ = store.sightMarksMutationStamp
+        return sightMarkCount == 0 ? "None" : "\(sightMarkCount)"
+    }
+
+    private func reloadSightMarkCount() {
+        sightMarkCount = (try? store.fetchSightMarks(arrowId: arrow.id))?.count ?? 0
+    }
+
     private var saveBanner: some View {
         HStack(spacing: 8) {
             Image(systemName: "checkmark.circle.fill")
@@ -190,6 +218,7 @@ struct ArrowDetailView: View {
     }
 
     private func seedFromArrow() {
+        reloadSightMarkCount()
         label = arrow.label
         brand = arrow.brand ?? ""
         model = arrow.model ?? ""

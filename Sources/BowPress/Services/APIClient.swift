@@ -73,6 +73,12 @@ protocol BowPressAPIClient: AnyObject {
     func createArrowConfig(_ config: ArrowConfiguration) async throws -> ArrowConfiguration
     func deleteArrowConfig(id: String) async throws
 
+    // SightMarks
+    func fetchSightMarks(arrowId: String?) async throws -> [SightMark]
+    func createSightMark(_ mark: SightMark) async throws -> SightMark
+    func updateSightMark(_ mark: SightMark) async throws -> SightMark
+    func deleteSightMark(id: String) async throws
+
     // Sessions
     func fetchSessions() async throws -> [ShootingSession]
     func createSession(_ session: ShootingSession) async throws -> ShootingSession
@@ -363,6 +369,51 @@ final class APIClient: BowPressAPIClient {
             throw URLError(.badURL)
         }
         let (data, response) = try await request(method: "DELETE", path: "/arrow-configs/\(encoded)", body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
+    }
+
+    // MARK: - Sight Marks
+    func fetchSightMarks(arrowId: String?) async throws -> [SightMark] {
+        #if DEBUG
+        if APIClient.useMocks { return [] }
+        #endif
+        let path: String
+        if let arrowId, let encoded = arrowId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path = "/sight-marks?arrowId=\(encoded)"
+        } else {
+            path = "/sight-marks"
+        }
+        let (data, response) = try await request(method: "GET", path: path, body: Optional<[String: String]>.none)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode([SightMark].self, from: data)
+    }
+    func createSightMark(_ mark: SightMark) async throws -> SightMark {
+        #if DEBUG
+        if APIClient.useMocks { return mark }
+        #endif
+        let (data, response) = try await request(method: "POST", path: "/sight-marks", body: mark)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(SightMark.self, from: data)
+    }
+    func updateSightMark(_ mark: SightMark) async throws -> SightMark {
+        #if DEBUG
+        if APIClient.useMocks { return mark }
+        #endif
+        guard let encoded = mark.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(method: "PUT", path: "/sight-marks/\(encoded)", body: mark)
+        try ensureSuccess(response: response, data: data)
+        return try decoder.decode(SightMark.self, from: data)
+    }
+    func deleteSightMark(id: String) async throws {
+        #if DEBUG
+        if APIClient.useMocks { return }
+        #endif
+        guard let encoded = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await request(method: "DELETE", path: "/sight-marks/\(encoded)", body: Optional<[String: String]>.none)
         try ensureSuccess(response: response, data: data)
     }
 
