@@ -1396,12 +1396,17 @@ private struct SwipeableRow<Content: View>: View {
                 .frame(maxHeight: .infinity)
                 .background(Color.appPaper)
                 .offset(x: offset)
+                // Higher minimumDistance + horizontal-dominance check so a
+                // vertical drag on a row scrolls the parent ScrollView
+                // instead of being absorbed here. Without this the active
+                // session's ends area felt "stuck" once it overflowed.
                 .simultaneousGesture(
-                    DragGesture(minimumDistance: 10)
+                    DragGesture(minimumDistance: 20, coordinateSpace: .local)
                         .onChanged { value in
                             if dragAxis == nil {
-                                dragAxis = abs(value.translation.width) > abs(value.translation.height)
-                                    ? .horizontal : .vertical
+                                let h = abs(value.translation.width)
+                                let v = abs(value.translation.height)
+                                dragAxis = (h > v * 1.5) ? .horizontal : .vertical
                             }
                             guard dragAxis == .horizontal else { return }
                             let base: CGFloat = revealed ? -revealWidth : 0
