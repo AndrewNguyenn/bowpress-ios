@@ -19,6 +19,7 @@ struct EmailAuthView: View {
     @State private var isLoading: Bool = false
     @State private var errorMessage: String? = nil
     @State private var verificationEmail: String? = nil
+    @State private var forgotPasswordPresented: Bool = false
 
     // MARK: - Validation
 
@@ -66,6 +67,10 @@ struct EmailAuthView: View {
                 set: { verificationEmail = $0?.email }
             )) { target in
                 VerifyEmailView(authService: authService, email: target.email)
+                    .environment(appState)
+            }
+            .sheet(isPresented: $forgotPasswordPresented) {
+                ForgotPasswordView(authService: authService, initialEmail: email)
                     .environment(appState)
             }
         }
@@ -137,6 +142,14 @@ struct EmailAuthView: View {
                     .font(.headline)
             }
             .disabled(!canSubmit)
+            if mode == .signIn {
+                Button("Forgot password?") {
+                    forgotPasswordPresented = true
+                }
+                .font(.subheadline)
+                .frame(maxWidth: .infinity)
+                .accessibilityIdentifier("auth_forgot_password_button")
+            }
         }
     }
 

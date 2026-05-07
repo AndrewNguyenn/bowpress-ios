@@ -72,6 +72,30 @@ final class MockAPIClient: BowPressAPIClient {
         if let err = resendError { throw err }
     }
 
+    var forgotPasswordCallCount = 0
+    var lastForgotPasswordEmail: String?
+    var forgotPasswordError: Error?
+    func forgotPassword(email: String) async throws {
+        forgotPasswordCallCount += 1
+        lastForgotPasswordEmail = email
+        if let err = forgotPasswordError { throw err }
+    }
+
+    var resetPasswordCallCount = 0
+    var lastResetPasswordArgs: (email: String, code: String, newPassword: String)?
+    var resetPasswordError: Error?
+    var resetPasswordUser: User = User(
+        id: "mock-user", email: "mock@example.com", name: "Mock User",
+        createdAt: Date(), emailVerified: true
+    )
+    func resetPassword(email: String, code: String, newPassword: String) async throws -> User {
+        resetPasswordCallCount += 1
+        lastResetPasswordArgs = (email, code, newPassword)
+        if let err = resetPasswordError { throw err }
+        setToken("mock-token")
+        return resetPasswordUser
+    }
+
     // MARK: - Persistence-related stubs (unused by auth tests)
 
     func fetchBows() async throws -> [Bow] { [] }

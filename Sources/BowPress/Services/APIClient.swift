@@ -58,6 +58,8 @@ protocol BowPressAPIClient: AnyObject {
     func signIn(email: String, password: String) async throws -> User
     func verifyEmail(email: String, code: String) async throws -> User
     func resendVerification(email: String) async throws
+    func forgotPassword(email: String) async throws
+    func resetPassword(email: String, code: String, newPassword: String) async throws -> User
 
     // Bows
     func fetchBows() async throws -> [Bow]
@@ -252,6 +254,35 @@ final class APIClient: BowPressAPIClient {
         }
         if (200..<300).contains(http.statusCode) { return }
         throw try authError(from: data, status: http.statusCode)
+    }
+
+    /// Issue a password-reset code to `email`. Backend always returns 200 to
+    /// defeat enumeration; this surface only throws on transport / 4xx-5xx.
+    func forgotPassword(email: String) async throws {
+        let body: [String: String] = ["email": email]
+        let (data, response) = try await post(path: "/auth/forgot-password", body: body)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        if (200..<300).contains(http.statusCode) { return }
+        throw try authError(from: data, status: http.statusCode)
+    }
+
+    /// Exchange a valid reset code + new password for a fresh AuthResponse.
+    /// Same error mapping as verifyEmail (invalid_code / expired / too_many_attempts)
+    /// so the UI can render consistent messaging.
+    func resetPassword(email: String, code: String, newPassword: String) async throws -> User {
+        let body: [String: String] = ["email": email, "code": code, "newPassword": newPassword]
+        let (data, response) = try await post(path: "/auth/reset-password", body: body)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        if (200..<300).contains(http.statusCode) {
+            let decoded = try decoder.decode(AuthSuccessBody.self, from: data)
+            setToken(decoded.token)
+            return decoded.user
+        }
+        throw try verifyEmailError(from: data, status: http.statusCode)
     }
 
     // MARK: - HTTP helpers

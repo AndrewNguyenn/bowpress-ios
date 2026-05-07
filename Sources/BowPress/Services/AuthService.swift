@@ -48,6 +48,20 @@ final class AuthService: NSObject {
         try await client.resendVerification(email: email)
     }
 
+    func forgotPassword(email: String) async throws {
+        try await client.forgotPassword(email: email)
+    }
+
+    /// Reset the password and sign the user in with the new credentials.
+    /// Mirrors verifyEmail's success path: backend returns AuthResponse,
+    /// APIClient stores the token, and we flip AppState to authenticated.
+    func resetPassword(email: String, code: String, newPassword: String) async throws {
+        let user = try await client.resetPassword(email: email, code: code, newPassword: newPassword)
+        appState.currentUser = user
+        appState.isAuthenticated = true
+        appState.pendingVerificationEmail = nil
+    }
+
     func signOut() {
         appState.currentUser = nil
         appState.isAuthenticated = false
