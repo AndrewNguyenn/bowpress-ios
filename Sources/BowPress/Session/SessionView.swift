@@ -1454,6 +1454,20 @@ private struct ArrowEditSheet: View {
 
     private func label(for ring: Int) -> String { ring == 11 ? "X" : "\(ring)" }
 
+    /// Available scores for the current face, highest first. 6-ring faces
+    /// only score 6–X; 10-ring faces score 1–X. "M" (miss) is always last.
+    private var quickScoreOptions: [Int] {
+        let lowest: Int
+        switch faceType {
+        case .sixRing: lowest = 6
+        case .tenRing: lowest = 1
+        }
+        var ladder: [Int] = [11]
+        for r in stride(from: 10, through: lowest, by: -1) { ladder.append(r) }
+        ladder.append(0) // miss
+        return ladder
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -1472,13 +1486,17 @@ private struct ArrowEditSheet: View {
                                 .font(.bpDisplay(32, italic: true, weight: .medium))
                                 .foregroundStyle(arrow.ring == 11 ? Color.appPine : Color.appInk)
                         }
-                        Text("Tap a new position on the target to re-plot.")
+                        Text("Tap a score to change it, or tap a new position on the target to re-plot.")
                             .font(.bpDisplay(14, italic: true, weight: .regular))
                             .foregroundStyle(Color.appInk3)
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 14)
+
+                    quickScoreKeypad
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 14)
 
                     GeometryReader { proxy in
                         let size = min(proxy.size.width, 320)
@@ -1537,6 +1555,45 @@ private struct ArrowEditSheet: View {
             }
         }
         .presentationDetents([.large])
+    }
+
+    /// Direct-edit chip row — tap a score to change just the ring without
+    /// re-plotting. Position (zone, plotX, plotY) is preserved so the
+    /// arrow stays where the archer dropped it on the target. Issue #3.
+    @ViewBuilder
+    private var quickScoreKeypad: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("QUICK EDIT SCORE")
+                .font(.bpUI(11, weight: .semibold))
+                .appTracking(0.22, at: 9)
+                .textCase(.uppercase)
+                .foregroundStyle(Color.appInk3)
+            ChipFlowLayout(hSpacing: 6, vSpacing: 6) {
+                ForEach(quickScoreOptions, id: \.self) { ring in
+                    quickScoreChip(ring: ring)
+                }
+            }
+        }
+    }
+
+    private func quickScoreChip(ring: Int) -> some View {
+        let label: String = ring == 0 ? "M" : (ring == 11 ? "X" : "\(ring)")
+        let isCurrent = ring == arrow.ring
+        return Button {
+            // Preserve current position; change only the score.
+            onReplot(ring, arrow.zone, arrow.plotX ?? 0, arrow.plotY ?? 0)
+            dismiss()
+        } label: {
+            Text(label)
+                .font(.bpDisplay(18, italic: true, weight: .medium))
+                .foregroundStyle(isCurrent ? Color.appPaper : Color.appInk)
+                .frame(minWidth: 44, minHeight: 38)
+                .padding(.horizontal, 8)
+                .background(isCurrent ? Color.appPondDk : Color.appPaper)
+                .overlay(Rectangle().strokeBorder(isCurrent ? Color.appPondDk : Color.appLine, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(ring == 0 ? "Set score to miss" : "Set score to \(label)"))
     }
 }
 

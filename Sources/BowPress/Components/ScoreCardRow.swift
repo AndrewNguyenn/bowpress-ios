@@ -186,7 +186,7 @@ struct ScoreCardFooter: View {
 /// behaves like an HStack. Used by ScoreCardRow so an end with many arrows
 /// (e.g. a long indoor end) stays inside the row's bounds instead of pushing
 /// the trailing TOT/X/RT columns off-screen.
-fileprivate struct ChipFlowLayout: Layout {
+struct ChipFlowLayout: Layout {
     var hSpacing: CGFloat = 2
     var vSpacing: CGFloat = 4
 
