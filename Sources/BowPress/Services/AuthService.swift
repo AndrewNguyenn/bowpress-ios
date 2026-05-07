@@ -25,6 +25,20 @@ final class AuthService: NSObject {
     }
     #endif
 
+    // MARK: - Email/password (no UI entry points)
+    //
+    // The UI surfaces for these flows (EmailAuthView, VerifyEmailView,
+    // ForgotPasswordView, ChangePasswordView, the AccountView Verify-email
+    // button) were removed because BowPress doesn't own a verified Resend
+    // domain — verification + password-reset emails can't be delivered
+    // reliably. The service + APIClient methods are kept so the flows
+    // can be re-enabled cheaply once a domain lands. `DevAutoSignIn`
+    // still depends on `signIn` for the e2e-test fixture.
+    //
+    // Existing email-auth accounts continue to work after sign-in; new
+    // sign-ins by the same email through Apple/Google get linked by the
+    // backend's email-fallback in /auth/signin-{apple,google}.
+
     func signIn(email: String, password: String) async throws {
         let user = try await client.signIn(email: email, password: password)
         appState.currentUser = user

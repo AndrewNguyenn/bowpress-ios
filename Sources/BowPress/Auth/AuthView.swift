@@ -5,7 +5,6 @@ struct AuthView: View {
 
     // AuthService is lazily created on first appear so it always holds the correct AppState.
     @State private var authService: AuthService? = nil
-    @State private var showEmailAuth: Bool = false
     @State private var errorMessage: String? = nil
     @State private var showError: Bool = false
 
@@ -42,29 +41,17 @@ struct AuthView: View {
             .padding(.bottom, 56)
 
             // MARK: Sign-in buttons
+            // Email/password sign-in was removed because BowPress doesn't
+            // own a verified sending domain (verification + reset emails
+            // can't be delivered reliably from Resend's onboarding domain).
+            // Existing email-auth accounts still resolve through Apple/Google
+            // by email-fallback in /auth/signin-{apple,google}.
             VStack(spacing: 14) {
-                // 1. Sign in with Apple
                 SignInWithAppleButton(onError: present(error:))
                     .frame(height: 50)
 
-                // 2. Sign in with Google
                 GoogleSignInButton(onError: present(error:))
                     .frame(height: 50)
-
-                // 3. Continue with Email
-                Button(action: { showEmailAuth = true }) {
-                    Text("Continue with Email")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color.appBorder, lineWidth: 1.5)
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Continue with Email")
             }
             .padding(.horizontal, 32)
 
@@ -91,13 +78,6 @@ struct AuthView: View {
             // Initialise once so the object keeps the correct appState reference
             if authService == nil {
                 authService = AuthService(appState: appState)
-            }
-        }
-        .sheet(isPresented: $showEmailAuth) {
-            // Capture service at sheet-presentation time (authService is set by onAppear)
-            if let svc = authService {
-                EmailAuthView(authService: svc)
-                    .environment(appState)
             }
         }
         .alert("Sign In Failed", isPresented: $showError) {

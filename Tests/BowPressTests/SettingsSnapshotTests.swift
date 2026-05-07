@@ -16,7 +16,6 @@ import UIKit
 //   • SettingsView         — populated verified user
 //   • AccountView          — verified badge / unverified badge
 //   • EditProfileView      — pristine (save button disabled until name changes)
-//   • ChangePasswordView   — pristine + error state
 //   • DeleteAccountView    — pristine
 
 @MainActor
@@ -95,28 +94,6 @@ final class SettingsSnapshotTests: XCTestCase {
     func testEditProfileView_pristine() {
         let state = stateWithUser(verifiedUser())
         let view = NavigationStack { EditProfileView() }.environment(state)
-        assertSnapshot(
-            of: SnapshotTestHelpers.snaphost(view),
-            as: .image(on: .iPhone13),
-            record: false
-        )
-    }
-
-    // MARK: - ChangePasswordView
-
-    func testChangePasswordView_pristine() {
-        let view = NavigationStack { ChangePasswordView() }
-        assertSnapshot(
-            of: SnapshotTestHelpers.snaphost(view),
-            as: .image(on: .iPhone13),
-            record: false
-        )
-    }
-
-    func testChangePasswordView_withError() {
-        let view = NavigationStack {
-            ChangePasswordView(previewError: "Current password incorrect")
-        }
         assertSnapshot(
             of: SnapshotTestHelpers.snaphost(view),
             as: .image(on: .iPhone13),
