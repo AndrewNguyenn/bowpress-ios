@@ -14,6 +14,10 @@ final class AppState {
     var isAuthenticated: Bool = TokenStore.load() != nil
     var currentUser: User?
     #endif
+    /// Was driven by EmailAuthView/VerifyEmailView (deleted). Kept because
+    /// AuthService still writes to it on the dormant signUp/verifyEmail/
+    /// resetPassword paths — re-enabling email auth (when a verified Resend
+    /// domain lands) just needs a UI consumer here again.
     var pendingVerificationEmail: String? = nil
     #if DEBUG
     var bows: [Bow] = DevMockData.bows

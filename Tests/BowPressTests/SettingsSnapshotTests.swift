@@ -13,8 +13,8 @@ import UIKit
 // testing so palette and typography regressions surface as pixel diffs.
 //
 // Covered variants:
-//   • SettingsView         — populated verified user
-//   • AccountView          — verified badge / unverified badge
+//   • SettingsView         — populated user
+//   • AccountView          — populated user
 //   • EditProfileView      — pristine (save button disabled until name changes)
 //   • DeleteAccountView    — pristine
 
@@ -32,18 +32,7 @@ final class SettingsSnapshotTests: XCTestCase {
             id: "u-verified",
             email: "sage@bowpress.app",
             name: "Sage Archer",
-            createdAt: Date(timeIntervalSince1970: 0),
-            emailVerified: true
-        )
-    }
-
-    private func unverifiedUser() -> User {
-        User(
-            id: "u-unverified",
-            email: "new@bowpress.app",
-            name: "New Archer",
-            createdAt: Date(timeIntervalSince1970: 0),
-            emailVerified: false
+            createdAt: Date(timeIntervalSince1970: 0)
         )
     }
 
@@ -69,18 +58,8 @@ final class SettingsSnapshotTests: XCTestCase {
 
     // MARK: - AccountView
 
-    func testAccountView_verifiedUser_showsVerifiedBadge() {
+    func testAccountView_populated() {
         let state = stateWithUser(verifiedUser())
-        let view = NavigationStack { AccountView() }.environment(state)
-        assertSnapshot(
-            of: SnapshotTestHelpers.snaphost(view),
-            as: .image(on: .iPhone13),
-            record: false
-        )
-    }
-
-    func testAccountView_unverifiedUser_showsUnverifiedBadge() {
-        let state = stateWithUser(unverifiedUser())
         let view = NavigationStack { AccountView() }.environment(state)
         assertSnapshot(
             of: SnapshotTestHelpers.snaphost(view),

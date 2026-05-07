@@ -8,8 +8,16 @@ struct DeleteAccountView: View {
     @State private var showConfirmAlert: Bool = false
     @State private var errorMessage: String? = nil
 
+    /// Only the email-auth path needs a password confirm. The email-auth UI
+    /// was retired (no verified Resend domain) and existing email-auth users
+    /// get linked to Apple/Google on next social sign-in (their passwordHash
+    /// is cleared server-side). A nil `authProvider` from a cached pre-flag
+    /// session would historically default to "email" — but with the email
+    /// UI gone, defaulting nil to "no password needed" is the safer bet:
+    /// worst case the server rejects the unauthenticated delete, best case
+    /// (the typical case) the user can finish deleting their account.
     private var requiresPassword: Bool {
-        appState.currentUser?.canChangePassword ?? true
+        appState.currentUser?.authProvider == .email
     }
 
     var body: some View {

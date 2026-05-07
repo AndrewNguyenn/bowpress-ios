@@ -1,6 +1,14 @@
 import XCTest
 @testable import BowPress
 
+// Regression guards for the AuthService email/password code paths. These
+// flows have no UI consumers anymore (EmailAuthView/VerifyEmailView/
+// ForgotPasswordView were removed when BowPress dropped email auth — no
+// verified Resend domain). The service surface is kept as dormant code so
+// re-enabling email auth is cheap; these tests pin the contracts so the
+// dormancy doesn't drift. The only currently-active path is `signIn`,
+// which DevAutoSignIn uses for the e2e-test fixture in DEBUG.
+
 @MainActor
 final class AuthFlowTests: XCTestCase {
 
