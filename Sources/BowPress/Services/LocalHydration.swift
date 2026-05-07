@@ -30,11 +30,19 @@ enum LocalHydration {
                 try? store.save(sightMark: mark, markPendingSync: false)
             }
         }
+        // Sessions and arrows skip pendingSync writes — local edits that
+        // haven't drained yet (e.g. a session ended just before force-close,
+        // arrows plotted offline) win over the server's stale view of them.
+        // Without this guard the just-completed session's `endedAt` was
+        // nil-ified by hydration on relaunch and the row vanished from the
+        // Log because `fetchSessions()` filters `endedAt != nil`.
         if let sessions = try? await api.fetchSessions() {
             for session in sessions {
-                try? store.save(session: session)
+                try? store.save(session: session, markPendingSync: false)
                 if let plots = try? await api.fetchPlots(sessionId: session.id) {
-                    for plot in plots { try? store.save(arrow: plot) }
+                    for plot in plots {
+                        try? store.save(arrow: plot, markPendingSync: false)
+                    }
                 }
             }
         }

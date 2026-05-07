@@ -155,7 +155,17 @@ final class LocalStore {
 
     // MARK: - Sessions
 
-    func save(session: ShootingSession) throws {
+    /// Save a session. `markPendingSync` controls whether this write joins the
+    /// retry queue: callers performing a local edit pass `true` (the default);
+    /// `LocalHydration` passes `false` so the server's authoritative state
+    /// doesn't get re-POSTed back at it. Pre-existing local edits with
+    /// `pendingSync == true` are preserved on hydration — the local edit wins
+    /// until `BackgroundSyncService` drains it. Without this guard, a session
+    /// completed while offline (local `endedAt` set, API endSession not yet
+    /// called) was silently un-ended on next launch when hydration overwrote
+    /// `endedAt` with the server's stale `nil`, and the row vanished from the
+    /// Log because `fetchSessions()` filters on `endedAt != nil`.
+    func save(session: ShootingSession, markPendingSync: Bool = true) throws {
         let id = session.id
         let predicate = #Predicate<PersistentSession> { $0.id == id }
         let descriptor = FetchDescriptor<PersistentSession>(predicate: predicate)
@@ -169,6 +179,7 @@ final class LocalStore {
         }
 
         if let existing = try context.fetch(descriptor).first {
+            if !markPendingSync && existing.pendingSync { return }
             existing.bowId = session.bowId
             existing.bowConfigId = session.bowConfigId
             existing.arrowConfigId = session.arrowConfigId
@@ -180,9 +191,10 @@ final class LocalStore {
             existing.targetFaceTypeStr = session.targetFaceType.rawValue
             existing.distanceStr = session.distance?.rawValue
             existing.title = session.title
+            if markPendingSync { existing.pendingSync = true }
         } else {
             let record = PersistentSession.from(session)
-            record.pendingSync = true
+            record.pendingSync = markPendingSync
             context.insert(record)
         }
         try context.save()
@@ -275,11 +287,16 @@ final class LocalStore {
 
     // MARK: - ArrowPlots
 
-    func save(arrow: ArrowPlot) throws {
+    /// Save an arrow. Same `markPendingSync` semantics as `save(session:)` —
+    /// hydration must not stomp local writes that haven't been drained, or the
+    /// archer's just-plotted arrows disappear after force-close + relaunch
+    /// when the server hasn't seen them yet.
+    func save(arrow: ArrowPlot, markPendingSync: Bool = true) throws {
         let id = arrow.id
         let predicate = #Predicate<PersistentArrowPlot> { $0.id == id }
         let descriptor = FetchDescriptor<PersistentArrowPlot>(predicate: predicate)
         if let existing = try context.fetch(descriptor).first {
+            if !markPendingSync && existing.pendingSync { return }
             existing.sessionId = arrow.sessionId
             existing.bowConfigId = arrow.bowConfigId
             existing.arrowConfigId = arrow.arrowConfigId
@@ -299,9 +316,10 @@ final class LocalStore {
             existing.shotAt = arrow.shotAt
             existing.excluded = arrow.excluded
             existing.notes = arrow.notes
+            if markPendingSync { existing.pendingSync = true }
         } else {
             let record = PersistentArrowPlot.from(arrow)
-            record.pendingSync = true
+            record.pendingSync = markPendingSync
             context.insert(record)
         }
         try context.save()

@@ -88,11 +88,13 @@ struct MainTabView: View {
                 }
             }
             syncService.configure(store: store)
-            syncService.triggerSync()
 
-            // Run hydration and a minimum splash-display timer in parallel so
-            // the animation never flashes away instantly — even when the
-            // in-memory DEBUG seed is basically free.
+            // Drain pending writes (e.g. a session ended just before the
+            // archer force-closed the app) BEFORE hydrating from the API.
+            // Otherwise the server still has its stale view of the session
+            // (endedAt = nil) and we pull it back into the local store,
+            // un-ending the just-completed session — the bug behind the
+            // empty-Log-after-force-close report.
             async let minDisplay: Void = {
                 try? await Task.sleep(for: .milliseconds(1600))
             }()
@@ -100,6 +102,7 @@ struct MainTabView: View {
                 #if DEBUG
                 await DevAutoSignIn.ensureSignedIn()
                 #endif
+                await syncService.drain()
                 await LocalHydration.hydrateFromAPI(store: store, api: APIClient.shared)
             }()
             _ = await (minDisplay, hydration)
