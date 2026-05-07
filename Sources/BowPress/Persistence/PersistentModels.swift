@@ -359,7 +359,11 @@ final class PersistentArrowConfig {
 final class PersistentSightMark {
     var id: String
     var userId: String
-    var bowId: String
+    // originalName preserves the column from the pre-rekey schema so
+    // SwiftData treats the change as a column rename and lightweight-
+    // migrates instead of throwing. Existing rows carry stale values
+    // (the old arrowId), which BowPressApp purges once on first launch.
+    @Attribute(originalName: "arrowId") var bowId: String
     var distance: Double
     var distanceUnitStr: String  // DistanceUnit.rawValue ("yards" / "meters")
     var mark: Double

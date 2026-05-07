@@ -23,35 +23,19 @@ struct BowPressApp: App {
         #else
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         #endif
-        // The on-disk schema can drift from the in-memory Schema across
-        // breaking changes (e.g. renaming a @Model property). When that
-        // happens ModelContainer init throws; rather than crash for users
-        // updating from an older build we wipe the store and recreate.
-        // Server-synced data rehydrates on next launch.
-        //
-        // Caveat: the wipe drops *every* SwiftData table, not just the one
-        // that changed. Any pending offline writes that hadn't drained
-        // through BackgroundSyncService are lost. The window is narrow
-        // (user has unsynced writes AND launches into a build with a
-        // schema change) and we accept it; the alternative is to migrate
-        // pending records through the wipe, which doubles the surface area
-        // for what should be a once-per-schema-change event.
-        let container: ModelContainer
-        do {
-            container = try ModelContainer(for: schema, configurations: [config])
-        } catch {
-            Self.deleteOnDiskStore()
-            container = try! ModelContainer(for: schema, configurations: [config])
-        }
+        // PersistentSightMark.bowId carries @Attribute(originalName: "arrowId")
+        // so SwiftData lightweight-migrates the rename. Rows from the prior
+        // schema therefore survive the migration with the *old arrowId* in
+        // the bowId column — semantically wrong values that need a one-time
+        // purge, gated by UserDefaults so it doesn't fire on every launch.
+        let container = try! ModelContainer(for: schema, configurations: [config])
         self.container = container
         self.store = LocalStore(context: container.mainContext)
 
-        // Belt-and-suspenders for the bowId rename: SwiftData can choose to
-        // treat a renamed @Model property as drop-old-add-new rather than
-        // throwing, leaving rows with bowId == "". Hydration would re-save
-        // those with the server's value, but a row with pendingSync == true
-        // would sync upstream as bowId="" first. Sweep them on launch.
-        try? Self.purgeOrphanSightMarks(context: container.mainContext)
+        if !UserDefaults.standard.bool(forKey: Self.sightMarksPurgeKey) {
+            try? Self.purgeAllSightMarks(context: container.mainContext)
+            UserDefaults.standard.set(true, forKey: Self.sightMarksPurgeKey)
+        }
 
         // Kenrokuen global chrome — paper tab bar, pondDk selection, ink3 idle.
         #if canImport(UIKit)
@@ -71,24 +55,11 @@ struct BowPressApp: App {
         #endif
     }
 
-    private static func deleteOnDiskStore() {
-        let fm = FileManager.default
-        guard let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else { return }
-        // SwiftData's default store lives at default.store plus -shm/-wal
-        // sidecars. Sweep anything that starts with "default.store".
-        if let entries = try? fm.contentsOfDirectory(at: appSupport, includingPropertiesForKeys: nil) {
-            for url in entries where url.lastPathComponent.hasPrefix("default.store") {
-                try? fm.removeItem(at: url)
-            }
-        }
-    }
+    private static let sightMarksPurgeKey = "sightMarks.migratedToBow.v1"
 
-    private static func purgeOrphanSightMarks(context: ModelContext) throws {
-        let descriptor = FetchDescriptor<PersistentSightMark>(
-            predicate: #Predicate { $0.bowId.isEmpty }
-        )
-        for orphan in try context.fetch(descriptor) {
-            context.delete(orphan)
+    private static func purgeAllSightMarks(context: ModelContext) throws {
+        for mark in try context.fetch(FetchDescriptor<PersistentSightMark>()) {
+            context.delete(mark)
         }
         try context.save()
     }
