@@ -36,8 +36,18 @@ enum LocalHydration {
         // Without this guard the just-completed session's `endedAt` was
         // nil-ified by hydration on relaunch and the row vanished from the
         // Log because `fetchSessions()` filters `endedAt != nil`.
+        //
+        // For sessions that are locally pending we ALSO skip the plot fetch
+        // for that session — otherwise the per-session save guard preserves
+        // the session row, but the api.fetchPlots loop below would still
+        // overwrite the arrow plots whose authoritative state we wanted to
+        // keep. Build the pending-session set once and skip both halves.
+        let pendingSessionIds: Set<String> = Set(
+            ((try? store.fetchPendingSessions()) ?? []).map(\.id)
+        )
         if let sessions = try? await api.fetchSessions() {
             for session in sessions {
+                if pendingSessionIds.contains(session.id) { continue }
                 try? store.save(session: session, markPendingSync: false)
                 if let plots = try? await api.fetchPlots(sessionId: session.id) {
                     for plot in plots {

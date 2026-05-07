@@ -32,10 +32,18 @@ struct AccountView: View {
         } message: {
             Text(verificationError ?? "")
         }
-        .sheet(item: Binding(
-            get: { verificationEmail.map(VerificationTarget.init) },
-            set: { verificationEmail = $0?.email }
-        )) { target in
+        .sheet(
+            item: Binding(
+                get: { verificationEmail.map(VerificationTarget.init) },
+                set: { verificationEmail = $0?.email }
+            ),
+            // Pull a fresh /me on dismiss so the badge/button reflect the
+            // server's new state. VerifyEmailView's success path already
+            // flips appState.isAuthenticated, but for an already-signed-in
+            // user re-verifying from Settings we'd otherwise keep showing
+            // "Unverified" + the Verify button until next launch.
+            onDismiss: refreshCurrentUserIfPossible
+        ) { target in
             VerifyEmailView(
                 authService: AuthService(appState: appState),
                 email: target.email
@@ -121,6 +129,21 @@ struct AccountView: View {
         isSigningOut = true
         AuthService(appState: appState).signOut()
         isSigningOut = false
+    }
+
+    /// Best-effort refetch of the signed-in profile. Used on VerifyEmailView
+    /// dismiss so the verification badge updates without a relaunch. Failures
+    /// are swallowed — leaving stale state for one render is fine; the user
+    /// can pull-to-refresh or relaunch to recover.
+    private func refreshCurrentUserIfPossible() {
+        guard appState.isAuthenticated else { return }
+        Task {
+            if let user = try? await APIClient.shared.fetchProfile() {
+                await MainActor.run {
+                    appState.currentUser = user
+                }
+            }
+        }
     }
 
     /// Trigger /auth/resend-verification then present VerifyEmailView. Reuses

@@ -28,17 +28,44 @@ final class BackgroundSyncService {
         monitor.start(queue: DispatchQueue(label: "bowpress.sync", qos: .background))
     }
 
+    /// Fire-and-forget. Used by NWPathMonitor on connectivity restore.
     func triggerSync() {
-        guard !isSyncing, store != nil else { return }
-        Task { await drain() }
+        guard claimSyncSlot() else { return }
+        Task {
+            defer { releaseSyncSlot() }
+            await drainInternal()
+        }
+    }
+
+    /// Awaitable drain — used by MainTabView's launch path so hydration
+    /// can be sequenced after pending writes are pushed. Guards on the
+    /// same atomic isSyncing slot as triggerSync so a connectivity event
+    /// firing concurrently can't double-drive the queue.
+    func drain() async {
+        guard claimSyncSlot() else { return }
+        defer { releaseSyncSlot() }
+        await drainInternal()
+    }
+
+    /// Synchronous claim/release of the in-flight slot. Both methods run on
+    /// MainActor so the read+write here is race-free without an actor or
+    /// lock — the only previous bug was claiming the slot inside the Task
+    /// closure (after a hop), which let `triggerSync` and `drain` both
+    /// pass the guard concurrently.
+    private func claimSyncSlot() -> Bool {
+        guard !isSyncing, store != nil else { return false }
+        isSyncing = true
+        return true
+    }
+
+    private func releaseSyncSlot() {
+        isSyncing = false
     }
 
     // MARK: - Drain
 
-    func drain() async {
+    private func drainInternal() async {
         guard let store else { return }
-        isSyncing = true
-        defer { isSyncing = false }
 
         // Dependency order: bows → bow-configs → arrow-configs → sessions → plots → sight-marks.
         // Sight marks key on arrow-configs so they go after arrow-configs are
