@@ -1,1 +1,9 @@
-Fixes a scroll bug in the session log where ends with many arrows blocked vertical scrolling, and wraps long ends across multiple lines.
+What's new:
+
+• Fixed scrolling in active sessions when many ends are visible
+• Sessions and scores now persist correctly after the app is force-closed
+• Pro subscribers no longer see duplicate purchase buttons in Settings
+• Quick-edit arrow scores directly from the score card
+• Privacy Policy and Terms of Service links now work on every screen
+• Sign-in streamlined to Apple and Google — existing email accounts link
+  automatically when you sign in with the same email.
