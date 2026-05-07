@@ -67,7 +67,10 @@ struct AccountView: View {
                     Text(user.email).foregroundStyle(.secondary)
                     verificationBadge(verified: user.emailVerified ?? false)
                 }
-                if user.emailVerified == false {
+                // The badge above defaults a nil emailVerified to "unverified",
+                // so the button must use the same fallback or it won't show
+                // for users where the API hasn't populated the field.
+                if (user.emailVerified ?? false) == false {
                     Button(action: { sendVerificationCode(to: user.email) }) {
                         HStack {
                             if isSendingVerification {
