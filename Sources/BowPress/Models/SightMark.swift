@@ -1,9 +1,8 @@
 import Foundation
 
-/// A calibrated sight reading at a specific distance for a specific arrow.
-/// Per-archer (`userId`) and per-arrow (`arrowId`); intentionally not keyed
-/// on bow configuration — a tune change invalidates marks but per-arrow
-/// keying is the closest meaningful axis archers naturally swap on.
+/// A calibrated sight reading at a specific distance for a specific bow.
+/// Per-archer (`userId`) and per-bow (`bowId`). Marks live with the bow
+/// because that's how archers think about their sight tape.
 ///
 /// `mark` is numeric so the suggester can interpolate. Multi-pin sights
 /// (where the mark is a discrete pin label, not a number) are out of scope
@@ -11,7 +10,7 @@ import Foundation
 struct SightMark: Identifiable, Codable, Equatable, Hashable {
     var id: String
     var userId: String
-    var arrowId: String
+    var bowId: String
     var distance: Double
     var distanceUnit: DistanceUnit
     var mark: Double

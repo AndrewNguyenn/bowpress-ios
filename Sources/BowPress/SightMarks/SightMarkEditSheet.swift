@@ -1,12 +1,12 @@
 import SwiftUI
 
 /// Add-or-edit sheet for a single sight mark. When 3+ measured marks exist
-/// for the arrow with sufficient spread, the mark field shows a ghost-text
+/// for the bow with sufficient spread, the mark field shows a ghost-text
 /// suggestion the archer can accept or override.
 struct SightMarkEditSheet: View {
     enum Mode: Equatable {
-        case add(arrow: ArrowConfiguration)
-        case edit(mark: SightMark, arrow: ArrowConfiguration)
+        case add(bow: Bow)
+        case edit(mark: SightMark, bow: Bow)
 
         static func == (lhs: Mode, rhs: Mode) -> Bool {
             switch (lhs, rhs) {
@@ -16,10 +16,10 @@ struct SightMarkEditSheet: View {
             }
         }
 
-        var arrow: ArrowConfiguration {
+        var bow: Bow {
             switch self {
-            case .add(let a): return a
-            case .edit(_, let a): return a
+            case .add(let b): return b
+            case .edit(_, let b): return b
             }
         }
 
@@ -30,7 +30,7 @@ struct SightMarkEditSheet: View {
     }
 
     let mode: Mode
-    /// Other measured marks for this arrow — used to fit the suggestion
+    /// Other measured marks for this bow — used to fit the suggestion
     /// curve. The mark currently being edited (if any) is filtered out
     /// by the caller so its current value doesn't bias the prediction.
     let existingMarks: [SightMark]
@@ -191,7 +191,7 @@ struct SightMarkEditSheet: View {
             mark = SightMark(
                 id: existing.id,
                 userId: existing.userId,
-                arrowId: existing.arrowId,
+                bowId: existing.bowId,
                 distance: d,
                 distanceUnit: distanceUnit,
                 mark: m,
@@ -204,8 +204,8 @@ struct SightMarkEditSheet: View {
         } else {
             mark = SightMark(
                 id: UUID().uuidString,
-                userId: mode.arrow.userId,
-                arrowId: mode.arrow.id,
+                userId: mode.bow.userId,
+                bowId: mode.bow.id,
                 distance: d,
                 distanceUnit: distanceUnit,
                 mark: m,

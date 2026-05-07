@@ -94,7 +94,7 @@ final class MockAPIClient: BowPressAPIClient {
     func deleteEnd(sessionId: String, id: String) async throws {}
 
     // SightMark stubs
-    func fetchSightMarks(arrowId: String?) async throws -> [SightMark] { [] }
+    func fetchSightMarks(bowId: String?) async throws -> [SightMark] { [] }
     func createSightMark(_ mark: SightMark) async throws -> SightMark { mark }
     func updateSightMark(_ mark: SightMark) async throws -> SightMark { mark }
     func deleteSightMark(id: String) async throws {}

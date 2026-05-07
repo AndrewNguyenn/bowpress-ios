@@ -641,7 +641,7 @@ struct SessionView: View {
                     .padding(.vertical, 10)
 
                 SightMarkChip(
-                    arrow: viewModel.pendingArrowConfig ?? viewModel.activeArrowConfig,
+                    bowId: viewModel.currentSession?.bowId,
                     distance: viewModel.currentSession?.distance
                 )
                 .padding(.horizontal, 16)

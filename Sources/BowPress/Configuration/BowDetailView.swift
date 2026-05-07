@@ -131,6 +131,21 @@ struct BowDetailView: View {
                 case .barebow:  barebowSections
                 }
 
+                Section("Sight Marks") {
+                    NavigationLink {
+                        SightMarksListView(bow: bow)
+                    } label: {
+                        HStack {
+                            Image(systemName: "ruler")
+                                .foregroundStyle(.tint)
+                            Text("Sight Marks")
+                            Spacer()
+                            Text(sightMarkSummary)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 if !historyEntries.isEmpty {
                     Section("History") {
                         ForEach(historyEntries) { entry in
@@ -823,6 +838,11 @@ struct BowDetailView: View {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private var sightMarkSummary: String {
+        let n = (try? store.fetchSightMarks(bowId: bow.id))?.count ?? 0
+        return n == 0 ? "None" : "\(n)"
     }
 
     // MARK: - Diff helpers

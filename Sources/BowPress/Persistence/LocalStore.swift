@@ -439,8 +439,8 @@ final class LocalStore {
 
     // MARK: - SightMarks
 
-    func fetchSightMarks(arrowId: String) throws -> [SightMark] {
-        let predicate = #Predicate<PersistentSightMark> { $0.arrowId == arrowId }
+    func fetchSightMarks(bowId: String) throws -> [SightMark] {
+        let predicate = #Predicate<PersistentSightMark> { $0.bowId == bowId }
         let descriptor = FetchDescriptor<PersistentSightMark>(
             predicate: predicate,
             sortBy: [SortDescriptor(\.distance)]
@@ -450,7 +450,7 @@ final class LocalStore {
 
     func fetchAllSightMarks() throws -> [SightMark] {
         let descriptor = FetchDescriptor<PersistentSightMark>(
-            sortBy: [SortDescriptor(\.arrowId), SortDescriptor(\.distance)]
+            sortBy: [SortDescriptor(\.bowId), SortDescriptor(\.distance)]
         )
         return try context.fetch(descriptor).map { $0.toDTO() }
     }
@@ -470,7 +470,7 @@ final class LocalStore {
             // yet — that's the silent-data-loss path the reviewer flagged.
             if !markPendingSync && existing.pendingSync { return }
             existing.userId = sightMark.userId
-            existing.arrowId = sightMark.arrowId
+            existing.bowId = sightMark.bowId
             existing.distance = sightMark.distance
             existing.distanceUnitStr = sightMark.distanceUnit.rawValue
             existing.mark = sightMark.mark

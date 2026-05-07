@@ -74,7 +74,7 @@ protocol BowPressAPIClient: AnyObject {
     func deleteArrowConfig(id: String) async throws
 
     // SightMarks
-    func fetchSightMarks(arrowId: String?) async throws -> [SightMark]
+    func fetchSightMarks(bowId: String?) async throws -> [SightMark]
     func createSightMark(_ mark: SightMark) async throws -> SightMark
     func updateSightMark(_ mark: SightMark) async throws -> SightMark
     func deleteSightMark(id: String) async throws
@@ -373,13 +373,13 @@ final class APIClient: BowPressAPIClient {
     }
 
     // MARK: - Sight Marks
-    func fetchSightMarks(arrowId: String?) async throws -> [SightMark] {
+    func fetchSightMarks(bowId: String?) async throws -> [SightMark] {
         #if DEBUG
         if APIClient.useMocks { return [] }
         #endif
         let path: String
-        if let arrowId, let encoded = arrowId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
-            path = "/sight-marks?arrowId=\(encoded)"
+        if let bowId, let encoded = bowId.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path = "/sight-marks?bowId=\(encoded)"
         } else {
             path = "/sight-marks"
         }

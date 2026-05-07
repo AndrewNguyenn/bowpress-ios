@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// In-session chip showing the relevant sight mark for the active arrow at
+/// In-session chip showing the relevant sight mark for the active bow at
 /// the session's target distance. Renders nothing when there's no useful
 /// reading to show — better silent than a fabricated number.
 struct SightMarkChip: View {
-    var arrow: ArrowConfiguration?
+    var bowId: String?
     var distance: ShootingDistance?
 
     @Environment(LocalStore.self) private var store
@@ -13,14 +13,14 @@ struct SightMarkChip: View {
     /// subscribe to cross-screen edits, so the chip refreshes when the
     /// archer adds a mark in Equipment without leaving Session.
     private var marks: [SightMark] {
-        guard let arrow else { return [] }
+        guard let bowId else { return [] }
         _ = store.sightMarksMutationStamp
-        return (try? store.fetchSightMarks(arrowId: arrow.id)) ?? []
+        return (try? store.fetchSightMarks(bowId: bowId)) ?? []
     }
 
     var body: some View {
         Group {
-            if let arrow, let distance, let outcome = lookup(arrow: arrow, distance: distance) {
+            if bowId != nil, let distance, let outcome = lookup(distance: distance) {
                 switch outcome {
                 case .measured(let mark):
                     chip(
@@ -68,7 +68,7 @@ struct SightMarkChip: View {
         case suggested(SightMarkSuggestion)
     }
 
-    private func lookup(arrow: ArrowConfiguration, distance: ShootingDistance) -> Outcome? {
+    private func lookup(distance: ShootingDistance) -> Outcome? {
         let (value, unit) = distanceValueAndUnit(distance)
         // Match in meters-space so a 54.68-yard mark satisfies a 50m session
         // (and vice versa). Tolerance ~5 cm — tight enough to avoid false

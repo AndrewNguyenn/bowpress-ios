@@ -109,7 +109,7 @@ final class BackgroundSyncService {
 
     private func syncSightMarks(store: LocalStore) async {
         guard let pending = try? store.fetchPendingSightMarks() else { return }
-        // The server upserts on the natural key (user, arrow, distance, unit),
+        // The server upserts on the natural key (user, bow, distance, unit),
         // so create vs update is the same wire call. We use createSightMark
         // and trust the server's response shape.
         for mark in pending {

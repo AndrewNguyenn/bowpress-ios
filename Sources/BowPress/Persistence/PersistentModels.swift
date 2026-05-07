@@ -359,7 +359,7 @@ final class PersistentArrowConfig {
 final class PersistentSightMark {
     var id: String
     var userId: String
-    var arrowId: String
+    var bowId: String
     var distance: Double
     var distanceUnitStr: String  // DistanceUnit.rawValue ("yards" / "meters")
     var mark: Double
@@ -372,7 +372,7 @@ final class PersistentSightMark {
     init(
         id: String,
         userId: String,
-        arrowId: String,
+        bowId: String,
         distance: Double,
         distanceUnitStr: String,
         mark: Double,
@@ -383,7 +383,7 @@ final class PersistentSightMark {
     ) {
         self.id = id
         self.userId = userId
-        self.arrowId = arrowId
+        self.bowId = bowId
         self.distance = distance
         self.distanceUnitStr = distanceUnitStr
         self.mark = mark
@@ -397,7 +397,7 @@ final class PersistentSightMark {
         SightMark(
             id: id,
             userId: userId,
-            arrowId: arrowId,
+            bowId: bowId,
             distance: distance,
             distanceUnit: DistanceUnit(rawValue: distanceUnitStr) ?? .yards,
             mark: mark,
@@ -412,7 +412,7 @@ final class PersistentSightMark {
         PersistentSightMark(
             id: dto.id,
             userId: dto.userId,
-            arrowId: dto.arrowId,
+            bowId: dto.bowId,
             distance: dto.distance,
             distanceUnitStr: dto.distanceUnit.rawValue,
             mark: dto.mark,

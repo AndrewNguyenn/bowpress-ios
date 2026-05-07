@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// Per-arrow sight marks list. Reached from `ArrowDetailView` via a
+/// Per-bow sight marks list. Reached from `BowDetailView` via a
 /// NavigationLink. Marks render in distance order (always); the
 /// suggestion fit + visualisation only appear once the gating rules
 /// are satisfied.
 struct SightMarksListView: View {
-    var arrow: ArrowConfiguration
+    var bow: Bow
 
     @Environment(LocalStore.self) private var store
     @Environment(\.isReadOnly) private var isReadOnly
@@ -68,13 +68,13 @@ struct SightMarksListView: View {
         }
         .sheet(isPresented: $isAdding) {
             SightMarkEditSheet(
-                mode: .add(arrow: arrow),
+                mode: .add(bow: bow),
                 existingMarks: measuredMarks
             )
         }
         .sheet(item: $editingMark) { mark in
             SightMarkEditSheet(
-                mode: .edit(mark: mark, arrow: arrow),
+                mode: .edit(mark: mark, bow: bow),
                 existingMarks: measuredMarks.filter { $0.id != mark.id }
             )
         }
@@ -102,7 +102,7 @@ struct SightMarksListView: View {
 
     private func reload() {
         do {
-            marks = try store.fetchSightMarks(arrowId: arrow.id)
+            marks = try store.fetchSightMarks(bowId: bow.id)
         } catch {
             errorMessage = error.localizedDescription
         }

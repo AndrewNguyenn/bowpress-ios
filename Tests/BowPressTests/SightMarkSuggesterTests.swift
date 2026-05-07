@@ -14,7 +14,7 @@ final class SightMarkSuggesterTests: XCTestCase {
         SightMark(
             id: UUID().uuidString,
             userId: "u",
-            arrowId: "a",
+            bowId: "b",
             distance: distance,
             distanceUnit: unit,
             mark: mark,
