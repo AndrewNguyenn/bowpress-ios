@@ -71,12 +71,21 @@ struct AuthView: View {
             Spacer()
 
             // MARK: Footer
-            Text("By continuing you agree to our Terms of Service and Privacy Policy.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-                .padding(.bottom, 24)
+            VStack(spacing: 6) {
+                Text("By continuing you agree to our")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                HStack(spacing: 16) {
+                    Link("Terms of Service",
+                         destination: URL(string: "https://andrewnguyenn.github.io/bowpress-web/terms.html")!)
+                    Link("Privacy Policy",
+                         destination: URL(string: "https://andrewnguyenn.github.io/bowpress-web/privacy.html")!)
+                }
+                .font(.caption.weight(.medium))
+            }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 32)
+            .padding(.bottom, 24)
         }
         .onAppear {
             // Initialise once so the object keeps the correct appState reference

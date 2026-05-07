@@ -194,7 +194,7 @@ struct SettingsView: View {
         BPCard(padding: 0) {
             VStack(spacing: 0) {
                 // Privacy policy
-                Link(destination: URL(string: "https://bowpress.app/privacy")!) {
+                Link(destination: URL(string: "https://andrewnguyenn.github.io/bowpress-web/privacy.html")!) {
                     HStack(alignment: .center) {
                         Text("Privacy policy")
                             .font(.bpDisplay(20, italic: true, weight: .medium))
@@ -211,7 +211,7 @@ struct SettingsView: View {
                 Rectangle().fill(Color.appLine2).frame(height: 1)
 
                 // Terms of service
-                Link(destination: URL(string: "https://bowpress.app/terms")!) {
+                Link(destination: URL(string: "https://andrewnguyenn.github.io/bowpress-web/terms.html")!) {
                     HStack(alignment: .center) {
                         Text("Terms of service")
                             .font(.bpDisplay(20, italic: true, weight: .medium))
