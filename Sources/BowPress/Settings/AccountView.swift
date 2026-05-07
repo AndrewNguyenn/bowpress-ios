@@ -4,6 +4,9 @@ struct AccountView: View {
     @Environment(AppState.self) private var appState
     @State private var showSignOutConfirm: Bool = false
     @State private var isSigningOut: Bool = false
+    @State private var verificationEmail: String? = nil
+    @State private var isSendingVerification: Bool = false
+    @State private var verificationError: String? = nil
 
     var body: some View {
         Form {
@@ -21,6 +24,29 @@ struct AccountView: View {
             Button("Sign Out", role: .destructive, action: confirmSignOut)
             Button("Cancel", role: .cancel) {}
         }
+        .alert("Couldn't send code", isPresented: Binding(
+            get: { verificationError != nil },
+            set: { if !$0 { verificationError = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(verificationError ?? "")
+        }
+        .sheet(item: Binding(
+            get: { verificationEmail.map(VerificationTarget.init) },
+            set: { verificationEmail = $0?.email }
+        )) { target in
+            VerifyEmailView(
+                authService: AuthService(appState: appState),
+                email: target.email
+            )
+            .environment(appState)
+        }
+    }
+
+    private struct VerificationTarget: Identifiable {
+        let email: String
+        var id: String { email }
     }
 
     private var identitySection: some View {
@@ -32,6 +58,17 @@ struct AccountView: View {
                     Spacer()
                     Text(user.email).foregroundStyle(.secondary)
                     verificationBadge(verified: user.emailVerified ?? false)
+                }
+                if user.emailVerified == false {
+                    Button(action: { sendVerificationCode(to: user.email) }) {
+                        HStack {
+                            if isSendingVerification {
+                                ProgressView().controlSize(.small)
+                            }
+                            Text(isSendingVerification ? "Sending verification code…" : "Verify email")
+                        }
+                    }
+                    .disabled(isSendingVerification)
                 }
             } else {
                 Text("Not signed in").foregroundStyle(.secondary)
@@ -84,6 +121,29 @@ struct AccountView: View {
         isSigningOut = true
         AuthService(appState: appState).signOut()
         isSigningOut = false
+    }
+
+    /// Trigger /auth/resend-verification then present VerifyEmailView. Reuses
+    /// the same 6-digit code flow as signup so the backend has a single
+    /// verification path. The API responds 200 even for unknown/already-
+    /// verified emails for enumeration defense, so this is safe to fire
+    /// without any additional client-side existence checks.
+    private func sendVerificationCode(to email: String) {
+        isSendingVerification = true
+        Task {
+            do {
+                try await AuthService(appState: appState).resendVerification(email: email)
+                await MainActor.run {
+                    isSendingVerification = false
+                    verificationEmail = email
+                }
+            } catch {
+                await MainActor.run {
+                    isSendingVerification = false
+                    verificationError = error.localizedDescription
+                }
+            }
+        }
     }
 }
 
