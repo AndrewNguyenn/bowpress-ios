@@ -10,12 +10,25 @@ struct PaywallView: View {
 
     @State private var didLoad = false
 
+    /// True when the backend says the user already has an active subscription.
+    /// Honors the same DEBUG override (`REAL_ENTITLEMENT=1`) used elsewhere so
+    /// dev runs don't accidentally hide the paywall behind the always-on flag.
+    private var hasActiveSubscription: Bool {
+        guard let entitlement = appState.entitlement else { return false }
+        return entitlement.isActive
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: AppTheme.Spacing.lg) {
                 hero
-                productList
-                redeemCodeButton
+                if hasActiveSubscription, let entitlement = appState.entitlement {
+                    SubscriptionStatusCard(entitlement: entitlement)
+                    alreadySubscribedNote
+                } else {
+                    productList
+                    redeemCodeButton
+                }
                 restoreButton
                 legalFooter
             }
@@ -42,12 +55,14 @@ struct PaywallView: View {
                 .foregroundStyle(Color.appAccent)
                 .padding(.bottom, AppTheme.Spacing.xs)
 
-            Text("Unlock the full tuning engine")
+            Text(hasActiveSubscription ? "You're a BowPress Pro" : "Unlock the full tuning engine")
                 .font(.system(size: 26, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.appTextPrimary)
                 .multilineTextAlignment(.center)
 
-            Text("Unlimited sessions, advanced analytics, and personalised tuning suggestions.")
+            Text(hasActiveSubscription
+                 ? "Thanks for supporting BowPress. Your full tuning engine is active."
+                 : "Unlimited sessions, advanced analytics, and personalised tuning suggestions.")
                 .font(.subheadline)
                 .foregroundStyle(Color.appText)
                 .multilineTextAlignment(.center)
@@ -55,6 +70,15 @@ struct PaywallView: View {
         }
         .padding(.vertical, AppTheme.Spacing.lg)
         .frame(maxWidth: .infinity)
+    }
+
+    private var alreadySubscribedNote: some View {
+        Text("To switch plans, cancel, or change auto-renewal, tap Manage Subscription above.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, AppTheme.Spacing.md)
+            .accessibilityIdentifier("paywall_already_subscribed_note")
     }
 
     @ViewBuilder
