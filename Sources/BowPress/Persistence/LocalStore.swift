@@ -87,6 +87,15 @@ final class LocalStore {
             existing.restDepth = config.restDepth
             existing.sightPosition = config.sightPosition
             existing.gripAngle = config.gripAngle
+            // The bowpress-api Codable schema doesn't carry specificGrip /
+            // specificLimbs yet, so a config arriving from
+            // /bow-configurations has nil here even when the user just
+            // typed a value locally. Coalesce instead of overwrite so
+            // hydration can't silently wipe local edits — the tradeoff is
+            // the server can't actively clear these fields, which is fine
+            // while they're iOS-local concepts.
+            existing.specificGrip = config.specificGrip ?? existing.specificGrip
+            existing.specificLimbs = config.specificLimbs ?? existing.specificLimbs
             existing.nockingHeight = config.nockingHeight
             existing.frontStabWeight = config.frontStabWeight
             existing.frontStabAngle = config.frontStabAngle

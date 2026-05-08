@@ -144,8 +144,17 @@ struct BowConfigDetailView: View {
             deltaRow("Position", value: UnitFormatting.mmLength(c, system: unitSystem, digits: 0), isChanged: c != 0)
         }
 
+        if let limbs = config.specificLimbs, !limbs.isEmpty {
+            Section("Limbs") {
+                row("Specific Limbs", value: limbs)
+            }
+        }
+
         Section("Grip & Nock") {
             deltaRow("Grip Angle", value: UnitFormatting.degrees(config.gripAngle), isChanged: config.gripAngle != 0)
+            if let grip = config.specificGrip, !grip.isEmpty {
+                row("Specific Grip", value: grip)
+            }
             deltaRow("Nocking Height",
                      value: UnitFormatting.sixteenths(config.nockingHeight, system: unitSystem),
                      isChanged: config.nockingHeight != 0)
@@ -184,8 +193,17 @@ struct BowConfigDetailView: View {
             row("Tension", value: "\(config.plungerTension ?? 0) clicks")
         }
 
+        if let limbs = config.specificLimbs, !limbs.isEmpty {
+            Section("Limbs") {
+                row("Specific Limbs", value: limbs)
+            }
+        }
+
         Section("Grip & Nock") {
             deltaRow("Grip Angle", value: UnitFormatting.degrees(config.gripAngle), isChanged: config.gripAngle != 0)
+            if let grip = config.specificGrip, !grip.isEmpty {
+                row("Specific Grip", value: grip)
+            }
             deltaRow("Nocking Height",
                      value: UnitFormatting.sixteenths(config.nockingHeight, system: unitSystem),
                      isChanged: config.nockingHeight != 0)

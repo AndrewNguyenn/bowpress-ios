@@ -65,6 +65,13 @@ final class PersistentBowConfig {
     var restDepth: Double
     var nockingHeight: Int
     var gripAngle: Double
+    /// Free-text grip name (recurve/barebow only). Nil for compound and for
+    /// any record persisted before the field shipped — SwiftData lightweight
+    /// migration adds it as NULL.
+    var specificGrip: String? = nil
+    /// Free-text limb identifier (recurve/barebow only). Same migration story
+    /// as specificGrip.
+    var specificLimbs: String? = nil
     var sightPosition: Int?
 
     // Compound-only
@@ -116,6 +123,8 @@ final class PersistentBowConfig {
         restDepth: Double,
         nockingHeight: Int,
         gripAngle: Double,
+        specificGrip: String? = nil,
+        specificLimbs: String? = nil,
         sightPosition: Int?,
         letOffPct: Double?,
         peepHeight: Double?,
@@ -150,6 +159,8 @@ final class PersistentBowConfig {
         self.restDepth = restDepth
         self.nockingHeight = nockingHeight
         self.gripAngle = gripAngle
+        self.specificGrip = specificGrip
+        self.specificLimbs = specificLimbs
         self.sightPosition = sightPosition
         self.letOffPct = letOffPct
         self.peepHeight = peepHeight
@@ -196,6 +207,7 @@ final class PersistentBowConfig {
             restDepth: restDepth,
             sightPosition: sightPosition,
             gripAngle: gripAngle,
+            specificGrip: specificGrip,
             nockingHeight: nockingHeight,
             frontStabWeight: frontStabWeight,
             frontStabAngle: frontStabAngle,
@@ -203,6 +215,7 @@ final class PersistentBowConfig {
             rearStabWeight: rearStabWeight,
             rearStabVertAngle: rearStabVertAngle,
             rearStabHorizAngle: rearStabHorizAngle,
+            specificLimbs: specificLimbs,
             braceHeight: braceHeight,
             tillerTop: tillerTop,
             tillerBottom: tillerBottom,
@@ -230,6 +243,8 @@ final class PersistentBowConfig {
             restDepth: dto.restDepth,
             nockingHeight: dto.nockingHeight,
             gripAngle: dto.gripAngle,
+            specificGrip: dto.specificGrip,
+            specificLimbs: dto.specificLimbs,
             sightPosition: dto.sightPosition,
             letOffPct: dto.letOffPct,
             peepHeight: dto.peepHeight,

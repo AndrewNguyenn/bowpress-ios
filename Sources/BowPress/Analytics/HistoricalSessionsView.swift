@@ -1101,9 +1101,18 @@ struct SessionDetailSheet: View {
                         VStack(spacing: 8) {
                             SessionHeatMapView(
                                 plots: allArrows,
-                                endArrows: selectedEnd != nil ? displayedArrows : [],
+                                // Always render dots for whatever's visible: all
+                                // arrows when no end is selected, the end's arrows
+                                // when one is. Scrubbing owns the dots while the
+                                // gesture is active (otherwise we'd double-stack
+                                // numbered dots), so suppress endArrows then.
+                                endArrows: isScrubbing ? [] : displayedArrows,
                                 scrubArrows: isScrubbing ? scrubbedArrows : nil,
-                                highlightArrowId: highlightArrowId
+                                highlightArrowId: highlightArrowId,
+                                // Numbered dots only when the user is looking
+                                // at one end's sequence — across the whole
+                                // session the indices have no meaning.
+                                endArrowsNumbered: selectedEnd != nil
                             )
                             .frame(maxWidth: .infinity)
                             .aspectRatio(1, contentMode: .fit)
@@ -1406,6 +1415,10 @@ private struct SessionHeatMapView: View {
     var endArrows: [ArrowPlot] = []
     var scrubArrows: [ArrowPlot]? = nil
     var highlightArrowId: String? = nil
+    /// Caller passes false when `endArrows` is the full session (no end
+    /// selected) — sequence numbers across the whole session are noisy
+    /// and the digits become unreadable when arrows cluster.
+    var endArrowsNumbered: Bool = true
 
     private var renderPlots: [ArrowPlot] {
         scrubArrows ?? plots
@@ -1453,28 +1466,10 @@ private struct SessionHeatMapView: View {
         return sqrt(pts.map { pow($0.0 - cx, 2) + pow($0.1 - cy, 2) }.reduce(0, +) / Double(pts.count))
     }
 
-    private var blurRadius: CGFloat {
-        guard let spread = groupSpread() else { return 10 }
-        if spread < 0.08 { return 5 }
-        if spread < 0.18 { return 8 }
-        return 12
-    }
-
     var body: some View {
         Image("target_face")
             .resizable()
             .scaledToFit()
-            .overlay {
-                Canvas { context, size in
-                    for (i, plot) in renderPlots.enumerated() {
-                        let pt = blobPosition(for: plot, index: i, in: size)
-                        let rect = CGRect(x: pt.x - 11, y: pt.y - 11, width: 22, height: 22)
-                        context.fill(Path(ellipseIn: rect), with: .color(Color.appAccent.opacity(0.50)))
-                    }
-                }
-                .drawingGroup()
-                .blur(radius: blurRadius)
-            }
             .overlay {
                 Canvas { context, size in
                     let halfW = size.width / 2
@@ -1496,7 +1491,7 @@ private struct SessionHeatMapView: View {
                         let radius = min(geo.size.width, geo.size.height) / 2
                         let dotSize = max(CGFloat(5.0) * (radius * 2) / 160.0, 10)
                         ForEach(Array(endArrows.enumerated()), id: \.element.id) { idx, arrow in
-                            EndArrowDot(number: idx + 1, ring: arrow.ring, size: dotSize)
+                            EndArrowDot(number: idx + 1, ring: arrow.ring, size: dotSize, numbered: endArrowsNumbered)
                                 .position(blobPosition(for: arrow, index: idx, in: geo.size))
                         }
                     }
@@ -1693,6 +1688,11 @@ private struct EndArrowDot: View {
     let ring: Int
     let size: CGFloat
     var highlighted: Bool = false
+    /// Numbered dots only make sense when the user is reading a specific
+    /// end (or scrubbing through one). At "All N arrows" the numbering
+    /// across an entire session is meaningless and the digits collide
+    /// into noise — pass `false` for the unnumbered variant.
+    var numbered: Bool = true
 
     var body: some View {
         ZStack {
@@ -1706,9 +1706,11 @@ private struct EndArrowDot: View {
                 .fill(dotColor)
                 .frame(width: size, height: size)
                 .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
-            Text("\(number)")
-                .font(.system(size: max(size * 0.42, 7), weight: .bold, design: .rounded))
-                .foregroundStyle(ring >= 9 ? Color.black : Color.white)
+            if numbered {
+                Text("\(number)")
+                    .font(.system(size: max(size * 0.42, 7), weight: .bold, design: .rounded))
+                    .foregroundStyle(ring >= 9 ? Color.black : Color.white)
+            }
         }
     }
 

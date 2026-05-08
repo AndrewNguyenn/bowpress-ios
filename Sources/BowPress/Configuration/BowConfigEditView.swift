@@ -21,6 +21,11 @@ struct BowConfigEditView: View {
     @State private var restDepth: Double = 0
     @State private var sightPosition: Int = 0
     @State private var gripAngle: Double = 0
+    /// Free-text grip name (recurve / barebow only). Empty string round-trips
+    /// to nil on save so legacy rows stay unchanged when the field is left blank.
+    @State private var specificGrip: String = ""
+    /// Free-text limb identifier (recurve / barebow only).
+    @State private var specificLimbs: String = ""
     @State private var nockingHeight: Int = 0
 
     // Compound
@@ -240,6 +245,8 @@ struct BowConfigEditView: View {
             braceHeightRow
         }
 
+        limbsSection
+
         Section("Tiller") {
             Stepper(
                 value: $tillerTop.displayed(in: unitSystem, scale: .mmToInch),
@@ -280,6 +287,7 @@ struct BowConfigEditView: View {
             Stepper(value: $gripAngle, in: 0.0...90.0, step: 0.5) {
                 LabeledContent("Grip Angle", value: UnitFormatting.degrees(gripAngle))
             }
+            specificGripRow
             Stepper(value: $nockingHeight, in: -80...80) {
                 LabeledContent("Nocking Height",
                                value: UnitFormatting.sixteenths(nockingHeight, system: unitSystem))
@@ -337,6 +345,8 @@ struct BowConfigEditView: View {
             braceHeightRow
         }
 
+        limbsSection
+
         Section("Tiller") {
             Stepper(
                 value: $tillerTop.displayed(in: unitSystem, scale: .mmToInch),
@@ -366,6 +376,7 @@ struct BowConfigEditView: View {
             Stepper(value: $gripAngle, in: 0.0...90.0, step: 0.5) {
                 LabeledContent("Grip Angle", value: UnitFormatting.degrees(gripAngle))
             }
+            specificGripRow
             Stepper(value: $nockingHeight, in: -80...80) {
                 LabeledContent("Nocking Height",
                                value: UnitFormatting.sixteenths(nockingHeight, system: unitSystem))
@@ -407,6 +418,8 @@ struct BowConfigEditView: View {
         restDepth = 0
         sightPosition = 0
         gripAngle = 0
+        specificGrip = baseConfig.specificGrip ?? ""
+        specificLimbs = baseConfig.specificLimbs ?? ""
         nockingHeight = 0
 
         switch bow.bowType {
@@ -449,6 +462,13 @@ struct BowConfigEditView: View {
     }
 
     // MARK: - Save
+
+    private var trimmedGrip: String? {
+        BowConfiguration.canonicalizeText(specificGrip)
+    }
+    private var trimmedLimbs: String? {
+        BowConfiguration.canonicalizeText(specificLimbs)
+    }
 
     private func save() async {
         isSaving = true
@@ -504,11 +524,15 @@ struct BowConfigEditView: View {
             newConfig.rearStabRightWeight = rearStabRightWeight
             newConfig.rearStabVertAngle = rearStabVertAngle
             newConfig.rearStabHorizAngle = rearStabHorizAngle
+            newConfig.specificGrip = trimmedGrip
+            newConfig.specificLimbs = trimmedLimbs
         case .barebow:
             newConfig.braceHeight = braceHeight
             newConfig.tillerTop = tillerTop
             newConfig.tillerBottom = tillerBottom
             newConfig.plungerTension = plungerTension
+            newConfig.specificGrip = trimmedGrip
+            newConfig.specificLimbs = trimmedLimbs
         }
 
         do {
@@ -523,6 +547,43 @@ struct BowConfigEditView: View {
             errorMessage = error.localizedDescription
         }
         isSaving = false
+    }
+
+    // MARK: - Specific grip / limbs (recurve + barebow only)
+
+    private var specificGripRow: some View {
+        BowConfigSuggestRow(
+            label: "Specific Grip",
+            placeholder: "e.g. Jager Hunter",
+            value: $specificGrip,
+            suggestions: BowConfiguration.suggestions(
+                from: Array(appState.bowConfigs.values),
+                keyPath: \.specificGrip,
+                excluding: specificGrip
+            ),
+            accessibilityKey: "specific_grip"
+        )
+    }
+
+    private var specificLimbsRow: some View {
+        BowConfigSuggestRow(
+            label: "Specific Limbs",
+            placeholder: "e.g. Hoyt 970 Velos 36# medium",
+            value: $specificLimbs,
+            suggestions: BowConfiguration.suggestions(
+                from: Array(appState.bowConfigs.values),
+                keyPath: \.specificLimbs,
+                excluding: specificLimbs
+            ),
+            accessibilityKey: "specific_limbs"
+        )
+    }
+
+    @ViewBuilder
+    private var limbsSection: some View {
+        Section("Limbs") {
+            specificLimbsRow
+        }
     }
 
     // MARK: - Input rows

@@ -39,6 +39,10 @@ struct BowConfiguration: Identifiable, Codable, Equatable {
     // Sight / grip / nock
     var sightPosition: Int? = nil         // compound / recurve (barebow nil)
     var gripAngle: Double
+    /// Free-text grip name (e.g. "Jager Hunter", "stock", "high wrist"). Only
+    /// surfaced in the recurve/barebow edit form — compound archers tune by
+    /// angle alone. Optional everywhere; legacy rows decode as nil.
+    var specificGrip: String? = nil
     var nockingHeight: Int
 
     // Front stabilizer (compound + recurve; barebow nil)
@@ -50,6 +54,12 @@ struct BowConfiguration: Identifiable, Codable, Equatable {
     var rearStabWeight: Double? = nil
     var rearStabVertAngle: Double? = nil
     var rearStabHorizAngle: Double? = nil
+
+    /// Free-text limb identifier (e.g. "Hoyt 970 Velos 36# medium"). Surfaced
+    /// in the recurve/barebow edit form only — compound limbs are tuned by
+    /// turn count, not swapped as a unit. Optional everywhere; legacy rows
+    /// decode as nil.
+    var specificLimbs: String? = nil
 
     // Recurve-specific
     var braceHeight: Double? = nil        // inches
@@ -78,7 +88,10 @@ struct BowConfiguration: Identifiable, Codable, Equatable {
         mainStringTopTwists == other.mainStringTopTwists && mainStringBottomTwists == other.mainStringBottomTwists &&
         topLimbTurns == other.topLimbTurns && bottomLimbTurns == other.bottomLimbTurns &&
         restVertical == other.restVertical && restHorizontal == other.restHorizontal && restDepth == other.restDepth &&
-        sightPosition == other.sightPosition && gripAngle == other.gripAngle && nockingHeight == other.nockingHeight &&
+        sightPosition == other.sightPosition && gripAngle == other.gripAngle &&
+        BowConfiguration.canonicalizeText(specificGrip ?? "") == BowConfiguration.canonicalizeText(other.specificGrip ?? "") &&
+        BowConfiguration.canonicalizeText(specificLimbs ?? "") == BowConfiguration.canonicalizeText(other.specificLimbs ?? "") &&
+        nockingHeight == other.nockingHeight &&
         frontStabWeight == other.frontStabWeight && frontStabAngle == other.frontStabAngle &&
         rearStabSide == other.rearStabSide && rearStabWeight == other.rearStabWeight &&
         rearStabVertAngle == other.rearStabVertAngle && rearStabHorizAngle == other.rearStabHorizAngle &&
