@@ -600,9 +600,20 @@ struct BowDetailView: View {
             value: $specificGrip,
             suggestions: BowConfiguration.suggestions(
                 from: Array(appState.bowConfigs.values),
-                keyPath: \.specificGrip,
-                excluding: specificGrip
+                keyPath: \.specificGrip
             ),
+            onDeleteSuggestion: { name in
+                // Skip the bow being tuned — the picker has already
+                // cleared `$specificGrip`, and the user's next Save
+                // will write the head config with the new value. Don't
+                // mutate `appState.bowConfigs[bow.id]` mid-edit and
+                // surprise the @State seeding logic.
+                clearCatalogValue(
+                    matching: name, field: .specificGrip,
+                    appState: appState, store: store,
+                    excludingBowId: bow.id
+                )
+            },
             accessibilityKey: "specific_grip"
         )
     }
@@ -614,9 +625,15 @@ struct BowDetailView: View {
             value: $specificLimbs,
             suggestions: BowConfiguration.suggestions(
                 from: Array(appState.bowConfigs.values),
-                keyPath: \.specificLimbs,
-                excluding: specificLimbs
+                keyPath: \.specificLimbs
             ),
+            onDeleteSuggestion: { name in
+                clearCatalogValue(
+                    matching: name, field: .specificLimbs,
+                    appState: appState, store: store,
+                    excludingBowId: bow.id
+                )
+            },
             accessibilityKey: "specific_limbs"
         )
     }

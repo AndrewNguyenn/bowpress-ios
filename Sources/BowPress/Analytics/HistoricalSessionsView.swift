@@ -698,6 +698,12 @@ private struct SessionLogRow: View {
         .padding(.vertical, 14)
         .padding(.horizontal, 16)
         .background(Color.appPaper)
+        // The whole row is the navigation target — without a contentShape
+        // SwiftUI only hit-tests the actual rendered subviews (text, the
+        // score in the right rail), leaving the gaps between columns
+        // un-tappable. Setting the shape to the full bounds means a tap
+        // anywhere on the row fires the parent NavigationLink.
+        .contentShape(Rectangle())
         .overlay(alignment: .bottom) {
             if !isLastInGroup {
                 Rectangle()
@@ -772,8 +778,13 @@ private struct SessionLogRow: View {
 // drag left to latch the trash button, drag past `fullSwipeThreshold` to fire
 // delete immediately. We can't use the system `.swipeActions` modifier here
 // because the session log lives in a `VStack` inside a `ScrollView`, not a
-// `List`. The DragGesture's `minimumDistance: 18` lets the parent
-// NavigationLink still receive taps.
+// `List`. Attached as `.simultaneousGesture` so the parent NavigationLink's
+// tap recognizer keeps working — `.gesture` would claim the touch hierarchy
+// and leave most of the row un-tappable. `minimumDistance: 24` plus a 1.5x
+// horizontal-dominance check on `onChanged` keeps the gesture out of
+// vertical scrolls, and `onEnded` re-checks the final direction so a
+// primarily-vertical drag that briefly satisfied dominance for a single
+// frame doesn't snap the row to the swiped state.
 
 private struct SwipeableSessionLogRow: View {
     let session: ShootingSession
@@ -804,7 +815,12 @@ private struct SwipeableSessionLogRow: View {
                 bowName: bowName
             )
             .offset(x: offset)
-            .gesture(swipeGesture)
+            // simultaneousGesture (vs the previous `.gesture`) lets the
+            // parent NavigationLink's tap recognizer fire in parallel —
+            // before, .gesture would claim the touch hierarchy in a way
+            // that left only sub-views with their own tap handlers
+            // (the right-rail score chip area) navigating successfully.
+            .simultaneousGesture(swipeGesture)
         }
     }
 
@@ -835,13 +851,34 @@ private struct SwipeableSessionLogRow: View {
     }
 
     private var swipeGesture: some Gesture {
-        DragGesture(minimumDistance: 18)
+        // Higher minimumDistance + strict horizontal-dominance check so a
+        // vertical drag is left for the parent ScrollView. simultaneousGesture
+        // (in body) lets the parent NavigationLink fire on taps; this gesture
+        // only commits to swiping the row when the user is clearly dragging
+        // horizontally. Mirrors the SwipeableRow tightening on the active
+        // session ends area where the looser config used to stall ScrollView.
+        DragGesture(minimumDistance: 24)
             .onChanged { value in
-                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                let h = abs(value.translation.width)
+                let v = abs(value.translation.height)
+                guard h > v * 1.5 else { return }
                 let proposed = restingOffset + value.translation.width
                 offset = proposed < 0 ? proposed : proposed / 5
             }
             .onEnded { value in
+                let h = abs(value.translation.width)
+                let v = abs(value.translation.height)
+                // Mirror the onChanged guard at end-of-drag too — without
+                // this, a primarily-vertical scroll that briefly dipped
+                // horizontal-dominant for one frame could leave `offset`
+                // non-zero and snap the row to its swiped state once the
+                // user lifts. Spring back to rest instead.
+                guard h > v * 1.5 else {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        offset = restingOffset
+                    }
+                    return
+                }
                 let velocity = value.predictedEndTranslation.width - value.translation.width
                 withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
                     if offset < -fullSwipeThreshold || (velocity < -300 && offset < -actionWidth / 2) {
@@ -1589,6 +1626,13 @@ private struct StatChip: View {
             .font(.bpUI(11, weight: .semibold))
             .tracking(9 * 0.18)
             .foregroundStyle(Color.appPondDk)
+            // Single line + fixedSize so the chip grows horizontally to fit
+            // its content instead of wrapping when the directionArrow gains
+            // a secondary character (e.g. "↓ 19.7mm" → "↓← 16.0mm"). The
+            // parent HStack pushes the trailing Spacer instead of the chip
+            // wrapping into a two-row mess on the per-arrow view.
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .overlay(Rectangle().strokeBorder(Color.appPondDk, lineWidth: 1))

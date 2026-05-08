@@ -118,6 +118,31 @@ final class LocalStore {
         try context.save()
     }
 
+    /// Force-clear an iOS-local string field on a config that's already on
+    /// disk. `save(config:)` coalesces nil for `specificGrip`/`specificLimbs`
+    /// to defend against hydration wiping local edits (the server doesn't
+    /// know these fields yet) — which means a user-driven "delete this
+    /// catalog entry" round-trip through `save(config:)` is a silent no-op.
+    /// This method bypasses that coalesce by writing nil explicitly. Use
+    /// only for explicit clears initiated by the user, never for hydration.
+    func clearConfigSpecificGrip(id: String) throws {
+        let predicate = #Predicate<PersistentBowConfig> { $0.id == id }
+        let descriptor = FetchDescriptor<PersistentBowConfig>(predicate: predicate)
+        if let existing = try context.fetch(descriptor).first {
+            existing.specificGrip = nil
+            try context.save()
+        }
+    }
+
+    func clearConfigSpecificLimbs(id: String) throws {
+        let predicate = #Predicate<PersistentBowConfig> { $0.id == id }
+        let descriptor = FetchDescriptor<PersistentBowConfig>(predicate: predicate)
+        if let existing = try context.fetch(descriptor).first {
+            existing.specificLimbs = nil
+            try context.save()
+        }
+    }
+
     // MARK: - ArrowConfigurations
 
     func fetchArrowConfigs() throws -> [ArrowConfiguration] {

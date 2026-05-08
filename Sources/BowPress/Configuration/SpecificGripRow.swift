@@ -1,42 +1,228 @@
 import SwiftUI
 
-/// Free-text input row with horizontal autocomplete chips drawn from
-/// previously-entered values across the user's bow configs. Used for
-/// recurve/barebow grip names and limb identifiers — both have a small
-/// fixed-by-the-archer universe of values that benefits from quick reuse
-/// across bow configs.
+/// Sheet-backed picker row for grip / limb identifiers on bow configs. Tap
+/// the row → modal lists every value the archer has previously entered
+/// across their bow configs, with options to pick, add a new one, or delete
+/// from the catalog. The catalog is the de-duped union of values across
+/// `appState.bowConfigs.values` — there's no separate persisted catalog
+/// model, so "delete" here means clearing the value from any config that
+/// referenced it (the row's `onDeleteSuggestion` callback).
+///
+/// Row label tells the archer what's currently selected; "None" when nil.
 struct BowConfigSuggestRow: View {
     let label: String
     let placeholder: String
     @Binding var value: String
 
-    /// Pre-filtered, de-duplicated suggestions to display as chips. Caller
-    /// owns sourcing them — typically `BowConfiguration.suggestions(...)`.
-    /// Pass `[]` to hide the chip row.
+    /// De-duplicated catalog of previously-entered values (caller owns
+    /// sourcing — typically `BowConfiguration.suggestions(...)`).
     let suggestions: [String]
 
-    /// Per-instance accessibility id stub (e.g. "specific_grip", "specific_limbs").
+    /// Removes `name` from every config that referenced it. Caller wires
+    /// this to a write through `appState.bowConfigs` so the catalog
+    /// re-derives correctly on next render.
+    let onDeleteSuggestion: (String) -> Void
+
+    /// Stub like "specific_grip" / "specific_limbs" for accessibility ids.
     let accessibilityKey: String
 
+    @State private var isPickerPresented = false
+
+    private var displayValue: String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "None" : trimmed
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        Button {
+            isPickerPresented = true
+        } label: {
             LabeledContent(label) {
-                TextField(placeholder, text: $value)
-                    .multilineTextAlignment(.trailing)
-                    .autocorrectionDisabled()
-                    .accessibilityIdentifier("\(accessibilityKey)_field")
+                HStack(spacing: 4) {
+                    Text(displayValue)
+                        .foregroundStyle(value.isEmpty ? .secondary : Color.appInk)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
             }
-            if !suggestions.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
-                        ForEach(suggestions, id: \.self) { name in
-                            Button(name) { value = name }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
+            // Without a contentShape the Button only hit-tests the visible
+            // text — the empty space between the label and the trailing
+            // chevron is dead. Same fix the SessionLogRow needed.
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("\(accessibilityKey)_row")
+        .sheet(isPresented: $isPickerPresented) {
+            BowConfigSuggestPickerSheet(
+                title: label,
+                placeholder: placeholder,
+                value: $value,
+                suggestions: suggestions,
+                onDeleteSuggestion: onDeleteSuggestion,
+                accessibilityKey: accessibilityKey
+            )
+        }
+    }
+}
+
+private struct BowConfigSuggestPickerSheet: View {
+    let title: String
+    let placeholder: String
+    @Binding var value: String
+    let suggestions: [String]
+    let onDeleteSuggestion: (String) -> Void
+    let accessibilityKey: String
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var newEntry: String = ""
+    @State private var pendingDelete: String?
+
+    private var canAddNew: Bool {
+        let trimmed = newEntry.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        // No duplicate-of-existing — selecting an existing entry is the
+        // suggestions list's job, not "add new"'s.
+        return !suggestions.contains { $0.caseInsensitiveCompare(trimmed) == .orderedSame }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if !suggestions.isEmpty {
+                    Section("Saved \(title.lowercased())") {
+                        ForEach(Array(suggestions.enumerated()), id: \.element) { index, name in
+                            Button {
+                                value = name
+                                dismiss()
+                            } label: {
+                                HStack {
+                                    Text(name).foregroundStyle(Color.appInk)
+                                    Spacer()
+                                    if name.caseInsensitiveCompare(value) == .orderedSame {
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(Color.appAccent)
+                                    }
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    pendingDelete = name
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            // Index-keyed id (vs interpolating user-supplied
+                            // strings) so UI tests stay stable against names
+                            // with spaces, accents, or emoji. The label is
+                            // still surfaced via the Button's text content.
+                            .accessibilityIdentifier("\(accessibilityKey)_picker_row_\(index)")
+                        }
+                    }
+                }
+
+                Section("Add new") {
+                    HStack(spacing: 8) {
+                        TextField(placeholder, text: $newEntry)
+                            .autocorrectionDisabled()
+                            .accessibilityIdentifier("\(accessibilityKey)_picker_new_field")
+                        Button("Add") {
+                            // Use the same canonicalization the save path
+                            // uses so what the user sees in the catalog
+                            // matches what gets persisted (no near-duplicates
+                            // from extra whitespace).
+                            value = BowConfiguration.canonicalizeText(newEntry) ?? ""
+                            dismiss()
+                        }
+                        .disabled(!canAddNew)
+                    }
+                }
+
+                if !value.isEmpty {
+                    Section {
+                        Button(role: .destructive) {
+                            value = ""
+                            dismiss()
+                        } label: {
+                            Text("Clear selection")
                         }
                     }
                 }
             }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .alert(
+                "Delete \(pendingDelete ?? "")?",
+                isPresented: Binding(
+                    get: { pendingDelete != nil },
+                    set: { if !$0 { pendingDelete = nil } }
+                ),
+                presenting: pendingDelete
+            ) { name in
+                Button("Delete", role: .destructive) {
+                    if value.caseInsensitiveCompare(name) == .orderedSame {
+                        value = ""
+                    }
+                    onDeleteSuggestion(name)
+                    pendingDelete = nil
+                }
+                Button("Cancel", role: .cancel) { pendingDelete = nil }
+            } message: { _ in
+                Text("Removes this entry from your saved list and clears it from any bow configs that referenced it. Past tuning history isn't changed.")
+            }
+        }
+    }
+}
+
+/// Clear a catalog entry from every current bow config that references it.
+/// Past tuning history (older config rows) is left alone — only the
+/// catalog the picker sources from gets the entry pruned. Lifted out of
+/// the two views (BowConfigEditView, BowDetailView) so a single fix
+/// reaches both call sites and the API-sync semantics stay consistent.
+///
+/// `field` is `.specificGrip` or `.specificLimbs`. This routes through
+/// LocalStore's force-clear methods (vs `save(config:)`, which coalesces
+/// nil-on-update to defend against hydration). The local-only field
+/// concept means there's no API call to make on the side — when the
+/// backend learns these fields, this is the place to add the sync.
+@MainActor
+func clearCatalogValue(
+    matching name: String,
+    field: BowConfigCatalogField,
+    appState: AppState,
+    store: LocalStore,
+    excludingBowId: String? = nil
+) {
+    let target = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    for (bowId, cfg) in appState.bowConfigs {
+        if bowId == excludingBowId { continue }
+        let current = (cfg[keyPath: field.keyPath])?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard current.caseInsensitiveCompare(target) == .orderedSame else { continue }
+        var updated = cfg
+        updated[keyPath: field.keyPath] = nil
+        switch field {
+        case .specificGrip:  try? store.clearConfigSpecificGrip(id: cfg.id)
+        case .specificLimbs: try? store.clearConfigSpecificLimbs(id: cfg.id)
+        }
+        appState.bowConfigs[bowId] = updated
+    }
+}
+
+enum BowConfigCatalogField {
+    case specificGrip
+    case specificLimbs
+
+    var keyPath: WritableKeyPath<BowConfiguration, String?> {
+        switch self {
+        case .specificGrip:  return \.specificGrip
+        case .specificLimbs: return \.specificLimbs
         }
     }
 }
@@ -51,14 +237,13 @@ extension BowConfiguration {
     }
 
     /// Distinct, trimmed, case-insensitively-deduped values across a
-    /// collection of configs, sourced via the `keyPath` (e.g.
-    /// `\.specificGrip`). Use to populate `BowConfigSuggestRow.suggestions`.
-    /// Filters out the value the user is currently typing (case-insensitive)
-    /// so it doesn't appear as a redundant chip.
+    /// collection of configs, sourced via the `keyPath` (e.g. `\.specificGrip`).
+    /// Used to populate `BowConfigSuggestRow.suggestions`. Unlike the prior
+    /// chip flavor, the picker sheet doesn't filter the current value — the
+    /// user can re-select to confirm or see it checkmarked.
     static func suggestions<C: Collection>(
         from configs: C,
-        keyPath: KeyPath<BowConfiguration, String?>,
-        excluding currentInput: String = ""
+        keyPath: KeyPath<BowConfiguration, String?>
     ) -> [String] where C.Element == BowConfiguration {
         var seen = Set<String>()
         var ordered: [String] = []
@@ -70,21 +255,6 @@ extension BowConfiguration {
                 ordered.append(raw)
             }
         }
-        let typing = currentInput.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return ordered.filter { $0.lowercased() != typing }
-    }
-
-    // Back-compat shims — kept so call sites that took the grip-only API
-    // before this generalization don't have to change in lockstep. Both
-    // forward to the generic implementations.
-    static func canonicalizeGrip(_ raw: String) -> String? {
-        canonicalizeText(raw)
-    }
-
-    static func gripSuggestions<C: Collection>(
-        from configs: C,
-        excluding currentInput: String = ""
-    ) -> [String] where C.Element == BowConfiguration {
-        suggestions(from: configs, keyPath: \.specificGrip, excluding: currentInput)
+        return ordered
     }
 }
