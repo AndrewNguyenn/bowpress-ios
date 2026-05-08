@@ -1,9 +1,7 @@
 What's new:
 
-• Fixed scrolling in active sessions when many ends are visible
-• Sessions and scores now persist correctly after the app is force-closed
-• Pro subscribers no longer see duplicate purchase buttons in Settings
-• Quick-edit arrow scores directly from the score card
-• Privacy Policy and Terms of Service links now work on every screen
-• Sign-in streamlined to Apple and Google — existing email accounts link
-  automatically when you sign in with the same email.
+• Session Detail "Shot distribution" now shows individual arrow points
+  for the whole session — no more heatmap blur covering the rings.
+• Recurve and barebow setups can now save a Specific Grip name (e.g.
+  "Jager Hunter Medium") and a Specific Limbs string. Both are optional
+  with autocomplete from previous entries.
