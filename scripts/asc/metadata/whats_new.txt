@@ -1,7 +1,8 @@
 What's new:
 
-• Session Detail "Shot distribution" now shows individual arrow points
-  for the whole session — no more heatmap blur covering the rings.
-• Recurve and barebow setups can now save a Specific Grip name (e.g.
-  "Jager Hunter Medium") and a Specific Limbs string. Both are optional
-  with autocomplete from previous entries.
+• Specific Grip and Specific Limbs (recurve / barebow) now use a sheet
+  picker with all your previously-saved values — no more re-typing per
+  bow. Add new entries inline; swipe to delete from the catalog.
+• Whole row in the session log is tappable now, not just the score.
+• Session Detail "↓ from center" pill no longer wraps to two lines on
+  the per-arrow scrub view.
