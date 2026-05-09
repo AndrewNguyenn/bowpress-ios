@@ -110,6 +110,65 @@ final class TargetGeometryTests: XCTestCase {
         XCTAssertNil(geo.ring(for: 2.0))
     }
 
+    // MARK: - snappedPosition (quick-edit re-score)
+
+    func test_snappedPosition_tenRing_lands_in_target_ring_band() {
+        let geo = TargetGeometry.tenRing
+        // Old plot is at radius 0.25 (ring 8 zone); user re-scores to ring 6.
+        // New radius should fall between ring 7's outer (0.40) and ring 6's
+        // outer (0.50) — i.e., 0.45 if using midpoint.
+        let snap = geo.snappedPosition(forRing: 6, from: 0.0, 0.25)
+        XCTAssertNotNil(snap)
+        let r = sqrt((snap?.x ?? 0) * (snap?.x ?? 0) + (snap?.y ?? 0) * (snap?.y ?? 0))
+        XCTAssertEqual(geo.ring(for: r), 6)
+    }
+
+    func test_snappedPosition_preserves_angle() {
+        let geo = TargetGeometry.tenRing
+        // Source: ring 8 in the south-east quadrant.
+        let oldX = 0.20, oldY = 0.15
+        let oldTheta = atan2(oldY, oldX)
+        let snap = geo.snappedPosition(forRing: 6, from: oldX, oldY)
+        XCTAssertNotNil(snap)
+        let newTheta = atan2(snap?.y ?? 0, snap?.x ?? 0)
+        XCTAssertEqual(oldTheta, newTheta, accuracy: 0.0001)
+    }
+
+    func test_snappedPosition_to_X_lands_inside_xRadius() {
+        let geo = TargetGeometry.tenRing
+        // Re-score from a far miss (ring 1 zone) up to X. The dot should
+        // collapse to within the X ring.
+        let snap = geo.snappedPosition(forRing: 11, from: 0.7, 0.0)
+        XCTAssertNotNil(snap)
+        let r = sqrt((snap?.x ?? 0) * (snap?.x ?? 0) + (snap?.y ?? 0) * (snap?.y ?? 0))
+        XCTAssertLessThan(r, geo.xRadius)
+    }
+
+    func test_snappedPosition_miss_returns_nil() {
+        // Misses (ring 0) have no defined band — caller leaves the existing
+        // position alone.
+        XCTAssertNil(TargetGeometry.tenRing.snappedPosition(forRing: 0, from: 0.3, 0.3))
+    }
+
+    func test_snappedPosition_at_exact_center_uses_default_angle() {
+        // No usable angle from (0, 0); must still return SOMETHING in the
+        // target ring's band rather than crashing or returning the center.
+        let geo = TargetGeometry.tenRing
+        let snap = geo.snappedPosition(forRing: 8, from: 0.0, 0.0)
+        XCTAssertNotNil(snap)
+        let r = sqrt((snap?.x ?? 0) * (snap?.x ?? 0) + (snap?.y ?? 0) * (snap?.y ?? 0))
+        XCTAssertEqual(geo.ring(for: r), 8)
+    }
+
+    func test_snappedPosition_sixRing_ring6_band() {
+        let geo = TargetGeometry.sixRing
+        // Source: ring 10 (centre); re-scored to ring 6 (outermost on this face).
+        let snap = geo.snappedPosition(forRing: 6, from: 0.05, 0.05)
+        XCTAssertNotNil(snap)
+        let r = sqrt((snap?.x ?? 0) * (snap?.x ?? 0) + (snap?.y ?? 0) * (snap?.y ?? 0))
+        XCTAssertEqual(geo.ring(for: r), 6)
+    }
+
     // MARK: - Preset lookup
 
     func test_preset_returnsMatchingGeometry() {

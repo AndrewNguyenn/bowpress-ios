@@ -1580,8 +1580,22 @@ private struct ArrowEditSheet: View {
         let label: String = ring == 0 ? "M" : (ring == 11 ? "X" : "\(ring)")
         let isCurrent = ring == arrow.ring
         return Button {
-            // Preserve current position; change only the score.
-            onReplot(ring, arrow.zone, arrow.plotX ?? 0, arrow.plotY ?? 0)
+            // Snap the plot position into the new ring's band so the dot
+            // color (keyed off `ring`) matches the ring zone the dot
+            // visually sits in. Without this, a score change from 8 → 6
+            // would leave a blue dot in the red zone and from 6 → 8 a red
+            // dot in the blue zone — the bug troy.jpeg flagged.
+            // Preserves the angle (which encodes "where in the pattern"
+            // the archer hit), only adjusts radius.
+            let oldX = arrow.plotX ?? 0
+            let oldY = arrow.plotY ?? 0
+            let geo = TargetGeometry.preset(for: faceType)
+            if let snapped = geo.snappedPosition(forRing: ring, from: oldX, oldY) {
+                onReplot(ring, arrow.zone, snapped.x, snapped.y)
+            } else {
+                // Misses and out-of-range rings: keep the existing position.
+                onReplot(ring, arrow.zone, oldX, oldY)
+            }
             dismiss()
         } label: {
             Text(label)

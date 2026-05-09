@@ -98,6 +98,41 @@ struct TargetGeometry {
         return nil
     }
 
+    /// Recompute a plot position so it lands inside the colored band of
+    /// `targetRing`, preserving the angle from center. Used by the score
+    /// keypad's "quick edit" path: if the archer corrects a score from 8
+    /// → 6 without re-plotting, we don't want a blue dot stuck in the red
+    /// zone (and the reverse). The angle (which encodes "where in the
+    /// pattern" they hit) is preserved; only the radial distance is
+    /// snapped to the midpoint of the new ring's band.
+    ///
+    /// Returns nil for misses (`targetRing == 0`), legacy arrows with no
+    /// existing plot, or rings outside the geometry's valid range — in
+    /// those cases the caller should leave the existing position alone.
+    func snappedPosition(forRing targetRing: Int, from oldX: Double, _ oldY: Double) -> (x: Double, y: Double)? {
+        guard targetRing > 0 else { return nil }
+        let oldR = sqrt(oldX * oldX + oldY * oldY)
+        // If there's no usable angle (arrow at exact center), default to
+        // straight up so the snap is deterministic. Non-zero radius gives
+        // a meaningful angle.
+        let theta = oldR > 0.0001 ? atan2(oldY, oldX) : -.pi / 2
+
+        let newR: Double
+        if targetRing == xRingValue {
+            newR = xRadius * 0.5
+        } else {
+            // Ring numbers count up from the outer-most ring; rings[0] is the
+            // outer-most, rings.last is the inner-most scoring ring above X.
+            let idx = targetRing - outerRingValue
+            guard idx >= 0 && idx < rings.count else { return nil }
+            let outer = rings[idx]
+            let inner: Double = (idx == rings.count - 1) ? xRadius : rings[idx + 1]
+            newR = (inner + outer) / 2.0
+        }
+
+        return (x: newR * cos(theta), y: newR * sin(theta))
+    }
+
     func zone(for normalizedDist: Double, angle: Double) -> ArrowPlot.Zone {
         // Angle is in degrees, 0 = right (east), going counter-clockwise.
         // We want 0 = North (top), clockwise.
