@@ -2,6 +2,9 @@ What's new:
 
 • Session log: arrow color bars and scores hydrate immediately on
   first open instead of staying gray until you tap into a session.
+• Quick Edit Score now snaps the arrow's plot position into the new
+  ring's band, so a re-score never leaves a blue dot stuck in the red
+  zone or a red dot in the gold zone.
 • Specific Grip and Specific Limbs (recurve / barebow) use a sheet
   picker over your saved values — add new entries inline, swipe to
   delete from the catalog.
