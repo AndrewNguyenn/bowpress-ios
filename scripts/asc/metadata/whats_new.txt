@@ -1,8 +1,10 @@
 What's new:
 
-• Specific Grip and Specific Limbs (recurve / barebow) now use a sheet
-  picker with all your previously-saved values — no more re-typing per
-  bow. Add new entries inline; swipe to delete from the catalog.
-• Whole row in the session log is tappable now, not just the score.
+• Session log: arrow color bars and scores hydrate immediately on
+  first open instead of staying gray until you tap into a session.
+• Specific Grip and Specific Limbs (recurve / barebow) use a sheet
+  picker over your saved values — add new entries inline, swipe to
+  delete from the catalog.
+• Whole row in the session log is tappable, not just the score.
 • Session Detail "↓ from center" pill no longer wraps to two lines on
   the per-arrow scrub view.
