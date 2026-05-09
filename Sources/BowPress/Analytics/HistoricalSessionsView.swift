@@ -109,18 +109,30 @@ struct HistoricalSessionsView: View {
             Text(errorMessage ?? "")
         }
         .task(id: appState.analyticsRefreshNonce) {
-            // Hydrate plots keyed on sessionId. The refresh-nonce id makes this
-            // task re-run after `MainTabView` finishes its `LocalHydration.
-            // hydrateFromAPI` round-trip and bumps `analyticsRefreshNonce` — a
-            // plain `.task { ... }` fired once on appearance lost the race with
-            // hydration, leaving `plotsBySession` empty and every row reading
-            // "— avg · 0% X · <bow>" forever. `fetchAllArrows()` is a single
-            // read against the in-memory store, so re-running on each nonce
-            // bump is cheap.
-            guard let store else { return }
-            if let all = try? store.fetchAllArrows() {
-                plotsBySession = Dictionary(grouping: all, by: \.sessionId)
-            }
+            // Hydrate plots keyed on sessionId. The refresh-nonce id makes
+            // this task re-run after `MainTabView` finishes its
+            // `LocalHydration.hydrateFromAPI` round-trip and bumps
+            // `analyticsRefreshNonce`. `fetchAllArrows()` is a single read
+            // against the in-memory store, so re-running on each nonce bump
+            // is cheap.
+            refreshPlotsBySession()
+        }
+        .onAppear {
+            // Belt-and-suspenders. Two cases the nonce-keyed task above
+            // doesn't cover:
+            //
+            // 1. The tab's first mount can race the `LocalStore` environment
+            //    becoming non-nil (TabView eager-inits all tabs before
+            //    `.modelContainer` propagates), which means the initial
+            //    .task fires with `store == nil`, bails, and a subsequent
+            //    nonce bump can be missed if it lands before SwiftUI has
+            //    actually subscribed the .task to the @Observable id.
+            // 2. Popping back from a NavigationLink remounts this view but
+            //    doesn't re-fire the .task with an unchanged id — without
+            //    this `.onAppear` the user has to enter a session and come
+            //    back to see the colored ArrowBars hydrate (the symptom that
+            //    surfaced this bug).
+            refreshPlotsBySession()
         }
         // TODO: filter sheet — currently stub
         .sheet(isPresented: $filtersSheetPresented) {
@@ -183,6 +195,19 @@ struct HistoricalSessionsView: View {
                 .frame(height: 1)
         }
         .background(Color.appPaper)
+    }
+
+    /// Fetches all arrow plots from `LocalStore` and groups them by
+    /// sessionId. Called from both `.task(id:nonce)` and `.onAppear`; the
+    /// double-trigger covers the post-hydration nonce bump AND view
+    /// remounts (e.g. popping back from a NavigationLink) where the task
+    /// id hasn't changed. fetchAllArrows is a cheap in-memory read so the
+    /// extra invocations on every appear are fine.
+    private func refreshPlotsBySession() {
+        guard let store else { return }
+        if let all = try? store.fetchAllArrows() {
+            plotsBySession = Dictionary(grouping: all, by: \.sessionId)
+        }
     }
 
     private func monoCountLine(bold: String, rest: String) -> some View {
