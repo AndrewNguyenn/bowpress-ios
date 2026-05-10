@@ -78,8 +78,16 @@ struct MainTabView: View {
             sessionViewModel.onConfigConfirmed = { bowId, config in
                 appState.bowConfigs[bowId] = config
             }
-            sessionViewModel.onSessionCompleted = { completed in
+            sessionViewModel.onSessionCompleted = { completed, arrows in
                 appState.completedSessions.insert(completed, at: 0)
+                // Keep plotsBySession in sync with completedSessions so the
+                // just-finished session's arrow bars hydrate immediately on
+                // landing in the Log tab. `completed.arrows` is intentionally
+                // nil per the strip-arrows-on-DTO convention, so the callback
+                // passes them as a sibling parameter.
+                if !arrows.isEmpty {
+                    appState.plotsBySession[completed.id] = arrows
+                }
                 // Land on the Log tab so the just-finished session is visible
                 // at the top of the list. Discarded sessions don't fire this
                 // callback, so they correctly stay on the Session tab.
@@ -110,6 +118,13 @@ struct MainTabView: View {
             appState.bows = (try? store.fetchBows()) ?? appState.bows
             appState.arrowConfigs = (try? store.fetchArrowConfigs()) ?? appState.arrowConfigs
             appState.completedSessions = (try? store.fetchSessions()) ?? appState.completedSessions
+            // Hydrate the Log tab's per-session plots in lockstep with
+            // completedSessions so HistoricalSessionsView never has to manage
+            // its own race between view-mount and the LocalStore environment
+            // becoming non-nil. See AppState.plotsBySession for context.
+            if let allArrows = try? store.fetchAllArrows() {
+                appState.plotsBySession = Dictionary(grouping: allArrows, by: \.sessionId)
+            }
 
             // Resume an in-progress session if the user closed the app mid-shoot.
             // Archery practices can run long and phones die; the session row and

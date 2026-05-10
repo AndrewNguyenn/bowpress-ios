@@ -13,7 +13,13 @@ import Observation
     var onConfigConfirmed: ((String, BowConfiguration) -> Void)?
 
     /// Called when a session is successfully ended. Passes the completed session for immediate local display.
-    var onSessionCompleted: ((ShootingSession) -> Void)?
+    /// Fired when `endSession` finishes the local writes. Passes both the
+    /// completed session DTO and its full plot array so listeners can seed
+    /// caches (e.g. `AppState.plotsBySession` for the Log tab) without
+    /// re-reading from disk. Arrows are intentionally NOT included on the
+    /// `ShootingSession` itself to keep the DTO consistent with
+    /// `LocalStore.fetchSessions()`'s strip-arrows convention.
+    var onSessionCompleted: ((ShootingSession, [ArrowPlot]) -> Void)?
 
     init(apiClient: BowPressAPIClient = APIClient.shared, store: LocalStore? = nil) {
         self.apiClient = apiClient
@@ -325,7 +331,7 @@ import Observation
             distance: session.distance,
             title: session.title
         )
-        onSessionCompleted?(completed)
+        onSessionCompleted?(completed, allArrows)
         // Trigger analytics pipeline immediately — spec: "Every time a session closes".
         // Awaited so by the time this function returns, the session is either synced
         // (marked so BackgroundSyncService doesn't double-fire) or still pending (drain

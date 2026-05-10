@@ -36,6 +36,18 @@ final class AppState {
     /// Completed sessions available for analytics history, newest first.
     var completedSessions: [ShootingSession] = []
 
+    /// All arrow plots indexed by sessionId, populated alongside
+    /// `completedSessions` during launch hydration and on session
+    /// completion. The Log tab needs this to render colored arrow bars
+    /// and per-session avg/X% scores; `LocalStore.fetchSessions()`
+    /// intentionally drops the per-session arrow array, so we bulk-load
+    /// via `fetchAllArrows()` and group here. Lives on `AppState` rather
+    /// than inside `HistoricalSessionsView` so it flows into the view
+    /// through the same `@Observable` channel as `sessions` — one
+    /// hydration site, one data flow, no separate cache for the view to
+    /// keep in sync.
+    var plotsBySession: [String: [ArrowPlot]] = [:]
+
     var entitlement: Entitlement?
 
     // TODO: real implementation lands in follow-up

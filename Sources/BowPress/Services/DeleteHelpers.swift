@@ -42,11 +42,14 @@ func deleteArrowEverywhere(_ arrow: ArrowConfiguration, appState: AppState, stor
 @MainActor
 func deleteSessionEverywhere(_ session: ShootingSession, appState: AppState, store: LocalStore) -> Error? {
     let removed = appState.completedSessions.first { $0.id == session.id }
+    let removedPlots = appState.plotsBySession[session.id]
     appState.completedSessions.removeAll { $0.id == session.id }
+    appState.plotsBySession.removeValue(forKey: session.id)
     do {
         try store.deleteSession(id: session.id)
     } catch {
         if let removed { appState.completedSessions.append(removed) }
+        if let removedPlots { appState.plotsBySession[session.id] = removedPlots }
         return error
     }
     Task { try? await APIClient.shared.deleteSession(id: session.id) }
