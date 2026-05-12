@@ -1,10 +1,7 @@
 What's new:
 
-• Quick Edit Score: re-scoring an arrow no longer nudges the dot when
-  the existing position already lands inside the new ring's band. Your
-  plot stays exactly where you placed it; the snap only kicks in when
-  the dot would otherwise sit in the wrong-colored zone.
-• Session Detail heatmap: arrow dots now render at the same real-world
-  size as on the plot view. Previously they appeared ~35% larger,
-  making the detail log feel scattered compared to what you saw while
-  shooting.
+• Session Detail: tapping a score in the per-end breakdown now opens
+  the Quick Edit sheet again, so you can fix a misread score on a
+  finished session without re-shooting the end. Edits flow through
+  to the Log row immediately — totals, color bars, and X count
+  refresh without a relaunch.
