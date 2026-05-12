@@ -1,13 +1,10 @@
 What's new:
 
-• Session log: arrow color bars and scores hydrate immediately on
-  first open instead of staying gray until you tap into a session.
-• Quick Edit Score now snaps the arrow's plot position into the new
-  ring's band, so a re-score never leaves a blue dot stuck in the red
-  zone or a red dot in the gold zone.
-• Specific Grip and Specific Limbs (recurve / barebow) use a sheet
-  picker over your saved values — add new entries inline, swipe to
-  delete from the catalog.
-• Whole row in the session log is tappable, not just the score.
-• Session Detail "↓ from center" pill no longer wraps to two lines on
-  the per-arrow scrub view.
+• Quick Edit Score: re-scoring an arrow no longer nudges the dot when
+  the existing position already lands inside the new ring's band. Your
+  plot stays exactly where you placed it; the snap only kicks in when
+  the dot would otherwise sit in the wrong-colored zone.
+• Session Detail heatmap: arrow dots now render at the same real-world
+  size as on the plot view. Previously they appeared ~35% larger,
+  making the detail log feel scattered compared to what you saw while
+  shooting.
