@@ -973,12 +973,16 @@ struct SessionDetailSheet: View {
 
     @Environment(AppState.self) private var appState
     @Environment(LocalStore.self) private var store: LocalStore?
+    @Environment(\.isReadOnly) private var isReadOnly
     @State private var selectedEnd: SessionEnd?
     @State private var loadedArrows: [ArrowPlot] = []
     @State private var loadedEnds: [SessionEnd] = []
     @State private var visibleCount: Int = 0
     @State private var didInitScrub: Bool = false
     @State private var showEditSheet: Bool = false
+    /// id of the arrow currently being edited via ArrowEditSheet (tap on a
+    /// per-end score chip). Mirrors the active-session edit flow.
+    @State private var editingArrowId: String? = nil
     /// Latest edited copy so the detail view reflects saves without a re-fetch.
     @State private var liveSession: ShootingSession?
 
@@ -1105,11 +1109,113 @@ struct SessionDetailSheet: View {
     /// so the dot still scales sensibly for legacy sessions with no config.
     private var heatMapArrowDiameterMm: Double {
         let configId = sortedArrows.last?.arrowConfigId ?? displaySession.arrowConfigId
+        return arrowDiameterFor(configId: configId)
+    }
+
+    /// Per-arrow shaft diameter for the edit sheet's embedded plot view. The
+    /// session can mix arrow configs across ends (archer swapped arrows
+    /// mid-session) so look up THIS arrow's config rather than reusing the
+    /// session-wide pick. Same fallback chain as the heatmap-wide default.
+    private func arrowDiameter(for arrow: ArrowPlot) -> Double {
+        arrowDiameterFor(configId: arrow.arrowConfigId)
+    }
+
+    private func arrowDiameterFor(configId: String) -> Double {
         if let cfg = appState.arrowConfigs.first(where: { $0.id == configId }),
            let mm = cfg.shaftDiameter?.rawValue {
             return mm
         }
         return 5.0
+    }
+
+    /// Sheet-item wrapper so the arrow edit sheet has a stable, identifiable
+    /// payload. Mirrors `SessionView.EditingArrow`.
+    private struct EditingArrow: Identifiable {
+        let arrow: ArrowPlot
+        let number: Int
+        var id: String { arrow.id }
+    }
+
+    /// Resolved sheet-item for the editing arrow, paired with its
+    /// chronological position. Pulled out of the inline sheet `get:`
+    /// closure so the lookup is readable and re-evaluation cost is
+    /// confined to body re-renders rather than scattered through a
+    /// nested chain of `.flatMap` / `.enumerated().first(where:)`.
+    private var editingArrowItem: EditingArrow? {
+        guard let id = editingArrowId,
+              let idx = sortedArrows.firstIndex(where: { $0.id == id }) else { return nil }
+        return EditingArrow(arrow: sortedArrows[idx], number: idx + 1)
+    }
+
+    /// Snapshot the session's arrows into `loadedArrows` on first edit so
+    /// subsequent mutations stick. Without this, mutating the computed
+    /// `allArrows` is a no-op when the data still lives in `session.arrows`
+    /// (the immutable DTO) or in `appState.plotsBySession` (the Log tab's
+    /// cache). Tries `session.arrows`, then the appState cache, then a
+    /// synchronous LocalStore fetch as last resort — so an edit can never
+    /// silently no-op just because the async `.task` hydration hasn't fired
+    /// yet.
+    private func ensureLoadedArrowsPopulated() {
+        if !loadedArrows.isEmpty { return }
+        if let arr = session.arrows, !arr.isEmpty {
+            loadedArrows = arr
+            return
+        }
+        if let cached = appState.plotsBySession[session.id], !cached.isEmpty {
+            loadedArrows = cached
+            return
+        }
+        if let store, let fetched = try? store.fetchArrows(sessionId: session.id), !fetched.isEmpty {
+            loadedArrows = fetched
+            return
+        }
+    }
+
+    /// Propagate the local arrow change up to `appState.plotsBySession` so
+    /// the Log row's color bar / totals / X count refresh next render. The
+    /// active-session flow doesn't need this because `plotsBySession` is
+    /// only populated when a session completes; once it's there (i.e. for
+    /// historical sessions), edits in the detail view have to keep it in
+    /// sync explicitly or the Log row reads stale data.
+    private func propagateToAppStateCache(replacing updated: ArrowPlot?, removing removedId: String? = nil) {
+        guard var cached = appState.plotsBySession[session.id] else { return }
+        if let updated, let i = cached.firstIndex(where: { $0.id == updated.id }) {
+            cached[i] = updated
+        }
+        if let removedId {
+            cached.removeAll { $0.id == removedId }
+        }
+        appState.plotsBySession[session.id] = cached
+    }
+
+    /// Replot an existing arrow at a new position. Mirrors
+    /// `SessionViewModel.replotArrow` but writes to the SessionDetailSheet's
+    /// own `loadedArrows`, propagates to `appState.plotsBySession`, and
+    /// fires the API sync directly through the shared APIClient — there's
+    /// no session-scoped view model in the historical detail.
+    private func replotArrow(id: String, ring: Int, zone: ArrowPlot.Zone, plotX: Double, plotY: Double) {
+        ensureLoadedArrowsPopulated()
+        guard let idx = loadedArrows.firstIndex(where: { $0.id == id }) else { return }
+        loadedArrows[idx].ring = ring
+        loadedArrows[idx].zone = zone
+        loadedArrows[idx].plotX = plotX
+        loadedArrows[idx].plotY = plotY
+        let updated = loadedArrows[idx]
+        try? store?.save(arrow: updated)
+        propagateToAppStateCache(replacing: updated)
+        Task { try? await APIClient.shared.plotArrow(updated) }
+    }
+
+    /// Delete an arrow from local state, the appState cache, SwiftData, and
+    /// the API. Mirrors `SessionViewModel.deleteArrow` — but the historical
+    /// detail doesn't track per-end arrow counts, so no count-adjustment.
+    private func deleteArrow(id: String) {
+        ensureLoadedArrowsPopulated()
+        guard let arrow = loadedArrows.first(where: { $0.id == id }) else { return }
+        loadedArrows.removeAll { $0.id == id }
+        try? store?.deleteArrow(id: id)
+        propagateToAppStateCache(replacing: nil, removing: id)
+        Task { try? await APIClient.shared.deletePlot(sessionId: arrow.sessionId, id: id) }
     }
 
     private var configTransitions: [(config: BowConfiguration?, at: Date)] {
@@ -1234,27 +1340,45 @@ struct SessionDetailSheet: View {
 
                         ForEach(Array(endsWithArrows.enumerated()), id: \.element.end.id) { idx, pair in
                             let isSelected = selectedEnd?.id == pair.end.id
-                            Button {
+                            // Row is a plain HStack with `.onTapGesture` on the
+                            // non-chip area so that the inner per-chip Buttons
+                            // (when onArrowTap is set) win their taps without
+                            // racing a wrapping outer Button. Nested-Button hit
+                            // testing under `.buttonStyle(.plain)` is fragile
+                            // and breaks differently across iOS minors — the
+                            // `.contentShape` + `.onTapGesture` pattern routes
+                            // chip taps to the chip Button and everything else
+                            // (end number, notes, totals, trailing target icon)
+                            // to the end-select gesture, deterministically.
+                            HStack(spacing: 0) {
+                                ScoreCardRow(
+                                    endNumber: pair.end.endNumber,
+                                    arrows: pair.arrows,
+                                    runningTotal: runningTotals[idx],
+                                    notes: pair.end.notes,
+                                    // Nil in read-only mode so demo-account
+                                    // views stay tap-inert.
+                                    onArrowTap: isReadOnly ? nil : { id in editingArrowId = id }
+                                )
+                                if isSelected {
+                                    Image(systemName: "target")
+                                        .font(.caption)
+                                        .foregroundStyle(Color.appAccent)
+                                        .padding(.trailing, 8)
+                                }
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     selectedEnd = isSelected ? nil : pair.end
                                 }
-                            } label: {
-                                HStack(spacing: 0) {
-                                    ScoreCardRow(
-                                        endNumber: pair.end.endNumber,
-                                        arrows: pair.arrows,
-                                        runningTotal: runningTotals[idx],
-                                        notes: pair.end.notes
-                                    )
-                                    if isSelected {
-                                        Image(systemName: "target")
-                                            .font(.caption)
-                                            .foregroundStyle(Color.appAccent)
-                                            .padding(.trailing, 8)
-                                    }
-                                }
                             }
-                            .buttonStyle(.plain)
+                            // .onTapGesture loses the implicit .isButton trait
+                            // the old wrapping Button provided. Re-add it so
+                            // VoiceOver still reads the row as a tappable
+                            // control. (Chip taps already announce themselves
+                            // via their own inner Buttons.)
+                            .accessibilityAddTraits(.isButton)
                             .listRowBackground(isSelected ? Color.appAccent.opacity(0.08) : Color.clear)
                             .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                             .listRowSeparator(.hidden)
@@ -1368,6 +1492,22 @@ struct SessionDetailSheet: View {
                     appState.completedSessions[idx] = updated
                 }
             }
+        }
+        .sheet(item: Binding(
+            get: { editingArrowItem },
+            set: { editingArrowId = $0?.arrow.id }
+        )) { editing in
+            let diameter = arrowDiameter(for: editing.arrow)
+            ArrowEditSheet(
+                arrow: editing.arrow,
+                arrowNumber: editing.number,
+                faceType: displaySession.targetFaceType,
+                arrowDiameterMm: diameter,
+                onReplot: { ring, zone, x, y in
+                    replotArrow(id: editing.arrow.id, ring: ring, zone: zone, plotX: x, plotY: y)
+                },
+                onDelete: { deleteArrow(id: editing.arrow.id) }
+            )
         }
         .task {
             guard let store else { return }

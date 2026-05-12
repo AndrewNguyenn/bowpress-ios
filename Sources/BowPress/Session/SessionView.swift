@@ -1441,7 +1441,11 @@ private struct SwipeableRow<Content: View>: View {
 /// re-plot the arrow at a new position (which also updates the ring/zone) or
 /// delete it entirely. The embedded TargetPlotView shows just this one arrow
 /// at its current position; the next tap on the target replots it.
-private struct ArrowEditSheet: View {
+///
+/// Module-internal (not fileprivate) so the historical SessionDetailSheet can
+/// reuse the same sheet for per-arrow editing — same chip keypad, same
+/// tap-to-replot, same delete affordance.
+struct ArrowEditSheet: View {
     let arrow: ArrowPlot
     let arrowNumber: Int
     let faceType: TargetFaceType
