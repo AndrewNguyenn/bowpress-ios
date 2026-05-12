@@ -1098,6 +1098,20 @@ struct SessionDetailSheet: View {
     }
     private var xCount: Int { allArrows.filter { $0.ring == 11 }.count }
 
+    /// Pick the arrow shaft diameter to size heatmap dots with. Prefers the
+    /// arrow config tied to the most recently-shot arrow in the session
+    /// (matches what the archer most-recently saw on the plot view), falls
+    /// back to the session's recorded `arrowConfigId`, then to a 5mm default
+    /// so the dot still scales sensibly for legacy sessions with no config.
+    private var heatMapArrowDiameterMm: Double {
+        let configId = sortedArrows.last?.arrowConfigId ?? displaySession.arrowConfigId
+        if let cfg = appState.arrowConfigs.first(where: { $0.id == configId }),
+           let mm = cfg.shaftDiameter?.rawValue {
+            return mm
+        }
+        return 5.0
+    }
+
     private var configTransitions: [(config: BowConfiguration?, at: Date)] {
         let sorted = allArrows.sorted { $0.shotAt < $1.shotAt }
         var result: [(config: BowConfiguration?, at: Date)] = []
@@ -1130,7 +1144,9 @@ struct SessionDetailSheet: View {
                                 // Numbered dots only when the user is looking
                                 // at one end's sequence — across the whole
                                 // session the indices have no meaning.
-                                endArrowsNumbered: selectedEnd != nil
+                                endArrowsNumbered: selectedEnd != nil,
+                                faceType: displaySession.targetFaceType,
+                                arrowDiameterMm: heatMapArrowDiameterMm
                             )
                             .frame(maxWidth: .infinity)
                             .aspectRatio(1, contentMode: .fit)
@@ -1437,6 +1453,13 @@ private struct SessionHeatMapView: View {
     /// selected) — sequence numbers across the whole session are noisy
     /// and the digits become unreadable when arrows cluster.
     var endArrowsNumbered: Bool = true
+    /// Face geometry + arrow diameter for sizing dots. Kept in sync with the
+    /// TargetPlotView's formula so the dots in the detail log match the
+    /// dots the archer saw while plotting — pre-2026-05 this view used a
+    /// hardcoded 160mm divisor that rendered dots ~35% larger than the
+    /// real-world arrow on the drawn face.
+    var faceType: TargetFaceType = .sixRing
+    var arrowDiameterMm: Double = 5.0
 
     private var renderPlots: [ArrowPlot] {
         scrubArrows ?? plots
@@ -1507,7 +1530,7 @@ private struct SessionHeatMapView: View {
                 if !endArrows.isEmpty {
                     GeometryReader { geo in
                         let radius = min(geo.size.width, geo.size.height) / 2
-                        let dotSize = max(CGFloat(5.0) * (radius * 2) / 160.0, 10)
+                        let dotSize = arrowDotSize(radius: radius)
                         ForEach(Array(endArrows.enumerated()), id: \.element.id) { idx, arrow in
                             EndArrowDot(number: idx + 1, ring: arrow.ring, size: dotSize, numbered: endArrowsNumbered)
                                 .position(blobPosition(for: arrow, index: idx, in: geo.size))
@@ -1519,7 +1542,7 @@ private struct SessionHeatMapView: View {
                 if let scrub = scrubArrows, !scrub.isEmpty {
                     GeometryReader { geo in
                         let radius = min(geo.size.width, geo.size.height) / 2
-                        let dotSize = max(CGFloat(5.0) * (radius * 2) / 160.0, 10)
+                        let dotSize = arrowDotSize(radius: radius)
                         ForEach(Array(scrub.enumerated()), id: \.element.id) { idx, arrow in
                             EndArrowDot(
                                 number: idx + 1,
@@ -1542,6 +1565,16 @@ private struct SessionHeatMapView: View {
         // center renders south here too.
         CGPoint(x: size.width / 2 + CGFloat(norm.x) * size.width / 2,
                 y: size.height / 2 + CGFloat(norm.y) * size.height / 2)
+    }
+
+    /// Same dot-sizing formula as `TargetPlotView` — scales the arrow shaft
+    /// diameter into pixels via the face's real-world mm-per-normalized-unit
+    /// so the dot drawn here is the same size as the dot the archer saw
+    /// when plotting. The 8pt floor mirrors TargetPlotView so a skinny
+    /// recurve arrow on a small face doesn't collapse to an unreadable speck.
+    private func arrowDotSize(radius: CGFloat) -> CGFloat {
+        let geo = TargetGeometry.preset(for: faceType)
+        return max(CGFloat(arrowDiameterMm / geo.mmPerNormUnit) * radius, 8)
     }
 
     private func blobPosition(for plot: ArrowPlot, index: Int, in size: CGSize) -> CGPoint {
