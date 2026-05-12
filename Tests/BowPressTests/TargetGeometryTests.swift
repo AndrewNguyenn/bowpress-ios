@@ -169,6 +169,34 @@ final class TargetGeometryTests: XCTestCase {
         XCTAssertEqual(geo.ring(for: r), 6)
     }
 
+    func test_snappedPosition_returnsNil_whenAlreadyInTargetBand() {
+        // Existing plot is at radius 0.25 (ring 8 on the WA 10-ring face).
+        // User taps the "8" chip (a no-op or a confirmation of the current
+        // score) — snap must NOT yank the dot to the band midpoint. Returns
+        // nil so the caller preserves the archer's exact position.
+        let geo = TargetGeometry.tenRing
+        XCTAssertNil(geo.snappedPosition(forRing: 8, from: 0.0, 0.25))
+        XCTAssertNil(geo.snappedPosition(forRing: 8, from: 0.21, 0.0))
+        XCTAssertNil(geo.snappedPosition(forRing: 8, from: 0.0, -0.29))
+    }
+
+    func test_snappedPosition_returnsNil_whenAlreadyInXBand() {
+        // Existing plot is inside the X ring. Re-tapping X must not move it.
+        let geo = TargetGeometry.tenRing
+        XCTAssertNil(geo.snappedPosition(forRing: 11, from: 0.02, 0.0))
+        XCTAssertNil(geo.snappedPosition(forRing: 11, from: 0.0, 0.04))
+    }
+
+    func test_snappedPosition_snaps_whenJustOutsideTargetBand() {
+        // Just outside ring 8's inner boundary (radius 0.20) but still close —
+        // the position is in ring 9's band, so a re-score to 8 must snap.
+        let geo = TargetGeometry.tenRing
+        let snap = geo.snappedPosition(forRing: 8, from: 0.0, 0.19)
+        XCTAssertNotNil(snap)
+        let r = sqrt((snap?.x ?? 0) * (snap?.x ?? 0) + (snap?.y ?? 0) * (snap?.y ?? 0))
+        XCTAssertEqual(geo.ring(for: r), 8)
+    }
+
     // MARK: - Preset lookup
 
     func test_preset_returnsMatchingGeometry() {

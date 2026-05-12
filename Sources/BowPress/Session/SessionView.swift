@@ -1585,15 +1585,18 @@ private struct ArrowEditSheet: View {
             // visually sits in. Without this, a score change from 8 → 6
             // would leave a blue dot in the red zone and from 6 → 8 a red
             // dot in the blue zone — the bug troy.jpeg flagged.
-            // Preserves the angle (which encodes "where in the pattern"
-            // the archer hit), only adjusts radius.
+            //
+            // The snap only fires when the existing position is OUTSIDE
+            // the new ring's band — if it's already inside (e.g. the
+            // archer just confirmed the same score, or shifted by one
+            // band but the old dot already straddled the boundary), the
+            // dot stays exactly where the archer placed it.
             let oldX = arrow.plotX ?? 0
             let oldY = arrow.plotY ?? 0
             let geo = TargetGeometry.preset(for: faceType)
             if let snapped = geo.snappedPosition(forRing: ring, from: oldX, oldY) {
                 onReplot(ring, arrow.zone, snapped.x, snapped.y)
             } else {
-                // Misses and out-of-range rings: keep the existing position.
                 onReplot(ring, arrow.zone, oldX, oldY)
             }
             dismiss()
