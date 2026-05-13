@@ -1648,9 +1648,8 @@ private struct SessionHeatMapView: View {
     }
 
     var body: some View {
-        Image("target_face")
-            .resizable()
-            .scaledToFit()
+        TargetFaceCanvas(faceType: faceType)
+            .aspectRatio(1, contentMode: .fit)
             .overlay {
                 Canvas { context, size in
                     let halfW = size.width / 2
