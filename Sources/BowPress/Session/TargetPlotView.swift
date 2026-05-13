@@ -142,6 +142,19 @@ struct TargetGeometry {
         return (x: newR * cos(theta), y: newR * sin(theta))
     }
 
+    /// Convenience wrapper for the common "I have an `ArrowPlot`-style
+    /// (plotX, plotY) and need a zone" path. `plotY` is screen-down-positive
+    /// throughout the persisted plot model; this helper does the y-flip and
+    /// degree conversion so callers don't have to remember the convention.
+    /// Used by the live plot path and the Quick Edit chip handler — both
+    /// must agree on (x,y)→zone or the persisted zone drifts out of sync
+    /// with the coordinates (issue #13).
+    func zone(forPlotX x: Double, plotY y: Double) -> ArrowPlot.Zone {
+        let normR = sqrt(x * x + y * y)
+        let angleDeg = atan2(-y, x) * 180 / .pi
+        return zone(for: normR, angle: angleDeg)
+    }
+
     func zone(for normalizedDist: Double, angle: Double) -> ArrowPlot.Zone {
         // Angle is in degrees, 0 = right (east), going counter-clockwise.
         // We want 0 = North (top), clockwise.
@@ -459,13 +472,11 @@ struct TargetPlotView: View {
 
         guard let ring = geometry.ring(for: scoringDist) else { return }
 
-        let angle = atan2(Double(dyMath), Double(dxTarget)) * 180 / .pi
-        let zone = geometry.zone(for: normalizedDist, angle: angle)
-
         // Normalized position stored with the arrow (-1…1 relative to center);
         // plotY is positive = down in screen coords (matches existing data).
         let normX = Double(dxTarget) / Double(radius)
         let normY = Double(dyTargetScreen) / Double(radius)
+        let zone = geometry.zone(forPlotX: normX, plotY: normY)
 
         // Show confirmation
         let ringLabel = ring == 11 ? "X" : "\(ring)"

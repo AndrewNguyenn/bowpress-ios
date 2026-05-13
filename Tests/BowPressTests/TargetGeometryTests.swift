@@ -229,6 +229,56 @@ final class TargetGeometryTests: XCTestCase {
                        "legacy sessions without the field must decode as sixRing")
     }
 
+    // MARK: - chip-handler zone recompute (issue #13)
+    //
+    // After a Quick Edit chip changes a score, the chip handler calls
+    // `snappedPosition` to move the dot into the new ring's band, then must
+    // recompute the persisted `zone` from the snapped coordinates. These
+    // tests call the same `zone(forPlotX:plotY:)` helper the production
+    // chip handler uses — if a future refactor drops that call, the chip
+    // handler no longer compiles and these tests stop covering the
+    // refactored path, both of which are loud failures.
+
+    func test_chipPath_zoneFollowsSnappedPosition_southOctant() {
+        let geo = TargetGeometry.sixRing
+        // Arrow plotted in 6-ring south (large +y in plotY/screen coords).
+        // Chip flips score to 10 → snap pulls dot into ring 10's band,
+        // still due south. Persisted zone must follow.
+        let snapped = geo.snappedPosition(forRing: 10, from: 0.0, 0.7)
+        XCTAssertNotNil(snapped, "snap must fire when oldR is outside ring 10's band")
+        XCTAssertEqual(geo.zone(forPlotX: snapped!.x, plotY: snapped!.y), .s,
+                       "snapped due south should resolve zone .s, not the caller's stale arrow.zone")
+    }
+
+    func test_chipPath_zoneFollowsSnappedPosition_northeastOctant() {
+        let geo = TargetGeometry.sixRing
+        // 6-ring NE band, 7-ring distance: roughly 45° compass (NE).
+        // plotY is screen-down-positive, so NE means -y (up) and +x.
+        let snapped = geo.snappedPosition(forRing: 9, from: 0.5, -0.5)
+        XCTAssertNotNil(snapped)
+        XCTAssertEqual(geo.zone(forPlotX: snapped!.x, plotY: snapped!.y), .ne)
+    }
+
+    func test_chipPath_zoneFollowsSnappedPosition_intoXRing_tenRing_isCenter() {
+        let geo = TargetGeometry.tenRing
+        // tenRing X-ring midpoint is well below `centerZoneRadius`, so a
+        // snap into ring 11 always resolves to .center regardless of input
+        // angle — the cross-preset asymmetry sixRing's X-ring doesn't
+        // exercise (its midpoint sits ~0.0008 above the threshold).
+        let snapped = geo.snappedPosition(forRing: 11, from: 0.3, 0.2)
+        XCTAssertNotNil(snapped)
+        XCTAssertEqual(geo.zone(forPlotX: snapped!.x, plotY: snapped!.y), .center)
+    }
+
+    func test_chipPath_noSnap_zoneStaysCallerControlled() {
+        let geo = TargetGeometry.sixRing
+        // Same-score chip tap or in-band re-score: snap returns nil, so the
+        // chip handler keeps arrow.zone as-is. Just document this here so a
+        // future "always recompute" refactor surfaces this branch.
+        let snapped = geo.snappedPosition(forRing: 7, from: 0.5, 0.0)
+        XCTAssertNil(snapped, "in-band oldR returns nil so caller keeps existing zone")
+    }
+
     func test_sessionEncoding_roundTrip_preservesTargetFaceType() throws {
         for face in TargetFaceType.allCases {
             let session = ShootingSession(

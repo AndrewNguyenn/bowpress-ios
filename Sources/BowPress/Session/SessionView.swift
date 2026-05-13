@@ -1599,8 +1599,13 @@ struct ArrowEditSheet: View {
             let oldY = arrow.plotY ?? 0
             let geo = TargetGeometry.preset(for: faceType)
             if let snapped = geo.snappedPosition(forRing: ring, from: oldX, oldY) {
-                onReplot(ring, arrow.zone, snapped.x, snapped.y)
+                // Recompute zone so persisted metadata stays consistent
+                // with the snapped (plotX, plotY) — see issue #13.
+                let newZone = geo.zone(forPlotX: snapped.x, plotY: snapped.y)
+                onReplot(ring, newZone, snapped.x, snapped.y)
             } else {
+                // In-band snap returns nil: existing position and its
+                // zone are already consistent, so reuse both as-is.
                 onReplot(ring, arrow.zone, oldX, oldY)
             }
             dismiss()
