@@ -227,6 +227,25 @@ struct SettingsView: View {
 
                 Rectangle().fill(Color.appLine2).frame(height: 1)
 
+                // Report a bug — opens the GitHub issues page in Safari.
+                // Same Link styling as Privacy/Terms so the row reads as an
+                // external navigation, not an in-app screen.
+                Link(destination: URL(string: "https://github.com/AndrewNguyenn/bowpress-ios/issues")!) {
+                    HStack(alignment: .center) {
+                        Text("Report a bug")
+                            .font(.bpDisplay(20, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appInk)
+                        Spacer()
+                        Text("\u{203A}")
+                            .font(.bpDisplay(22, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appPond)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
+                }
+
+                Rectangle().fill(Color.appLine2).frame(height: 1)
+
                 // Sign out
                 Button {
                     showSignOutConfirm = true
