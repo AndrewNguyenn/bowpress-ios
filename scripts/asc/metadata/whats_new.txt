@@ -1,7 +1,7 @@
 What's new:
 
-• Session Detail: tapping a score in the per-end breakdown now opens
-  the Quick Edit sheet again, so you can fix a misread score on a
-  finished session without re-shooting the end. Edits flow through
-  to the Log row immediately — totals, color bars, and X count
-  refresh without a relaunch.
+• Read-only banner now has a close button — tap the X to hide the
+  upgrade nudge for the session if it's getting in the way. The
+  banner returns next launch so the prompt isn't lost.
+• Settings: added a "Report a bug" row that opens the public issues
+  page for BowPress on GitHub. Let me know if you hit anything weird.
