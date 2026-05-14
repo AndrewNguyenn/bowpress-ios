@@ -1,5 +1,10 @@
 What's new:
 
+• Dark mode. Open Settings and tap "Appearance" to cycle System,
+  Light, and Dark. The dark variant is a re-authored Kenrokuen
+  night palette — sumi-ink surfaces, warm paper-white type, lifted
+  pond and pine accents. World Archery scoring colors stay
+  canonical so the target face still reads the way it should.
 • Read-only banner now has a close button — tap the X to hide the
   upgrade nudge for the session if it's getting in the way. The
   banner returns next launch so the prompt isn't lost.
