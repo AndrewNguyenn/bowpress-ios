@@ -21,6 +21,8 @@ struct BPStamp: View {
     let tone: Tone
     let solid: Bool
 
+    @Environment(\.colorScheme) private var scheme
+
     init(_ text: String, tone: Tone = .pond, solid: Bool = false) {
         self.text = text
         self.tone = tone
@@ -29,6 +31,11 @@ struct BPStamp: View {
 
     var body: some View {
         let col = tone.color
+        // dark.css overrides the solid stamp to swap roles: ink fill, paper
+        // text, ink border. Keeps the stamped-onto-the-surface read instead
+        // of becoming a bright filled pill on sumi.
+        let solidBG     = (scheme == .dark) ? Color.appInk : col
+        let solidBorder = (scheme == .dark) ? Color.appInk : col
         Text(text)
             .font(.bpUI(11, weight: .semibold))
             // CSS: letter-spacing 0.22em at 9pt = 9 * 0.22 = 1.98
@@ -36,9 +43,9 @@ struct BPStamp: View {
             .textCase(.uppercase)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
-            .background(solid ? col : Color.clear)
+            .background(solid ? solidBG : Color.clear)
             .foregroundStyle(solid ? Color.appPaper : col)
-            .overlay(Rectangle().strokeBorder(col, lineWidth: 1))
+            .overlay(Rectangle().strokeBorder(solid ? solidBorder : col, lineWidth: 1))
     }
 }
 

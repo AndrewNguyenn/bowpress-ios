@@ -354,7 +354,7 @@ struct HistoricalSessionsView: View {
                 // Legend
                 HStack(spacing: 10) {
                     legendSwatch(color: Color.appLine2, label: "none")
-                    legendSwatch(color: Color(red: 0.75, green: 0.83, blue: 0.74), label: "short")
+                    legendSwatch(color: Color.appMossLt, label: "short")
                     legendSwatch(color: Color.appMoss, label: "full")
                     legendSwatch(color: Color.appPine, label: "peak")
                     Spacer()
@@ -384,7 +384,7 @@ struct HistoricalSessionsView: View {
     private func heatmapColor(arrows: Int, max: Int) -> Color {
         if arrows == 0 { return Color.appLine2 }
         let ratio = max > 0 ? Double(arrows) / Double(max) : 0
-        if ratio < 0.33 { return Color(red: 0.75, green: 0.83, blue: 0.74) }
+        if ratio < 0.33 { return Color.appMossLt }
         if ratio < 0.66 { return Color.appMoss }
         return Color.appPine
     }

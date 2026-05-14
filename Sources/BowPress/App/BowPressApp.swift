@@ -11,6 +11,11 @@ struct BowPressApp: App {
     let container: ModelContainer
     let store: LocalStore
     @State private var appState = AppState()
+    @AppStorage(ThemePreference.storageKey) private var themePreferenceRaw: String = ThemePreference.system.rawValue
+
+    private var themePreference: ThemePreference {
+        ThemePreference(rawValue: themePreferenceRaw) ?? .system
+    }
 
     init() {
         let schema = Schema([
@@ -38,20 +43,31 @@ struct BowPressApp: App {
         }
 
         // Kenrokuen global chrome — paper tab bar, pondDk selection, ink3 idle.
+        // Use UITabBarAppearance (modern) instead of the legacy proxy so the
+        // bar picks up trait collection changes when the user toggles the
+        // Appearance row in Settings.
         #if canImport(UIKit)
-        UITabBar.appearance().barTintColor = UIColor(Color.appPaper)
-        UITabBar.appearance().backgroundColor = UIColor(Color.appPaper)
-        UITabBarItem.appearance().setTitleTextAttributes(
-            [
-                .foregroundColor: UIColor(Color.appInk3),
-                .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
-            ],
-            for: .normal
-        )
-        UITabBarItem.appearance().setTitleTextAttributes(
-            [.foregroundColor: UIColor(Color.appPondDk)],
-            for: .selected
-        )
+        let appearance = UITabBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = UIColor(Color.appPaper)
+
+        let item = UITabBarItemAppearance()
+        item.normal.iconColor = UIColor(Color.appInk3)
+        item.normal.titleTextAttributes = [
+            .foregroundColor: UIColor(Color.appInk3),
+            .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
+        ]
+        item.selected.iconColor = UIColor(Color.appPondDk)
+        item.selected.titleTextAttributes = [
+            .foregroundColor: UIColor(Color.appPondDk),
+            .font: UIFont.systemFont(ofSize: 10, weight: .semibold),
+        ]
+        appearance.stackedLayoutAppearance = item
+        appearance.inlineLayoutAppearance = item
+        appearance.compactInlineLayoutAppearance = item
+
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
         #endif
     }
 
@@ -67,7 +83,7 @@ struct BowPressApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .preferredColorScheme(.light)
+                .preferredColorScheme(themePreference.colorScheme)
                 .environment(appState)
                 .environment(store)
                 .modelContainer(container)

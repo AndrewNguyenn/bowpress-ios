@@ -7,10 +7,15 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @AppStorage("notificationsEnabled") private var notificationsEnabled: Bool = true
     @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
+    @AppStorage(ThemePreference.storageKey) private var themePreferenceRaw: String = ThemePreference.system.rawValue
     var subscriptionManager: SubscriptionManager = .shared
 
     @State private var showSignOutConfirm: Bool = false
     @State private var isSigningOut: Bool = false
+
+    private var themePreference: ThemePreference {
+        ThemePreference(rawValue: themePreferenceRaw) ?? .system
+    }
 
     var body: some View {
         ScrollView {
@@ -172,6 +177,32 @@ struct SettingsView: View {
                         Spacer()
                         HStack(spacing: 4) {
                             Text((unitSystem == .imperial ? "IMPERIAL" : "METRIC"))
+                                .font(.bpMono(12))
+                                .tracking(10 * 0.04)
+                                .foregroundStyle(Color.appInk3)
+                            Text("\u{203A}")
+                                .font(.bpDisplay(22, italic: true, weight: .medium))
+                                .foregroundStyle(Color.appPond)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
+                }
+                .buttonStyle(.plain)
+
+                Rectangle().fill(Color.appLine2).frame(height: 1)
+
+                // Appearance row — cycles System → Light → Dark → System.
+                Button {
+                    themePreferenceRaw = themePreference.next.rawValue
+                } label: {
+                    HStack(alignment: .center) {
+                        Text("Appearance")
+                            .font(.bpDisplay(20, italic: true, weight: .medium))
+                            .foregroundStyle(Color.appInk)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Text(themePreference.displayLabel.uppercased())
                                 .font(.bpMono(12))
                                 .tracking(10 * 0.04)
                                 .foregroundStyle(Color.appInk3)
