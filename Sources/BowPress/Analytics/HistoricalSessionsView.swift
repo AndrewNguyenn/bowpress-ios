@@ -1608,14 +1608,38 @@ private struct SessionHeatMapView: View {
     private func centroidNorm() -> (x: Double, y: Double)? {
         guard !renderPlots.isEmpty else { return nil }
         if let s = PrecisionStats.compute(renderPlots) { return s.centroid }
+        // Fallback when PrecisionStats can't compute — fires only when NO
+        // arrow has plotX/plotY (i.e. pre-schema legacy data). Estimates a
+        // centroid from each arrow's (ring, zone) pair via radial band
+        // midpoint × compass angle.
+        //
+        // Before #17 the radii were hardcoded constants (11→0, 10→0.245,
+        // 9→0.494, default→0.83) tuned by eye for the 6-ring face. The
+        // values don't correspond to true band midpoints on either face
+        // — they're ad-hoc — so the 6-ring rendering on legacy sessions
+        // also shifts as a side effect of switching to a principled
+        // faceType-aware calc. Acceptable because the fallback is rarely
+        // exercised and the new values track the actual ring layout.
+        //
+        // Misses (plot.ring < outerRingValue) hit the idx<0 branch and
+        // resolve to nr=1.0 — treat as rim, not as out-of-bounds. Old
+        // code grouped them with rings 6-8 at 0.83.
+        let geo = TargetGeometry.preset(for: faceType)
         var sumX = 0.0, sumY = 0.0
         for plot in renderPlots {
             let nr: Double
-            switch plot.ring {
-            case 11: nr = 0.0
-            case 10: nr = 0.245
-            case 9:  nr = 0.494
-            default: nr = 0.83
+            if plot.ring == geo.xRingValue {
+                nr = geo.xRadius / 2
+            } else {
+                let idx = plot.ring - geo.outerRingValue
+                if idx >= 0 && idx < geo.rings.count {
+                    let outer = geo.rings[idx]
+                    let inner = (idx + 1 < geo.rings.count) ? geo.rings[idx + 1] : geo.xRadius
+                    nr = (outer + inner) / 2
+                } else {
+                    // Miss (ring < outerRingValue): treat as outer rim.
+                    nr = 1.0
+                }
             }
             let angle: Double
             switch plot.zone {
