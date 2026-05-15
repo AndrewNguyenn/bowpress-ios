@@ -24,6 +24,16 @@ struct SessionView: View {
     /// Mirror of `TargetPlotView`'s zoom state. Used to fade out the corner
     /// overlays so they don't sit underneath the magnified target.
     @State private var isTargetZoomed: Bool = false
+    /// Live Pen-magnifier controller. Held by `@State` so the reference
+    /// survives body re-eval; the snapshot inside is `@Observable`-tracked
+    /// only by `PenLensOverlay`, so writing it during a plot drag doesn't
+    /// re-diff the full SessionView body (which would lag the magnifier
+    /// against the finger).
+    ///
+    /// IMPORTANT: do not read `lensController.snapshot` from
+    /// `SessionView.body` (e.g. for debug prints or computed properties)
+    /// — that would re-broaden the diff scope and undo the optimization.
+    @State private var lensController = PenLensController()
     /// Last picked distance, persisted across launches. `nil` = unset.
     @AppStorage("session.lastDistance") private var lastDistanceRaw: String = ""
     @State private var selectedDistance: ShootingDistance? = nil
@@ -60,12 +70,15 @@ struct SessionView: View {
     #endif
 
     var body: some View {
-        Group {
-            if viewModel.isSessionActive {
-                activeSessionContent
-            } else {
-                sessionStartView
+        ZStack {
+            Group {
+                if viewModel.isSessionActive {
+                    activeSessionContent
+                } else {
+                    sessionStartView
+                }
             }
+            PenLensOverlay(controller: lensController)
         }
         .background(Color.appPaper.ignoresSafeArea())
         .navigationBarHidden(true)
@@ -859,17 +872,13 @@ struct SessionView: View {
                     }
                 }
             },
-            onArrowReplotted: { id, ring, zone, plotX, plotY in
-                if isReadOnly { showingPaywall = true }
-                else {
-                    viewModel.replotArrow(id: id, ring: ring, zone: zone,
-                                          plotX: plotX, plotY: plotY)
-                }
-            },
             onZoomChanged: { zoomed in
                 withAnimation(.easeOut(duration: 0.18)) {
                     isTargetZoomed = zoomed
                 }
+            },
+            onLensSnapshotChanged: { snap in
+                lensController.snapshot = snap
             },
             isEnabled: !viewModel.isLoading,
             arrowDiameterMm: {
@@ -1455,6 +1464,11 @@ struct ArrowEditSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showDeleteConfirm = false
+    /// Local Pen-magnifier controller — same screen-level overlay pattern
+    /// the live session uses, so the lens behavior (placement, flip,
+    /// magnification) is identical between the plot path and the
+    /// per-arrow re-plot path.
+    @State private var lensController = PenLensController()
 
     private func label(for ring: Int) -> String { ring == 11 ? "X" : "\(ring)" }
 
@@ -1474,7 +1488,38 @@ struct ArrowEditSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
+            ZStack {
+                ScrollView {
+                    sheetContent
+                }
+                // Pen magnifier overlay — same screen-level lens the live
+                // session uses. Wraps inside the NavigationStack so it can
+                // extend over the sheet's full viewport, including the
+                // delete button + nav bar.
+                PenLensOverlay(controller: lensController)
+            }
+            .navigationTitle("Re-plot arrow")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+            .alert("Delete this arrow?", isPresented: $showDeleteConfirm) {
+                Button("Delete", role: .destructive) {
+                    onDelete()
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Arrow #\(arrowNumber) will be removed from this session.")
+            }
+        }
+        .presentationDetents([.large])
+    }
+
+    @ViewBuilder
+    private var sheetContent: some View {
                 VStack(alignment: .leading, spacing: 0) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("ARROW #\(arrowNumber)")
@@ -1512,6 +1557,9 @@ struct ArrowEditSheet: View {
                                     onReplot(ring, zone, plotX, plotY)
                                     dismiss()
                                 },
+                                onLensSnapshotChanged: { snap in
+                                    lensController.snapshot = snap
+                                },
                                 isEnabled: true,
                                 arrowDiameterMm: arrowDiameterMm,
                                 faceType: faceType
@@ -1540,25 +1588,6 @@ struct ArrowEditSheet: View {
                     .padding(.top, 18)
                     .padding(.bottom, 16)
                 }
-            }
-            .navigationTitle("Re-plot arrow")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
-            .alert("Delete this arrow?", isPresented: $showDeleteConfirm) {
-                Button("Delete", role: .destructive) {
-                    onDelete()
-                    dismiss()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Arrow #\(arrowNumber) will be removed from this session.")
-            }
-        }
-        .presentationDetents([.large])
     }
 
     /// Direct-edit chip row — tap a score to change just the ring without

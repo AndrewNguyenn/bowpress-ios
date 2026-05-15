@@ -183,17 +183,31 @@ struct TargetGeometry {
 struct TargetPlotView: View {
     var arrows: [ArrowPlot]
     var onArrowPlotted: (Int, ArrowPlot.Zone, Double, Double) -> Void
-    /// Fired when the user drags an existing arrow to a new position. Lets the
-    /// archer fix a misclick before finishing the end without going through
-    /// the per-arrow edit sheet. Reuses the same scoring math as `onArrowPlotted`.
-    var onArrowReplotted: ((String, Int, ArrowPlot.Zone, Double, Double) -> Void)? = nil
     /// Fired when the target transitions between unzoomed (1×) and zoomed
     /// states. Lets the parent fade out informational overlays that would
     /// otherwise sit underneath the magnified target.
     var onZoomChanged: ((Bool) -> Void)? = nil
+    /// Fired on every drag update with a snapshot describing how to render
+    /// the Pen magnifier in *global* screen coordinates. The caller renders
+    /// `PenLensView(snapshot:)` at its own root z-level (typically via
+    /// `PenLensOverlay(controller:)`) so the lens can extend over the
+    /// entire screen viewport rather than being trapped inside the
+    /// target's bounded frame. Optional only for tests and previews;
+    /// production paths always wire it up.
+    var onLensSnapshotChanged: ((PenLensSnapshot?) -> Void)? = nil
     var isEnabled: Bool = true
     var arrowDiameterMm: Double = 5.0
     var faceType: TargetFaceType = .sixRing
+
+    // MARK: - Pen magnifier constants (design: explorations/Live Session - Tap-Drag-Release.html)
+
+    /// Lens diameter as a fraction of the target face diameter. Design ships
+    /// 240/320 = 0.75.
+    private let lensSizeRatio: CGFloat = 0.75
+    /// Magnification factor inside the lens. Design ships 2.5×.
+    private let lensZoom: CGFloat = 2.5
+    /// Vertical offset of the score stamp above the lens (in pt).
+    private let stampOffset: CGFloat = 46
 
     private var geometry: TargetGeometry { TargetGeometry.preset(for: faceType) }
 
@@ -203,18 +217,10 @@ struct TargetPlotView: View {
     @State private var confirmationOpacity: Double = 0
     @State private var confirmationTask: Task<Void, Never>?
 
-    // Single-finger drag preview — dot shown above thumb when dragging at 1x.
-    @State private var dragPreviewPoint: CGPoint? = nil
-    private let touchOffset: CGFloat = 80
-    /// Below this translation magnitude the gesture is treated as a tap
-    /// (place arrow at the raw tap point with no thumb offset).
-    private let tapSlop: CGFloat = 8
-
-    /// Id of the arrow currently being dragged-to-reposition. Set on the first
-    /// drag movement past `tapSlop` if the gesture started on top of an
-    /// existing arrow; cleared on release. While set, the arrow is hidden from
-    /// the rendered list so the drag preview is the only thing the archer sees.
-    @State private var movingArrowId: String? = nil
+    /// True while a plot drag is in flight. Drives `markPinchInProgress`
+    /// bookkeeping but doesn't trigger any rendering — the lens itself is
+    /// owned by the caller via `PenLensController`.
+    @State private var isPlotting: Bool = false
 
     // Pinch-zoom + pan state. `committed*` persists between gestures;
     // `live*` is @GestureState that auto-resets when the gesture ends.
@@ -245,19 +251,16 @@ struct TargetPlotView: View {
 
             ZStack {
                 // Scaled group: target + placed arrows share the same coord space
-                // and both scale/pan together. Overlays (preview dot, confirmation)
-                // stay in screen coords so they read at a fixed pixel size.
+                // and both scale/pan together. Clip ONLY this layer so a
+                // pinch-zoomed face can't spill, while leaving the Pen
+                // magnifier free to extend outside the target's bounds.
                 ZStack {
                     TargetFaceCanvas(faceType: faceType)
                         .frame(width: radius * 2, height: radius * 2)
                         .position(center)
 
                     ForEach(Array(arrows.enumerated()), id: \.element.id) { idx, arrow in
-                        // Hide the arrow currently being dragged-to-reposition
-                        // so the user only sees the drag preview, not a stale
-                        // dot at the arrow's old location.
-                        if arrow.id != movingArrowId,
-                           let pos = storedPosition(for: arrow, center: center, radius: radius) {
+                        if let pos = storedPosition(for: arrow, center: center, radius: radius) {
                             ArrowDot(number: idx + 1, ring: arrow.ring, size: arrowDotSize)
                                 .position(pos)
                         }
@@ -267,22 +270,8 @@ struct TargetPlotView: View {
                 .offset(panOffset)
                 .animation(.easeOut(duration: 0.15), value: committedZoom)
                 .animation(.easeOut(duration: 0.15), value: committedPan)
-
-                // Drag preview ring under the finger so the user can see exactly
-                // where the arrow will land. At 1x it sits 80pt above the finger
-                // (so the thumb doesn't cover it); at zoom it sits at the finger
-                // (no offset needed — the target is large enough to see clearly).
-                // The ring is sized to match the *visible* arrow dot, which is
-                // `arrowDotSize` at 1x and `arrowDotSize * currentZoom` at zoom.
-                if let preview = dragPreviewPoint {
-                    let previewSize = arrowDotSize * currentZoom
-                    Circle()
-                        .strokeBorder(.white, lineWidth: 1.5)
-                        .frame(width: previewSize, height: previewSize)
-                        .shadow(color: .black.opacity(0.5), radius: 3)
-                        .position(preview)
-                        .allowsHitTesting(false)
-                }
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
 
                 if let text = confirmationText {
                     Text(text)
@@ -299,16 +288,23 @@ struct TargetPlotView: View {
                         .opacity(confirmationOpacity)
                         .allowsHitTesting(false)
                 }
+
+                // Pen magnifier — kept at the END of the ZStack and unclipped
+                // so it can extend past the target's frame in any direction.
+                // The lens floats just above the thumb's covering zone (~30pt)
+                // with a small buffer so the dead center stays unobscured.
+                // The lens body itself can overlap the thumb's outer rim;
+                // that's by design — the surrounding magnified rings remain
+                // readable around the thumb edges.
+                //
+                // Only renders at 1× — a pinch-zoomed face already provides
+                // magnification; layering the lens on top creates a confusing
+                // double-zoom.
             }
             .contentShape(Rectangle())
             .gesture(isEnabled ? combinedGesture(center: center, radius: radius,
                                                  arrowDotSize: arrowDotSize,
-                                                 panLimit: panLimit) : nil)
-            // Clip to the square frame so a zoomed-and-scaled target cannot
-            // render outside the section. Preserves the natural
-            // circle-in-square look at 1×; at higher zoom the scaled content
-            // is contained within the original square footprint.
-            .clipped()
+                                                 panLimit: panLimit, geo: geo) : nil)
         }
         .aspectRatio(1, contentMode: .fit)
         .accessibilityIdentifier("target_plot_canvas")
@@ -321,7 +317,8 @@ struct TargetPlotView: View {
     // MARK: - Gesture composition
 
     private func combinedGesture(center: CGPoint, radius: CGFloat,
-                                 arrowDotSize: CGFloat, panLimit: CGFloat) -> some Gesture {
+                                 arrowDotSize: CGFloat, panLimit: CGFloat,
+                                 geo: GeometryProxy) -> some Gesture {
         let pinch = MagnificationGesture()
             .updating($liveMagnification) { value, state, _ in state = value }
             .onChanged { _ in markPinchInProgress() }
@@ -341,59 +338,36 @@ struct TargetPlotView: View {
         let drag = DragGesture(minimumDistance: 0)
             .onChanged { value in
                 if pinchInProgress {
-                    dragPreviewPoint = nil
+                    if isPlotting { onLensSnapshotChanged?(nil) }
+                    isPlotting = false
                     return
                 }
-                // On the first sub-pixel of motion, decide whether the gesture
-                // started on top of an existing arrow. If so, enter "moving"
-                // mode and the release will replot that arrow instead of
-                // placing a new one. Triggering on any non-zero translation
-                // (rather than waiting for tapSlop) makes the pickup feel
-                // instant — the original dot vanishes and the preview ring
-                // appears at the finger as soon as the archer starts moving.
-                let translationMag = hypot(value.translation.width, value.translation.height)
-                if movingArrowId == nil && translationMag > 0 {
-                    if let hitId = hitTestArrow(at: value.startLocation,
-                                                center: center, radius: radius,
-                                                dotSize: arrowDotSize) {
-                        movingArrowId = hitId
-                    }
-                }
-
-                if isZoomed {
-                    // Show preview at the finger so the user can see exactly
-                    // where the arrow will land — no thumb offset needed at
-                    // zoom because the target is large enough to be visible
-                    // around the finger.
-                    dragPreviewPoint = value.location
-                } else {
-                    dragPreviewPoint = CGPoint(x: value.location.x,
-                                               y: value.location.y - touchOffset)
-                }
+                let ring = previewRing(at: value.location,
+                                       center: center, radius: radius,
+                                       arrowDotSize: arrowDotSize)
+                isPlotting = true
+                // Publishing the snapshot is the ONLY side effect of a drag
+                // tick. No @State writes here — the lens position is
+                // tracked by `PenLensController` which is `@Observable`, so
+                // re-render scope stays inside `PenLensOverlay`.
+                publishLensSnapshot(touchLocal: value.location, geo: geo,
+                                    center: center, radius: radius,
+                                    arrowDotSize: arrowDotSize,
+                                    previewRing: ring)
             }
             .onEnded { value in
-                let movedId = movingArrowId
-                dragPreviewPoint = nil
-                movingArrowId = nil
+                if isPlotting { onLensSnapshotChanged?(nil) }
+                isPlotting = false
                 if pinchInProgress { return }
                 let dotNormRadius = Double(arrowDotSize / 2) / Double(radius)
 
-                if isZoomed {
-                    // At zoom, both tap and drag place at the finger position
-                    // (no offset). Pan-via-drag is intentionally absent — to
-                    // navigate, pinch out and re-pinch in elsewhere.
-                    handleTap(at: value.location, center: center, radius: radius,
-                              arrowNormRadius: dotNormRadius, replotId: movedId)
-                    return
-                }
-                // At 1x: short translation = tap (place directly, no offset);
-                // longer translation = drag (place at finger-80pt preview point).
-                let translationMag = hypot(value.translation.width, value.translation.height)
-                let screenPoint: CGPoint = translationMag < tapSlop
-                    ? value.location
-                    : CGPoint(x: value.location.x, y: value.location.y - touchOffset)
-                handleTap(at: screenPoint, center: center, radius: radius,
-                          arrowNormRadius: dotNormRadius, replotId: movedId)
+                // Pen magnifier commits at the finger position — same at 1×
+                // and at pinch-zoom. No thumb-offset, no slop branching, no
+                // drag-pickup-of-existing-arrow (use ArrowEditSheet for
+                // corrections so a tap near a tight group can't accidentally
+                // move the wrong arrow).
+                handleTap(at: value.location, center: center, radius: radius,
+                          arrowNormRadius: dotNormRadius)
             }
 
         return SimultaneousGesture(pinch, drag)
@@ -402,10 +376,26 @@ struct TargetPlotView: View {
     private func markPinchInProgress() {
         pinchCooldownTask?.cancel()
         pinchInProgress = true
-        // If the archer started a pinch from on top of an arrow, the drag
-        // gesture may have already entered moving mode for that arrow's id.
-        // Clear it so the dot doesn't briefly disappear during the pinch.
-        movingArrowId = nil
+    }
+
+    private func publishLensSnapshot(touchLocal: CGPoint, geo: GeometryProxy,
+                                     center: CGPoint, radius: CGFloat,
+                                     arrowDotSize: CGFloat, previewRing: Int?) {
+        guard let emit = onLensSnapshotChanged, !isZoomed else { return }
+        let globalOrigin = geo.frame(in: .global).origin
+        let touchGlobal = CGPoint(x: globalOrigin.x + touchLocal.x,
+                                  y: globalOrigin.y + touchLocal.y)
+        let faceOriginGlobal = CGPoint(x: globalOrigin.x + (center.x - radius),
+                                       y: globalOrigin.y + (center.y - radius))
+        emit(PenLensSnapshot(
+            touchScreen: touchGlobal,
+            faceOriginScreen: faceOriginGlobal,
+            faceSize: radius * 2,
+            arrowDotSize: arrowDotSize,
+            faceType: faceType,
+            arrows: arrows,
+            previewRing: previewRing
+        ))
     }
 
     private func scheduleClearPinchFlag() {
@@ -424,37 +414,10 @@ struct TargetPlotView: View {
         )
     }
 
-    // MARK: - Hit Testing
-
-    /// Returns the id of the arrow whose visible (post-zoom) dot is closest to
-    /// `point` and within finger-touch range, or `nil` if the gesture started
-    /// on empty target space. Used to decide between placing a new arrow and
-    /// dragging an existing one.
-    private func hitTestArrow(at point: CGPoint, center: CGPoint, radius: CGFloat,
-                              dotSize: CGFloat) -> String? {
-        // Use the visible (post-zoom) dot radius plus a small finger-touch
-        // buffer so users don't have to be pixel-perfect.
-        let hitRadius = (dotSize * currentZoom) / 2 + 12
-        var best: (id: String, dist: CGFloat)? = nil
-        for arrow in arrows {
-            guard let pos = storedPosition(for: arrow, center: center, radius: radius) else { continue }
-            // storedPosition is in unscaled target coords; convert to screen
-            // space using the same zoom + pan transform applied to the inner
-            // ZStack so the hit area lines up with what the user sees.
-            let screenX = center.x + (pos.x - center.x) * currentZoom + panOffset.width
-            let screenY = center.y + (pos.y - center.y) * currentZoom + panOffset.height
-            let dist = hypot(point.x - screenX, point.y - screenY)
-            if dist <= hitRadius && (best == nil || dist < best!.dist) {
-                best = (arrow.id, dist)
-            }
-        }
-        return best?.id
-    }
-
     // MARK: - Tap Handling
 
     private func handleTap(at point: CGPoint, center: CGPoint, radius: CGFloat,
-                           arrowNormRadius: Double, replotId: String? = nil) {
+                           arrowNormRadius: Double) {
         // Undo the zoom/pan applied to the inner ZStack so we recover the
         // unscaled target-space coordinate of the tap. Screen y is positive-down.
         let dxScreen = point.x - center.x
@@ -484,11 +447,7 @@ struct TargetPlotView: View {
         confirmationPosition = clampedLabelPosition(for: point, in: CGPoint(x: 0, y: 0))
         showConfirmation(near: point)
 
-        if let replotId {
-            onArrowReplotted?(replotId, ring, zone, normX, normY)
-        } else {
-            onArrowPlotted(ring, zone, normX, normY)
-        }
+        onArrowPlotted(ring, zone, normX, normY)
     }
 
     private func showConfirmation(near point: CGPoint) {
@@ -562,6 +521,28 @@ struct TargetPlotView: View {
         let seed = Double(ring * 3 + 7)
         return sin(seed) * 0.5 + 0.5  // 0…1
     }
+
+    // MARK: - Pen magnifier
+
+    /// Computes the ring that would be awarded if the archer released right
+    /// now at `point` (unzoomed target-local coords). Uses the exact same
+    /// math as `handleTap` — the design's lookup table is intentionally NOT
+    /// used because its band thresholds are off by ~one ring relative to
+    /// our `TargetGeometry.ring(for:)` data. Returns nil for a miss.
+    private func previewRing(at point: CGPoint, center: CGPoint,
+                             radius: CGFloat, arrowDotSize: CGFloat) -> Int? {
+        let dxScreen = point.x - center.x
+        let dyScreen = point.y - center.y
+        let dxTarget = (dxScreen - panOffset.width) / currentZoom
+        let dyTargetScreen = (dyScreen - panOffset.height) / currentZoom
+        let dyMath = -dyTargetScreen
+        let dist = sqrt(dxTarget * dxTarget + dyMath * dyMath)
+        let normalizedDist = Double(dist / radius)
+        let arrowNormRadius = Double(arrowDotSize / 2) / Double(radius)
+        let scoringDist = max(0.0, normalizedDist - arrowNormRadius)
+        return geometry.ring(for: scoringDist)
+    }
+
 }
 
 // MARK: - Target Face Canvas
@@ -728,6 +709,169 @@ private struct ArrowDot: View {
         case 3, 4:      return .white            // white on black
         default:        return .white
         }
+    }
+}
+
+// MARK: - PenLensSnapshot + PenLensView (screen-level magnifier)
+//
+// Lets a parent render the Pen magnifier at its own root z-level so the
+// lens can extend past the target's frame, sit above bottom action rows,
+// and only get clipped by the actual screen viewport. TargetPlotView
+// emits the snapshot via `onLensSnapshotChanged`; the parent stores it
+// in @State and places `PenLensView(snapshot:)` at the top of its outer
+// ZStack.
+
+/// Holds the live lens snapshot. Made `@Observable` so only views that
+/// actually read `.snapshot` (i.e. `PenLensOverlay`) re-render on each
+/// drag tick — `SessionView.body` doesn't, which keeps the full
+/// ScrollView contents from diffing 60+ times a second during a plot.
+@Observable
+final class PenLensController {
+    var snapshot: PenLensSnapshot? = nil
+}
+
+/// Renders the live lens — kept separate so it's the only view that
+/// observes the controller. Drops the implicit-opacity transition that
+/// could blur the first frame of a movement against the body's
+/// re-render cadence.
+struct PenLensOverlay: View {
+    let controller: PenLensController
+    var body: some View {
+        if let snap = controller.snapshot {
+            PenLensView(snapshot: snap)
+        }
+    }
+}
+
+struct PenLensSnapshot: Equatable {
+    /// Touch in global screen coords (where the user's finger is).
+    let touchScreen: CGPoint
+    /// Top-left of the target face in global screen coords. Used to map
+    /// the face's local coord space + already-plotted arrows back into the
+    /// screen-positioned lens content.
+    let faceOriginScreen: CGPoint
+    /// Edge length of the target face square (face is a circle inscribed
+    /// in this square).
+    let faceSize: CGFloat
+    /// Arrow dot size at 1× scale for the current face geometry — same
+    /// value TargetPlotView uses inside the lens math.
+    let arrowDotSize: CGFloat
+    let faceType: TargetFaceType
+    let arrows: [ArrowPlot]
+    /// Ring (1–11 or nil for miss) at the live touch point — drives the
+    /// stamp label/color.
+    let previewRing: Int?
+}
+
+struct PenLensView: View {
+    let snapshot: PenLensSnapshot
+
+    private let lensSizeRatio: CGFloat = 0.75
+    private let lensZoom: CGFloat = 2.5
+    private let stampOffset: CGFloat = 46
+    private let thumbHalfPt: CGFloat = 30
+    private let centerBuffer: CGFloat = 10
+
+    var body: some View {
+        GeometryReader { screen in
+            let touch = snapshot.touchScreen
+            let lensSize = max(120, snapshot.faceSize * lensSizeRatio)
+            let lensRadius = lensSize / 2
+            let zoomedFaceSize = snapshot.faceSize * lensZoom
+
+            // Prefer above the finger; flip below only if the lens top would
+            // clip the screen's top edge. This is the key difference from the
+            // old in-target rendering: the lens can extend into header space
+            // because we're laying it out in screen coords.
+            let touchClearance = thumbHalfPt + centerBuffer
+            let edgeBuffer: CGFloat = 4
+            let preferredAboveY = touch.y - touchClearance
+            let lensTopIfAbove = preferredAboveY - lensRadius
+            let placeBelow = lensTopIfAbove < edgeBuffer
+            let lensCenterY = placeBelow
+                ? touch.y + touchClearance
+                : preferredAboveY
+            let lensCenterX = min(max(touch.x, lensRadius + edgeBuffer),
+                                  screen.size.width - lensRadius - edgeBuffer)
+            let lensCenter = CGPoint(x: lensCenterX, y: lensCenterY)
+
+            // Translate the zoomed face so the touch (in face-local coords)
+            // lands at the lens center.
+            let touchFaceX = touch.x - snapshot.faceOriginScreen.x
+            let touchFaceY = touch.y - snapshot.faceOriginScreen.y
+            let contentOffsetX = lensRadius - touchFaceX * lensZoom
+            let contentOffsetY = lensRadius - touchFaceY * lensZoom
+            let footprintSize = snapshot.arrowDotSize * lensZoom
+
+            ZStack {
+                // Lens body
+                ZStack {
+                    ZStack(alignment: .topLeading) {
+                        TargetFaceCanvas(faceType: snapshot.faceType)
+                            .frame(width: zoomedFaceSize, height: zoomedFaceSize)
+                            .offset(x: contentOffsetX, y: contentOffsetY)
+                        ForEach(Array(snapshot.arrows.enumerated()), id: \.element.id) { idx, arrow in
+                            if let pos = arrowPositionInFace(arrow) {
+                                ArrowDot(number: idx + 1, ring: arrow.ring,
+                                         size: snapshot.arrowDotSize * lensZoom)
+                                    .position(x: pos.x * lensZoom + contentOffsetX,
+                                              y: pos.y * lensZoom + contentOffsetY)
+                            }
+                        }
+                    }
+                    .frame(width: lensSize, height: lensSize, alignment: .topLeading)
+                    .background(Color.appPaper)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle().strokeBorder(Color.appInk, lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.34), radius: 16, y: 12)
+
+                    // Maple footprint ring + pin.
+                    ZStack {
+                        Circle().fill(Color.appMaple.opacity(0.18))
+                        Circle().strokeBorder(Color.appMaple, lineWidth: 2)
+                        Circle().fill(Color.appMaple).frame(width: 3, height: 3)
+                    }
+                    .frame(width: footprintSize, height: footprintSize)
+                }
+                .frame(width: lensSize, height: lensSize)
+                .position(lensCenter)
+
+                // Score stamp — anchored above the lens (or below the lens
+                // when flipped). Stamp position is clamped so it can't go
+                // off the top of the screen.
+                stamp
+                    .position(x: lensCenterX,
+                              y: max(stampOffset / 2,
+                                     lensCenterY - lensRadius - stampOffset))
+            }
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+
+    private func arrowPositionInFace(_ arrow: ArrowPlot) -> CGPoint? {
+        guard let px = arrow.plotX, let py = arrow.plotY else { return nil }
+        let r = snapshot.faceSize / 2
+        return CGPoint(x: r + CGFloat(px) * r, y: r + CGFloat(py) * r)
+    }
+
+    private var stamp: some View {
+        let geometry = TargetGeometry.preset(for: snapshot.faceType)
+        let (label, background): (String, Color) = {
+            guard let ring = snapshot.previewRing else { return ("M", .appMaple) }
+            if ring == geometry.xRingValue { return ("X", .appPondDk) }
+            return ("\(ring)", .appInk)
+        }()
+        return Text(label)
+            .font(.bpDisplay(28, italic: true, weight: .medium))
+            .foregroundStyle(Color.appPaper)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(background)
+            .overlay(Rectangle().strokeBorder(background, lineWidth: 1))
+            .fixedSize()
     }
 }
 
