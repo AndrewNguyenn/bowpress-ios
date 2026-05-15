@@ -1209,13 +1209,42 @@ struct SessionDetailSheet: View {
     /// Delete an arrow from local state, the appState cache, SwiftData, and
     /// the API. Mirrors `SessionViewModel.deleteArrow` — but the historical
     /// detail doesn't track per-end arrow counts, so no count-adjustment.
+    /// Also decrements `session.arrowCount` (issue #19) so the total
+    /// denominator on this view AND the Log row stop including the deleted
+    /// arrow. Without this, the "Σ/N" denominator stays at the pre-delete
+    /// count forever — visible as e.g. 259/310 with only 30 arrows left.
     private func deleteArrow(id: String) {
         ensureLoadedArrowsPopulated()
         guard let arrow = loadedArrows.first(where: { $0.id == id }) else { return }
         loadedArrows.removeAll { $0.id == id }
         try? store?.deleteArrow(id: id)
         propagateToAppStateCache(replacing: nil, removing: id)
+        decrementPersistedArrowCount()
         Task { try? await APIClient.shared.deletePlot(sessionId: arrow.sessionId, id: id) }
+    }
+
+    /// Decrement `arrowCount` on the session DTO (live sheet + appState
+    /// list) and persist via `LocalStore.updateSession`. Called from the
+    /// historical-detail delete path so the score denominator stays in
+    /// sync with the remaining arrows.
+    private func decrementPersistedArrowCount() {
+        let current = displaySession.arrowCount
+        guard current > 0 else { return }
+        let newCount = current - 1
+        var updated = displaySession
+        updated.arrowCount = newCount
+        liveSession = updated
+        if let idx = appState.completedSessions.firstIndex(where: { $0.id == session.id }) {
+            appState.completedSessions[idx].arrowCount = newCount
+        }
+        if let endedAt = updated.endedAt {
+            try? store?.updateSession(
+                id: session.id,
+                endedAt: endedAt,
+                notes: updated.notes,
+                arrowCount: newCount
+            )
+        }
     }
 
     private var configTransitions: [(config: BowConfiguration?, at: Date)] {
@@ -1402,7 +1431,7 @@ struct SessionDetailSheet: View {
 
                 // Performance summary (moved to below ends)
                 Section("Performance") {
-                    DetailRow(label: "Total Arrows", value: "\(session.arrowCount)")
+                    DetailRow(label: "Total Arrows", value: "\(displaySession.arrowCount)")
                     if !allArrows.isEmpty {
                         let avgFmt = avgRing >= 9.8 ? "%.2f" : "%.1f"
                         DetailRow(label: "Avg Ring Score", value: String(format: avgFmt, avgRing))
