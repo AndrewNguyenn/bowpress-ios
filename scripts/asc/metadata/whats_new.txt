@@ -1,12 +1,14 @@
 What's new:
 
-• Dark mode. Open Settings and tap "Appearance" to cycle System,
-  Light, and Dark. The dark variant is a re-authored Kenrokuen
-  night palette — sumi-ink surfaces, warm paper-white type, lifted
-  pond and pine accents. World Archery scoring colors stay
-  canonical so the target face still reads the way it should.
-• Read-only banner now has a close button — tap the X to hide the
-  upgrade nudge for the session if it's getting in the way. The
-  banner returns next launch so the prompt isn't lost.
-• Settings: added a "Report a bug" row that opens the public issues
-  page for BowPress on GitHub. Let me know if you hit anything weird.
+• Fix: deleting an arrow from a finished session now correctly drops
+  it from the total score and arrow count. Before, the Total row kept
+  including the deleted arrow in the denominator (e.g. 259/310 with
+  30 arrows left).
+• Fix: 10-ring sessions now render the correct target face in the
+  heatmap. Previously the historical detail always drew the 6-ring
+  face regardless of the session's actual target, so dots landed on
+  the wrong rings visually.
+• Fix: Quick Edit Score now keeps the persisted compass direction
+  in sync with the snapped dot position. Re-scoring across octants
+  used to leave the zone metadata stale, which would surface in
+  future analytics that bucket by compass direction.
