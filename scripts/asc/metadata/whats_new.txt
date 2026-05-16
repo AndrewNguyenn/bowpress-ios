@@ -1,16 +1,7 @@
 What's new:
 
-• New plot interaction: tap and drag on the target to bring up a
-  magnifier lens that hovers above your thumb. The lens shows a 2.5×
-  zoomed view of the rings under your finger so you can place
-  line-cutters precisely. Release to commit, drag off the face to
-  cancel. Works the same on both 6-ring and 10-ring target faces.
-• Maple footprint ring inside the lens is sized to your actual arrow
-  shaft diameter from the equipment config — same value the scoring
-  math uses, so what you see is what you score.
-• Fix: deleting an arrow from a finished session now correctly drops
-  it from the total score and arrow count.
-• Fix: 10-ring sessions now render the correct target face in the
-  heatmap.
-• Fix: Quick Edit Score keeps the persisted compass direction in sync
-  with the snapped dot position.
+• Cleaner target face: the hairlines between scoring rings are now a
+  solid ink black instead of a barely-visible 25% gray. Easier to see
+  where one ring ends and the next begins, especially across the
+  yellow X/10/9 zone. Same scoring rule as before — if your arrow's
+  visible edge touches the line, it scores the higher ring.
