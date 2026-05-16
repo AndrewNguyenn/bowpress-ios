@@ -583,7 +583,7 @@ struct TargetFaceCanvas: View {
             for rNorm in dividerRadii {
                 let r = radius * CGFloat(rNorm)
                 let rect = CGRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2)
-                context.stroke(Path(ellipseIn: rect), with: .color(dividerColor), lineWidth: 0.6)
+                context.stroke(Path(ellipseIn: rect), with: .color(dividerColor), lineWidth: 0.75)
             }
 
             // X tick: small cross at centre so the X ring reads as X even when shrunk.
@@ -634,11 +634,13 @@ struct TargetFaceCanvas: View {
         }
     }
 
+    /// Solid ink-black hairline between rings. The visible line sits exactly
+    /// at each ring's outer radius, which is also the WA edge-rule boundary
+    /// — `TargetGeometry.ring(for:)` returns the inner (higher) ring number
+    /// whenever `normalizedDist < ringRadius`, so an arrow whose visible
+    /// edge touches the line scores the higher value.
     private func dividerStrokeColor(for faceType: TargetFaceType) -> Color {
-        switch faceType {
-        case .sixRing: return .appTargetInk.opacity(0.25)
-        case .tenRing: return .appTargetInk.opacity(0.25)
-        }
+        .appTargetInk
     }
 }
 
