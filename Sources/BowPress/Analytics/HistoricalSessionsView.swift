@@ -1759,14 +1759,21 @@ private struct SessionHeatMapView: View {
                 y: size.height / 2 + CGFloat(norm.y) * size.height / 2)
     }
 
-    /// Same dot-sizing formula as `TargetPlotView` — scales the arrow shaft
-    /// diameter into pixels via the face's real-world mm-per-normalized-unit
-    /// so the dot drawn here is the same size as the dot the archer saw
-    /// when plotting. The 8pt floor mirrors TargetPlotView so a skinny
-    /// recurve arrow on a small face doesn't collapse to an unreadable speck.
+    /// Heatmap dot size. The base formula matches `TargetPlotView`'s
+    /// `arrowDiameterMm / geo.mmPerNormUnit * radius`, but the heatmap
+    /// optimises for readability of historical data — a thin shaft
+    /// (e.g. 4mm X10) computes to ~1pt at typical heatmap radii and
+    /// disappears into the face. Clamp to 8pt here as a display floor.
+    ///
+    /// This intentionally diverges from the live-plot path, which keeps
+    /// the unclamped value so the WA edge-rule scoring isn't inflated
+    /// for thin shafts. Same arrow may render visibly larger here than
+    /// it did during plotting — acceptable trade-off because the
+    /// heatmap is for analysis, not for re-plotting.
     private func arrowDotSize(radius: CGFloat) -> CGFloat {
         let geo = TargetGeometry.preset(for: faceType)
-        return max(CGFloat(arrowDiameterMm / geo.mmPerNormUnit) * radius, 8)
+        let real = CGFloat(arrowDiameterMm / geo.mmPerNormUnit) * radius
+        return max(real, 8)
     }
 
     private func blobPosition(for plot: ArrowPlot, index: Int, in size: CGSize) -> CGPoint {

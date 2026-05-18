@@ -20,6 +20,11 @@ struct TargetGeometry {
     let outerRingValue: Int
     /// Value representing the X ring (always `11`).
     let xRingValue: Int = 11
+    /// Real-world *scoring face* radius in millimetres (the printed WA
+    /// face), per the standard spec. `mmPerNormUnit` divides this by
+    /// `rings.first` to recover the displayed *canvas* radius — accounting
+    /// for any white margin the asset draws beyond the scoring face.
+    let realFaceRadiusMm: Double
 
     /// Pixel-measured boundaries in the 1470x1470 target_face.png (centre 735,735).
     /// Yellow 0-238px, red 238-475px, blue 475-594px. Yellow splits: X (0-60) /
@@ -35,7 +40,8 @@ struct TargetGeometry {
             119.0 / 735.0   // ring 10 (inner yellow / outer X)
         ],
         xRadius: 60.0 / 735.0,
-        outerRingValue: 6
+        outerRingValue: 6,
+        realFaceRadiusMm: 400      // 80cm WA compound face → 400mm radius
     )
 
     /// Standard WA 10-ring face — equal-width rings. X at 0.05, ring 10 at 0.10,
@@ -55,7 +61,8 @@ struct TargetGeometry {
             0.10   // ring 10 (inner yellow / outer X)
         ],
         xRadius: 0.05,
-        outerRingValue: 1
+        outerRingValue: 1,
+        realFaceRadiusMm: 610      // 122cm WA full face → 610mm radius
     )
 
     static func preset(for faceType: TargetFaceType) -> TargetGeometry {
@@ -65,14 +72,26 @@ struct TargetGeometry {
         }
     }
 
-    /// Real mm per 1.0 normalised unit — used for the arrow-overlap scoring rule.
-    /// The outer edge of ring 10 is 20mm from centre on the WA 40cm 10-ring face
-    /// and on the compound 10-ring inner face. Ring 10's outer radius is the
-    /// second-inner boundary on both presets.
+    /// Real mm per 1.0 normalised display unit (where 1.0 = the canvas
+    /// radius — the displayed circle, which may include white margin
+    /// beyond the printed scoring face). Used to convert arrow shaft
+    /// diameter from mm to display pt for both the rendered dot and the
+    /// WA edge-rule scoring offset.
+    ///
+    /// `realFaceRadiusMm` is the scoring face radius. The displayed canvas
+    /// extends out to `rings.first` in normalised units — for sixRing the
+    /// asset shows 19% white margin beyond ring 6, so the canvas radius in
+    /// mm is `400 / 0.808 ≈ 495`. For tenRing `rings.first == 1.0` and the
+    /// canvas matches the scoring face exactly.
+    ///
+    /// Was previously `20 / ring10Outer`, which only matched a 40cm Vegas
+    /// face — combined with a `max(..., 8)` floor on the dot size it made
+    /// 4mm and 9mm shafts render identically and scored with an inflated
+    /// edge radius (~5× too lenient).
     var mmPerNormUnit: Double {
-        // ring 10 is the last entry in `rings` (inner-most scoring ring above X)
-        guard let ring10Outer = rings.last, ring10Outer > 0 else { return 20.0 }
-        return 20.0 / ring10Outer
+        let canvasFraction = rings.first ?? 1.0
+        guard canvasFraction > 0 else { return realFaceRadiusMm }
+        return realFaceRadiusMm / canvasFraction
     }
 
     /// Within the X ring, this distance from absolute centre is the "CENTER" zone.
@@ -245,8 +264,21 @@ struct TargetPlotView: View {
         GeometryReader { geo in
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
             let radius = min(geo.size.width, geo.size.height) / 2
-            // Scale arrow to match real-world mm on the drawn face.
-            let arrowDotSize = max(CGFloat(arrowDiameterMm / geometry.mmPerNormUnit) * radius, 8)
+            // Arrow shaft diameter scaled to real-world mm on the drawn face.
+            // No minimum clamp — the WA edge-rule scoring and the lens
+            // footprint both read from this value, so floors here would
+            // inflate the visible-overlap rule (4mm shafts would score like
+            // 8mm shafts). A tiny floor (2pt) keeps the dot from collapsing
+            // to nothing on very small displays but doesn't materially
+            // change scoring for any real-world arrow.
+            let arrowDotSize = max(
+                CGFloat(arrowDiameterMm / geometry.mmPerNormUnit) * radius,
+                2
+            )
+            // Slightly larger clamp for the visible dot label (so the index
+            // number can fit), but only at the display layer — does not
+            // feed scoring or lens math.
+            let displayedDotSize = max(arrowDotSize, 8)
             let panLimit = max(0, radius * (currentZoom - 1))
 
             ZStack {
@@ -261,7 +293,7 @@ struct TargetPlotView: View {
 
                     ForEach(Array(arrows.enumerated()), id: \.element.id) { idx, arrow in
                         if let pos = storedPosition(for: arrow, center: center, radius: radius) {
-                            ArrowDot(number: idx + 1, ring: arrow.ring, size: arrowDotSize)
+                            ArrowDot(number: idx + 1, ring: arrow.ring, size: displayedDotSize)
                                 .position(pos)
                         }
                     }
@@ -803,7 +835,12 @@ struct PenLensView: View {
             let touchFaceY = touch.y - snapshot.faceOriginScreen.y
             let contentOffsetX = lensRadius - touchFaceX * lensZoom
             let contentOffsetY = lensRadius - touchFaceY * lensZoom
-            let footprintSize = snapshot.arrowDotSize * lensZoom
+            // Footprint ring visual size. The source `arrowDotSize` is
+            // unclamped (so scoring math stays honest), which on a thin
+            // shaft at 1× could be ~1pt and disappear into the lens
+            // background. Apply an 8pt readability floor at the display
+            // layer only — does not affect scoring or geometry math.
+            let footprintSize = max(snapshot.arrowDotSize * lensZoom, 8)
 
             ZStack {
                 // Lens body
