@@ -1,7 +1,8 @@
 What's new:
 
-• Cleaner target face: the hairlines between scoring rings are now a
-  solid ink black instead of a barely-visible 25% gray. Easier to see
-  where one ring ends and the next begins, especially across the
-  yellow X/10/9 zone. Same scoring rule as before — if your arrow's
-  visible edge touches the line, it scores the higher ring.
+• Fix: arrow shaft diameter from your equipment config now actually
+  drives both the visible dot on the target AND the line-cutter
+  scoring rule. Previously every shaft rendered at a fixed 8pt and
+  a 4mm X10 was scored as if it were ~8mm, so near-edge plots
+  picked up the inner ring more often than they should have. Thin
+  shafts now look thin; the WA edge rule reads the real diameter.
