@@ -1,8 +1,6 @@
 What's new:
 
-• Fix: arrow shaft diameter from your equipment config now actually
-  drives both the visible dot on the target AND the line-cutter
-  scoring rule. Previously every shaft rendered at a fixed 8pt and
-  a 4mm X10 was scored as if it were ~8mm, so near-edge plots
-  picked up the inner ring more often than they should have. Thin
-  shafts now look thin; the WA edge rule reads the real diameter.
+• Session setup now remembers your last bow + arrow combo. Open
+  Session and the bow and shaft you used last time are already
+  picked, so you only need to confirm distance and tap Begin.
+  Pick something different and that becomes the new sticky default.
