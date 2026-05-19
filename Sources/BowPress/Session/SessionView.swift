@@ -36,6 +36,13 @@ struct SessionView: View {
     @State private var lensController = PenLensController()
     /// Last picked distance, persisted across launches. `nil` = unset.
     @AppStorage("session.lastDistance") private var lastDistanceRaw: String = ""
+    /// Id of the last bow the user selected on the setup screen. Re-applied
+    /// as the default pick on the next session setup — sticky combo.
+    /// Empty string = no prior selection.
+    @AppStorage("session.lastBowId") private var lastBowId: String = ""
+    /// Same idea for the arrow config. Stored independently of bow because
+    /// archers sometimes mix-and-match shafts across the same riser.
+    @AppStorage("session.lastArrowConfigId") private var lastArrowConfigId: String = ""
     @State private var selectedDistance: ShootingDistance? = nil
     @AppStorage(UnitSystem.storageKey) private var unitSystem: UnitSystem = .imperial
     @FocusState private var intentionFocused: Bool
@@ -193,8 +200,15 @@ struct SessionView: View {
         }
         .onAppear { primeSetupState() }
         .onChange(of: selectedBow?.id) { _, _ in
-            guard !userTouchedFace, let bow = selectedBow else { return }
-            selectedFaceType = TargetFaceType.defaultFor(bow.bowType)
+            guard let bow = selectedBow else { return }
+            lastBowId = bow.id
+            if !userTouchedFace {
+                selectedFaceType = TargetFaceType.defaultFor(bow.bowType)
+            }
+        }
+        .onChange(of: selectedArrow?.id) { _, _ in
+            guard let arrow = selectedArrow else { return }
+            lastArrowConfigId = arrow.id
         }
         .onChange(of: selectedDistance) { _, new in
             lastDistanceRaw = new?.rawValue ?? ""
@@ -600,8 +614,17 @@ struct SessionView: View {
             appState.arrowConfigs = fresh
         }
 #endif
-        if selectedBow == nil { selectedBow = appState.bows.first }
-        if selectedArrow == nil { selectedArrow = appState.arrowConfigs.first }
+        // Prefer the last-selected bow / arrow combo. Fall back to the
+        // first available when the stored id is empty (first launch) or
+        // points at a deleted record.
+        if selectedBow == nil {
+            selectedBow = appState.bows.first(where: { $0.id == lastBowId })
+                ?? appState.bows.first
+        }
+        if selectedArrow == nil {
+            selectedArrow = appState.arrowConfigs.first(where: { $0.id == lastArrowConfigId })
+                ?? appState.arrowConfigs.first
+        }
         if !userTouchedFace, let bow = selectedBow {
             selectedFaceType = TargetFaceType.defaultFor(bow.bowType)
         }
